@@ -148,7 +148,6 @@ const PerformancePage = () => {
         <TabsList>
           <TabsTrigger value="evolution">Évolution des Notes</TabsTrigger>
           <TabsTrigger value="skills">Compétences</TabsTrigger>
-          <TabsTrigger value="details">Notes Détaillées</TabsTrigger>
         </TabsList>
 
         <TabsContent value="evolution">
@@ -207,38 +206,6 @@ const PerformancePage = () => {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="details">
-          <Card className="backdrop-blur-sm bg-white/50">
-            <CardHeader>
-              <CardTitle>Notes Détaillées</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Matière</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Note</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {detailedGrades.map((subject) =>
-                    subject.evaluations.map((evaluation, index) => (
-                      <TableRow key={`${subject.subject}-${index}`}>
-                        <TableCell>{subject.subject}</TableCell>
-                        <TableCell>{evaluation.type}</TableCell>
-                        <TableCell>{evaluation.date}</TableCell>
-                        <TableCell className="text-right">{evaluation.grade}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
             </CardContent>
           </Card>
         </TabsContent>

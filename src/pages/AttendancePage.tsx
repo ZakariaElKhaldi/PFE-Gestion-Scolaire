@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -26,6 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Calendar } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 const classes = [
   "Terminale S",
@@ -52,6 +53,25 @@ const studentsData = {
   "Première S": [
     { id: 9, name: "Clara Simon", notifications: true },
     { id: 10, name: "Hugo Martin", notifications: true },
+  ],
+};
+
+const attendanceHistory = {
+  "Terminale S": [
+    { date: "2024-03-18", present: 18, absent: 2 },
+    { date: "2024-03-15", present: 17, absent: 3 },
+    { date: "2024-03-14", present: 19, absent: 1 },
+    { date: "2024-03-13", present: 20, absent: 0 },
+  ],
+  "Terminale ES": [
+    { date: "2024-03-18", present: 15, absent: 0 },
+    { date: "2024-03-15", present: 14, absent: 1 },
+    { date: "2024-03-14", present: 13, absent: 2 },
+  ],
+  "Première S": [
+    { date: "2024-03-18", present: 22, absent: 1 },
+    { date: "2024-03-15", present: 21, absent: 2 },
+    { date: "2024-03-14", present: 23, absent: 0 },
   ],
 };
 
@@ -108,6 +128,39 @@ const AttendancePage = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">Gestion des Présences</h1>
         <div className="flex gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Historique
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Historique des Présences - {selectedClass}</DialogTitle>
+              </DialogHeader>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Présents</TableHead>
+                    <TableHead>Absents</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {attendanceHistory[selectedClass]?.map((day) => (
+                    <TableRow key={day.date}>
+                      <TableCell>{new Date(day.date).toLocaleDateString('fr-FR')}</TableCell>
+                      <TableCell className="text-green-600">{day.present}</TableCell>
+                      <TableCell className="text-red-600">{day.absent}</TableCell>
+                      <TableCell className="text-right">{day.present + day.absent}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </DialogContent>
+          </Dialog>
           <Button
             variant="outline"
             onClick={() => exportAttendance("pdf")}
