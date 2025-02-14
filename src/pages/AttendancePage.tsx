@@ -9,27 +9,88 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Download, FileSpreadsheet, CheckCircle, XCircle } from "lucide-react";
+import { 
+  Download, 
+  FileSpreadsheet, 
+  CheckCircle, 
+  XCircle, 
+  Bell,
+  BellOff 
+} from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-const students = [
-  { id: 1, name: "Alice Martin", class: "Terminale S" },
-  { id: 2, name: "Thomas Bernard", class: "Terminale S" },
-  { id: 3, name: "Sarah Dubois", class: "Terminale S" },
-  { id: 4, name: "Lucas Petit", class: "Terminale S" },
-  { id: 5, name: "Emma Richard", class: "Terminale S" },
+const classes = [
+  "Terminale S",
+  "Terminale ES",
+  "Terminale L",
+  "Première S",
+  "Première ES",
+  "Première L",
 ];
 
+const studentsData = {
+  "Terminale S": [
+    { id: 1, name: "Alice Martin", notifications: true },
+    { id: 2, name: "Thomas Bernard", notifications: false },
+    { id: 3, name: "Sarah Dubois", notifications: true },
+    { id: 4, name: "Lucas Petit", notifications: true },
+    { id: 5, name: "Emma Richard", notifications: false },
+  ],
+  "Terminale ES": [
+    { id: 6, name: "Jules Moreau", notifications: true },
+    { id: 7, name: "Louise Dubois", notifications: true },
+    { id: 8, name: "Maxime Leroy", notifications: false },
+  ],
+  "Première S": [
+    { id: 9, name: "Clara Simon", notifications: true },
+    { id: 10, name: "Hugo Martin", notifications: true },
+  ],
+};
+
 const AttendancePage = () => {
+  const [selectedClass, setSelectedClass] = useState("Terminale S");
   const [attendance, setAttendance] = useState<Record<number, boolean>>({});
+  const [notifications, setNotifications] = useState<Record<number, boolean>>({});
   const { toast } = useToast();
 
   const handleAttendance = (studentId: number, present: boolean) => {
     setAttendance((prev) => ({ ...prev, [studentId]: present }));
+    
+    if (!present) {
+      const student = studentsData[selectedClass].find(s => s.id === studentId);
+      if (student?.notifications) {
+        toast({
+          title: "Notification envoyée",
+          description: `Une notification d'absence a été envoyée pour ${student.name}`,
+          duration: 3000,
+        });
+      }
+    }
+    
     toast({
       title: present ? "Présence marquée" : "Absence marquée",
       description: `Le statut a été mis à jour avec succès.`,
+      duration: 2000,
+    });
+  };
+
+  const toggleNotifications = (studentId: number) => {
+    setNotifications(prev => {
+      const newValue = !prev[studentId];
+      return { ...prev, [studentId]: newValue };
+    });
+    
+    toast({
+      title: "Notifications mises à jour",
+      description: `Les notifications ont été ${notifications[studentId] ? "désactivées" : "activées"}.`,
       duration: 2000,
     });
   };
@@ -66,24 +127,52 @@ const AttendancePage = () => {
         </div>
       </div>
 
+      <div className="flex items-center gap-4 mb-4">
+        <Select defaultValue={selectedClass} onValueChange={setSelectedClass}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Sélectionner une classe" />
+          </SelectTrigger>
+          <SelectContent>
+            {classes.map((className) => (
+              <SelectItem key={className} value={className}>
+                {className}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <Card className="backdrop-blur-sm bg-white/50 shadow-xl">
         <CardHeader>
-          <CardTitle>Liste de Présence - Aujourd'hui</CardTitle>
+          <CardTitle>Liste de Présence - {selectedClass}</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Nom</TableHead>
-                <TableHead>Classe</TableHead>
+                <TableHead>Notifications</TableHead>
                 <TableHead className="text-right">Statut</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {students.map((student) => (
+              {studentsData[selectedClass]?.map((student) => (
                 <TableRow key={student.id}>
                   <TableCell>{student.name}</TableCell>
-                  <TableCell>{student.class}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleNotifications(student.id)}
+                      className={notifications[student.id] ? "text-purple-600" : "text-gray-400"}
+                    >
+                      {notifications[student.id] ? (
+                        <Bell className="h-4 w-4" />
+                      ) : (
+                        <BellOff className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Button
