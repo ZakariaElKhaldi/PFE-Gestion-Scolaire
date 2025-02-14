@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   LineChart,
@@ -229,12 +228,12 @@ const PerformancePage = () => {
                 </TableHeader>
                 <TableBody>
                   {detailedGrades.map((subject) =>
-                    subject.evaluations.map((eval, index) => (
+                    subject.evaluations.map((evaluation, index) => (
                       <TableRow key={`${subject.subject}-${index}`}>
                         <TableCell>{subject.subject}</TableCell>
-                        <TableCell>{eval.type}</TableCell>
-                        <TableCell>{eval.date}</TableCell>
-                        <TableCell className="text-right">{eval.grade}</TableCell>
+                        <TableCell>{evaluation.type}</TableCell>
+                        <TableCell>{evaluation.date}</TableCell>
+                        <TableCell className="text-right">{evaluation.grade}</TableCell>
                       </TableRow>
                     ))
                   )}
