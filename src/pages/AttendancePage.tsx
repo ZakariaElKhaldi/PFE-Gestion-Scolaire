@@ -124,142 +124,155 @@ const AttendancePage = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Gestion des Présences</h1>
-        <div className="flex gap-2">
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Historique
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Historique des Présences - {selectedClass}</DialogTitle>
-              </DialogHeader>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Présents</TableHead>
-                    <TableHead>Absents</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {attendanceHistory[selectedClass]?.map((day) => (
-                    <TableRow key={day.date}>
-                      <TableCell>{new Date(day.date).toLocaleDateString('fr-FR')}</TableCell>
-                      <TableCell className="text-green-600">{day.present}</TableCell>
-                      <TableCell className="text-red-600">{day.absent}</TableCell>
-                      <TableCell className="text-right">{day.present + day.absent}</TableCell>
+    <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-6 min-h-screen">
+      <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+            Gestion des Présences
+          </h1>
+          <div className="flex gap-2">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="secondary" className="flex items-center gap-2 shadow-sm">
+                  <Calendar className="h-4 w-4" />
+                  Historique
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-semibold">
+                    Historique des Présences - {selectedClass}
+                  </DialogTitle>
+                </DialogHeader>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Présents</TableHead>
+                      <TableHead>Absents</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </DialogContent>
-          </Dialog>
-          <Button
-            variant="outline"
-            onClick={() => exportAttendance("pdf")}
-            className="flex items-center gap-2"
-          >
-            <Download className="h-4 w-4" />
-            PDF
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => exportAttendance("excel")}
-            className="flex items-center gap-2"
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            Excel
-          </Button>
+                  </TableHeader>
+                  <TableBody>
+                    {attendanceHistory[selectedClass]?.map((day) => (
+                      <TableRow key={day.date}>
+                        <TableCell>{new Date(day.date).toLocaleDateString('fr-FR')}</TableCell>
+                        <TableCell className="text-green-600">{day.present}</TableCell>
+                        <TableCell className="text-red-600">{day.absent}</TableCell>
+                        <TableCell className="text-right">{day.present + day.absent}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </DialogContent>
+            </Dialog>
+            <Button
+              variant="secondary"
+              onClick={() => exportAttendance("pdf")}
+              className="flex items-center gap-2 shadow-sm"
+            >
+              <Download className="h-4 w-4" />
+              PDF
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => exportAttendance("excel")}
+              className="flex items-center gap-2 shadow-sm"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Excel
+            </Button>
+          </div>
         </div>
-      </div>
 
-      <div className="flex items-center gap-4 mb-4">
-        <Select defaultValue={selectedClass} onValueChange={setSelectedClass}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Sélectionner une classe" />
-          </SelectTrigger>
-          <SelectContent>
-            {classes.map((className) => (
-              <SelectItem key={className} value={className}>
-                {className}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <Card className="backdrop-blur-sm bg-white/50 shadow-xl">
-        <CardHeader>
-          <CardTitle>Liste de Présence - {selectedClass}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nom</TableHead>
-                <TableHead>Notifications</TableHead>
-                <TableHead className="text-right">Statut</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {studentsData[selectedClass]?.map((student) => (
-                <TableRow key={student.id}>
-                  <TableCell>{student.name}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleNotifications(student.id)}
-                      className={notifications[student.id] ? "text-purple-600" : "text-gray-400"}
-                    >
-                      {notifications[student.id] ? (
-                        <Bell className="h-4 w-4" />
-                      ) : (
-                        <BellOff className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className={`${
-                          attendance[student.id] === true
-                            ? "text-green-600"
-                            : "text-gray-400"
-                        }`}
-                        onClick={() => handleAttendance(student.id, true)}
-                      >
-                        <CheckCircle className="h-5 w-5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className={`${
-                          attendance[student.id] === false
-                            ? "text-red-600"
-                            : "text-gray-400"
-                        }`}
-                        onClick={() => handleAttendance(student.id, false)}
-                      >
-                        <XCircle className="h-5 w-5" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+        {/* Class Selector */}
+        <div className="flex items-center gap-4">
+          <Select defaultValue={selectedClass} onValueChange={setSelectedClass}>
+            <SelectTrigger className="w-[200px] shadow-sm">
+              <SelectValue placeholder="Sélectionner une classe" />
+            </SelectTrigger>
+            <SelectContent>
+              {classes.map((className) => (
+                <SelectItem key={className} value={className}>
+                  {className}
+                </SelectItem>
               ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Attendance Table */}
+        <Card className="backdrop-blur-sm bg-white/70 shadow-lg border border-gray-100">
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold text-gray-900">
+              Liste de Présence - {selectedClass}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-gray-700">Nom</TableHead>
+                  <TableHead className="text-gray-700">Notifications</TableHead>
+                  <TableHead className="text-right text-gray-700">Statut</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {studentsData[selectedClass]?.map((student) => (
+                  <TableRow key={student.id} className="hover:bg-gray-50 transition-colors">
+                    <TableCell className="font-medium text-gray-900">{student.name}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => toggleNotifications(student.id)}
+                        className={`${
+                          notifications[student.id] ? "text-purple-600" : "text-gray-400"
+                        } hover:bg-purple-50`}
+                      >
+                        {notifications[student.id] ? (
+                          <Bell className="h-4 w-4" />
+                        ) : (
+                          <BellOff className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className={`${
+                            attendance[student.id] === true
+                              ? "text-green-600 hover:bg-green-50"
+                              : "text-gray-400 hover:bg-gray-50"
+                          }`}
+                          onClick={() => handleAttendance(student.id, true)}
+                        >
+                          <CheckCircle className="h-5 w-5" />
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className={`${
+                            attendance[student.id] === false
+                              ? "text-red-600 hover:bg-red-50"
+                              : "text-gray-400 hover:bg-gray-50"
+                          }`}
+                          onClick={() => handleAttendance(student.id, false)}
+                        >
+                          <XCircle className="h-5 w-5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

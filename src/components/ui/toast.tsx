@@ -110,6 +110,21 @@ const ToastDescription = React.forwardRef<
 ))
 ToastDescription.displayName = ToastPrimitives.Description.displayName
 
+const ToastContent = React.forwardRef<
+  React.ElementRef<typeof ToastPrimitives.Root>,
+  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root>
+>(({ className, ...props }, ref) => (
+  <ToastPrimitives.Root
+    ref={ref}
+    className={cn(
+      "bg-white text-black p-4 rounded-lg shadow-lg",
+      className
+    )}
+    {...props}
+  />
+))
+ToastContent.displayName = "ToastContent"
+
 type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>
 
 type ToastActionElement = React.ReactElement<typeof ToastAction>
@@ -124,4 +139,5 @@ export {
   ToastDescription,
   ToastClose,
   ToastAction,
+  ToastContent,
 }

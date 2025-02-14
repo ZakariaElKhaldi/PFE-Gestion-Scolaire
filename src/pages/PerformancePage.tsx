@@ -1,4 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   LineChart,
   Line,
@@ -11,7 +17,12 @@ import {
   Bar,
   Legend,
 } from "recharts";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -34,7 +45,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
 
 const performanceData = [
   { month: "Sept", math: 15, french: 14, history: 16 },
@@ -72,16 +82,20 @@ const PerformancePage = () => {
   const [viewMode, setViewMode] = useState<"student" | "parent">("student");
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 p-4 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <h1 className="text-3xl font-bold tracking-tight">
           Suivi des Performances
         </h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
-                {viewMode === "parent" ? <Users className="h-4 w-4" /> : <User className="h-4 w-4" />}
+              <Button variant="secondary" className="flex items-center gap-2">
+                {viewMode === "parent" ? (
+                  <Users className="h-4 w-4" />
+                ) : (
+                  <User className="h-4 w-4" />
+                )}
                 {viewMode === "parent" ? "Vue Parent" : "Vue Étudiant"}
                 <ChevronDown className="h-4 w-4" />
               </Button>
@@ -95,14 +109,18 @@ const PerformancePage = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="outline" className="flex items-center gap-2">
+          <Button variant="secondary" className="flex items-center gap-2">
             <FileSpreadsheet className="h-4 w-4" />
             Rapport Personnalisé
           </Button>
+          <Button variant="secondary" className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            Télécharger PDF
+          </Button>
         </div>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Dashboard Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card className="backdrop-blur-sm bg-white/50">
           <CardHeader>
             <CardTitle>Moyenne Générale</CardTitle>
@@ -144,14 +162,24 @@ const PerformancePage = () => {
         </Card>
       </div>
 
+      {/* Tabs for Evolution & Skills */}
       <Tabs defaultValue="evolution" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="evolution">Évolution des Notes</TabsTrigger>
-          <TabsTrigger value="skills">Compétences</TabsTrigger>
+        <TabsList className="flex flex-row border-b bg-transparent p-0 mb-4">
+          <TabsTrigger
+            value="evolution"
+            className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-2"
+          >
+            Évolution des Notes
+          </TabsTrigger>
+          <TabsTrigger
+            value="skills"
+            className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 py-2"
+          >
+            Compétences
+          </TabsTrigger>
         </TabsList>
-
         <TabsContent value="evolution">
-          <Card className="backdrop-blur-sm bg-white/50">
+          <Card className="backdrop-blur-sm bg-white/50 shadow">
             <CardHeader>
               <CardTitle>Évolution des Notes par Matière</CardTitle>
             </CardHeader>
@@ -188,9 +216,8 @@ const PerformancePage = () => {
             </CardContent>
           </Card>
         </TabsContent>
-
         <TabsContent value="skills">
-          <Card className="backdrop-blur-sm bg-white/50">
+          <Card className="backdrop-blur-sm bg-white/50 shadow">
             <CardHeader>
               <CardTitle>Niveau des Compétences</CardTitle>
             </CardHeader>
@@ -211,18 +238,53 @@ const PerformancePage = () => {
         </TabsContent>
       </Tabs>
 
+      {/* Detailed Grades Table */}
+      <Card className="backdrop-blur-sm bg-white/50 shadow">
+        <CardHeader>
+          <CardTitle>Notes Détailées</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {detailedGrades.map((subjectData, i) => (
+            <div key={i} className="mb-6">
+              <h3 className="text-lg font-semibold">{subjectData.subject}</h3>
+              <Table className="mt-2">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-1/3">Type</TableHead>
+                    <TableHead className="w-1/3">Date</TableHead>
+                    <TableHead className="w-1/3">Note</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {subjectData.evaluations.map((evalItem, j) => (
+                    <TableRow key={j}>
+                      <TableCell>{evalItem.type}</TableCell>
+                      <TableCell>{evalItem.date}</TableCell>
+                      <TableCell>{evalItem.grade}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Optional Comments Section for Parent View */}
       {viewMode === "parent" && (
-        <Card className="backdrop-blur-sm bg-white/50">
+        <Card className="backdrop-blur-sm bg-white/50 shadow">
           <CardHeader>
             <CardTitle>Commentaires des Professeurs</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <p className="text-sm">
-                <span className="font-semibold">Mathématiques :</span> Excellente progression ce trimestre. Continue ainsi !
+            <div className="space-y-4 text-sm">
+              <p>
+                <span className="font-semibold">Mathématiques :</span>{" "}
+                Excellente progression ce trimestre. Continue ainsi !
               </p>
-              <p className="text-sm">
-                <span className="font-semibold">Français :</span> Bon travail en expression écrite. Participation active en classe.
+              <p>
+                <span className="font-semibold">Français :</span> Bon travail en
+                expression écrite. Participation active en classe.
               </p>
             </div>
           </CardContent>
