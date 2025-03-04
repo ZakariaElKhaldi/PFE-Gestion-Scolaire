@@ -5,15 +5,16 @@
     "jsx": "react-native",
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
+    "baseUrl": "./",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["*"]
     },
     "types": [
       "node",
       "react",
       "react-native"
-    ]
+    ],
+    "typeRoots": ["./node_modules/@types", "./types"]
   },
   "include": [
     "**/*.ts",

@@ -109,6 +109,12 @@ export default function DebugNav() {
             <Link to="/dashboard/admin/settings" className="p-3 rounded border hover:bg-gray-50">
               Settings
             </Link>
+            <Link to="/dashboard/admin/certificates" className="p-3 rounded border hover:bg-gray-50">
+              Certificates
+            </Link>
+            <Link to="/dashboard/admin/calendar" className="p-3 rounded border hover:bg-gray-50">
+              Calendar
+            </Link>
           </div>
         </div>
 
@@ -127,6 +133,30 @@ export default function DebugNav() {
             </Link>
             <Link to="/auth/reset-password" className="p-3 rounded border hover:bg-gray-50">
               Reset Password
+            </Link>
+          </div>
+        </div>
+
+        {/* Threads Route */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4 text-indigo-600">Threads</h2>
+          <Link to="/threads" className="p-3 rounded border hover:bg-gray-50">
+            Index Threads
+          </Link>
+        </div>
+
+        {/* Communication */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4 text-indigo-600">Communication</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <Link to="/communication" className="p-3 rounded border hover:bg-gray-50">
+              Chat Room
+            </Link>
+            <Link to="/communication/communication" className="p-3 rounded border hover:bg-gray-50">
+              Communication Page
+            </Link>
+            <Link to="/chat" className="p-3 rounded border hover:bg-gray-50">
+              Chat
             </Link>
           </div>
         </div>
