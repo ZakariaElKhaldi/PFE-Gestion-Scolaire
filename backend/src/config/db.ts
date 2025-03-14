@@ -1,10 +1,19 @@
 import * as mysql from 'mysql2/promise';
 import { config } from './index';
 
-// Create the database connection pool with error handling
+// Create the database connection pool with improved error handling
 let pool: mysql.Pool;
 
 try {
+  // Attempt to create a real database connection pool
+  console.log('Attempting to create database pool with config:', {
+    host: config.db.host,
+    port: config.db.port,
+    user: config.db.user,
+    database: config.db.name,
+    // Password intentionally omitted for security
+  });
+  
   pool = mysql.createPool({
     host: config.db.host,
     port: config.db.port,
@@ -20,8 +29,29 @@ try {
   console.log('Database pool created successfully');
 } catch (error) {
   console.error('Error creating database pool:', error);
-  // Create a minimal pool object to prevent crashes
-  pool = {} as mysql.Pool;
+  
+  // Instead of creating an empty object, create a mock pool with the same interface
+  // to prevent "Cannot read properties of undefined" errors
+  pool = {
+    execute: async () => {
+      console.error('Mock database pool execute method called - database is not connected');
+      return [[], []];
+    },
+    query: async () => {
+      console.error('Mock database pool query method called - database is not connected');
+      return [[], []];
+    },
+    getConnection: async () => {
+      console.error('Mock database pool getConnection method called - database is not connected');
+      throw new Error('Database connection not available');
+    },
+    // Add other necessary methods to prevent crashes
+    end: async () => {},
+    on: () => ({}),
+    // Type assertion to satisfy TypeScript
+  } as unknown as mysql.Pool;
+  
+  console.log('Created mock database pool to prevent crashes');
 }
 
 // Test database connection
@@ -39,8 +69,12 @@ export const testConnection = async (): Promise<boolean> => {
   } catch (error) {
     console.error('Error connecting to database:', error);
     console.log('Please make sure MySQL is running and the database is set up.');
+    console.log('Check your .env file for correct database configuration:');
+    console.log(`DB_HOST=${config.db.host}`);
+    console.log(`DB_PORT=${config.db.port}`);
+    console.log(`DB_USER=${config.db.user}`);
+    console.log(`DB_NAME=${config.db.name}`);
     console.log('You can run "node db/setup.js" to create the database schema.');
-    console.log('You can run "node db/seed.js" to populate the database with sample data.');
     return false;
   }
 };

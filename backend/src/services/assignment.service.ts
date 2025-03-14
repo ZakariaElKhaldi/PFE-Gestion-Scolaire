@@ -259,16 +259,11 @@ class AssignmentService {
   async getUpcomingAssignmentsForStudent(studentId: string, limit: number = 5): Promise<Assignment[]> {
     // Check if student exists
     const student = await userModel.findById(studentId);
-    if (!student) {
+    if (!student || student.role !== 'student') {
       throw new Error('Student not found');
     }
     
-    // Check if student role is correct
-    if (student.role !== 'student') {
-      throw new Error('User must be a student');
-    }
-    
-    // Get upcoming assignments
+    // Get upcoming assignments for the student
     return assignmentModel.getUpcomingForStudent(studentId, limit);
   }
 

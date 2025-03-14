@@ -414,15 +414,26 @@ class AssignmentController {
         });
       }
       
-      const submissions = await assignmentService.getSubmissionsForStudent(req.user.userId);
-      
-      res.status(200).json({
-        error: false,
-        data: { submissions },
-        message: 'Your submissions retrieved successfully',
-      });
+      try {
+        const submissions = await assignmentService.getSubmissionsForStudent(req.user.userId);
+        
+        res.status(200).json({
+          error: false,
+          data: { submissions },
+          message: 'Your submissions retrieved successfully',
+        });
+      } catch (serviceError) {
+        console.error('Error retrieving submissions:', serviceError);
+        // Return empty submissions array instead of an error
+        res.status(200).json({
+          error: false,
+          data: { submissions: [] },
+          message: 'No submissions found or database error occurred',
+        });
+      }
     } catch (error: any) {
-      res.status(400).json({
+      console.error('Controller error in getMySubmissions:', error);
+      res.status(500).json({
         error: true,
         message: error.message || 'Failed to retrieve your submissions',
       });

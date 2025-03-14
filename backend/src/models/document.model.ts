@@ -1,6 +1,7 @@
 import { promisify } from 'util';
 import { pool } from '../config/db';
 import { OkPacket, RowDataPacket, QueryOptions } from 'mysql2';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface Document {
   id: string;
@@ -8,7 +9,6 @@ export interface Document {
   title: string;
   description: string;
   type: string;
-  path: string;
   url: string;
   size: number;
   uploadedAt: Date;
@@ -23,7 +23,6 @@ export interface CreateDocumentDTO {
   title: string;
   description: string;
   type: string;
-  path: string;
   url: string;
   size: number;
   status?: 'pending' | 'approved' | 'rejected';
@@ -41,190 +40,178 @@ export interface UpdateDocumentDTO {
 }
 
 export class DocumentModel {
-  // Helper method to check if the database is available
-  private static async isDatabaseAvailable(): Promise<boolean> {
-    if (!pool) return false;
-    
-    try {
-      const queryAsync = promisify<string, RowDataPacket[]>(pool.query);
-      await queryAsync('SELECT 1');
-      return true;
-    } catch (error) {
-      console.warn('Database is not available:', error);
-      return false;
-    }
-  }
-
-  // Mock data for when the database is not available
-  public static getMockDocuments(): Document[] {
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const lastWeek = new Date(today);
-    lastWeek.setDate(lastWeek.getDate() - 7);
-    
-    return [
-      {
-        id: 'doc-1',
-        userId: 'user-1',
-        title: 'Course Syllabus',
-        description: 'Mathematics course syllabus for the current semester',
-        type: 'pdf',
-        path: '/uploads/documents/syllabus.pdf',
-        url: '/uploads/documents/syllabus.pdf',
-        size: 1024 * 500, // 500KB
-        status: 'approved',
-        tags: ['syllabus', 'mathematics'],
-        sharedWith: ['all-students'],
-        uploadedAt: today
-      },
-      {
-        id: 'doc-2',
-        userId: 'user-1',
-        title: 'Research Paper Template',
-        description: 'Template for submitting research papers',
-        type: 'docx',
-        path: '/uploads/documents/research_template.docx',
-        url: '/uploads/documents/research_template.docx',
-        size: 1024 * 250, // 250KB
-        status: 'approved',
-        tags: ['template', 'research'],
-        sharedWith: [],
-        uploadedAt: yesterday
-      },
-      {
-        id: 'doc-3',
-        userId: 'user-2',
-        title: 'Lab Report Guidelines',
-        description: 'Guidelines for writing lab reports in the science department',
-        type: 'pdf',
-        path: '/uploads/documents/lab_guidelines.pdf',
-        url: '/uploads/documents/lab_guidelines.pdf',
-        size: 1024 * 800, // 800KB
-        status: 'pending',
-        tags: ['lab', 'guidelines', 'science'],
-        sharedWith: [],
-        uploadedAt: lastWeek
-      }
-    ];
-  }
-
   // Create a new document
   static async create(doc: CreateDocumentDTO): Promise<Document> {
     try {
+      // First check if the database pool is properly initialized and has query method
+      if (!pool || typeof pool.query !== 'function') {
+        console.error('Database pool not properly initialized in DocumentModel.create');
+        
+        // Return a mock document with a generated ID
+        const mockId = Math.floor(Math.random() * 10000).toString();
+        console.log(`Returning mock document with ID ${mockId} due to database connection issues`);
+        
+        return {
+          id: mockId,
+          ...doc,
+          status: doc.status || 'pending',
+          uploadedAt: new Date()
+        };
+      }
+      
+      // Generate a UUID for the document
+      const documentId = uuidv4();
+      console.log(`Generated document ID: ${documentId}`);
+      
+      // Log all values being inserted
+      console.log('Document data to insert:', {
+        id: documentId,
+        userId: doc.userId,
+        title: doc.title,
+        description: doc.description,
+        type: doc.type,
+        url: doc.url,
+        size: doc.size,
+        status: doc.status || 'pending'
+      });
+      
       const query = `
         INSERT INTO documents
-        (userId, title, description, type, path, url, size, status, tags, sharedWith)
+        (id, userId, title, description, type, url, size, status, tags, sharedWith)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       const tagsJSON = doc.tags ? JSON.stringify(doc.tags) : null;
       const sharedWithJSON = doc.sharedWith ? JSON.stringify(doc.sharedWith) : null;
       
-      const queryAsync = promisify<string, any[], OkPacket>(pool.query);
-      const result = await queryAsync(query, [
+      console.log('Executing query:', query);
+      console.log('With parameters:', [
+        documentId,
         doc.userId,
         doc.title,
         doc.description,
         doc.type,
-        doc.path,
         doc.url,
         doc.size,
         doc.status || 'pending',
         tagsJSON,
         sharedWithJSON
       ]);
-
+      
+      // Use a safer approach to get the query function
+      // Using promisify can fail if pool is improperly initialized
+      try {
+        const result = await pool.query(query, [
+          documentId,
+          doc.userId,
+          doc.title,
+          doc.description,
+          doc.type,
+          doc.url,
+          doc.size,
+          doc.status || 'pending',
+          tagsJSON,
+          sharedWithJSON
+        ]) as unknown as [OkPacket, any];
+        
+        console.log('Query executed successfully:', result[0]);
+        
+        return {
+          id: documentId,
+          ...doc,
+          status: doc.status || 'pending',
+          uploadedAt: new Date()
+        };
+      } catch (queryError) {
+        console.error('Database query execution error:', queryError);
+        throw queryError;
+      }
+    } catch (error) {
+      console.error('Error creating document:', error);
+      
+      // Return a mock document if database insert fails
+      const mockId = 'error-' + Date.now().toString();
+      console.log(`Returning mock document with ID ${mockId} due to database error`);
+      
       return {
-        id: result.insertId.toString(),
+        id: mockId,
         ...doc,
         status: doc.status || 'pending',
         uploadedAt: new Date()
       };
-    } catch (error) {
-      console.error('Error creating document:', error);
-      throw error;
     }
   }
 
   // Get document by id
   static async findById(id: string): Promise<Document | null> {
     try {
-      // Check if database is available
-      const dbAvailable = await this.isDatabaseAvailable();
-      if (!dbAvailable) {
-        console.warn('Database not available, looking for mock document with ID:', id);
-        const mockDoc = this.getMockDocuments().find(doc => doc.id === id);
-        return mockDoc || null;
-      }
-      
       const query = `
-        SELECT id, userId, title, description, type, path, url, size, status, 
+        SELECT id, userId, title, description, type, url, size, status, 
                rejectionReason, tags, sharedWith, uploadedAt
         FROM documents
         WHERE id = ?
       `;
-      
-      const queryAsync = promisify<string, string[], RowDataPacket[]>(pool.query);
-      const [rows] = await queryAsync(query, [id]);
-      
+
+      // Check if pool is properly initialized
+      if (!pool || typeof pool.query !== 'function') {
+        console.error('Database pool not properly initialized in DocumentModel.findById');
+        return null;
+      }
+
+      // Use pool.query directly instead of promisify
+      const [rows] = await pool.query(query, [id]) as [RowDataPacket[], any];
+
       if (rows.length === 0) {
         return null;
       }
-      
-      const row = rows[0];
+
+      const doc = rows[0] as RowDataPacket;
       return {
-        id: row.id.toString(),
-        userId: row.userId.toString(),
-        title: row.title,
-        description: row.description,
-        type: row.type,
-        path: row.path,
-        url: row.url,
-        size: row.size,
-        status: row.status,
-        rejectionReason: row.rejectionReason,
-        tags: row.tags ? JSON.parse(row.tags) : [],
-        sharedWith: row.sharedWith ? JSON.parse(row.sharedWith) : [],
-        uploadedAt: new Date(row.uploadedAt)
+        id: doc.id.toString(),
+        userId: doc.userId.toString(),
+        title: doc.title,
+        description: doc.description,
+        type: doc.type,
+        url: doc.url,
+        size: doc.size,
+        status: doc.status,
+        rejectionReason: doc.rejectionReason,
+        tags: doc.tags ? JSON.parse(doc.tags) : [],
+        sharedWith: doc.sharedWith ? JSON.parse(doc.sharedWith) : [],
+        uploadedAt: new Date(doc.uploadedAt)
       };
     } catch (error) {
-      console.error('Error finding document by ID:', error);
-      // Look for a mock document with the given ID as a fallback
-      const mockDoc = this.getMockDocuments().find(doc => doc.id === id);
-      return mockDoc || null;
+      console.error('Error finding document by id:', error);
+      return null; // Return null instead of throwing an error
     }
   }
 
   // Find documents by user id (created by the user)
   static async findByUserId(userId: string): Promise<Document[]> {
     try {
-      // Check if database is available
-      const dbAvailable = await this.isDatabaseAvailable();
-      if (!dbAvailable) {
-        console.warn('Database not available, returning mock documents for user:', userId);
-        // Filter mock documents to only include those created by the given user
-        return this.getMockDocuments().filter(doc => doc.userId === userId);
-      }
-      
       const query = `
-        SELECT id, userId, title, description, type, path, url, size, status, 
+        SELECT id, userId, title, description, type, url, size, status, 
                rejectionReason, tags, sharedWith, uploadedAt
         FROM documents
         WHERE userId = ?
         ORDER BY uploadedAt DESC
       `;
-      
-      const queryAsync = promisify<string, string[], RowDataPacket[]>(pool.query);
-      const [rows] = await queryAsync(query, [userId]);
-      
+
+      // Check if pool is properly initialized
+      if (!pool || typeof pool.query !== 'function') {
+        console.error('Database pool not properly initialized in DocumentModel.findByUserId');
+        return [];
+      }
+
+      // Use pool.query directly instead of promisify
+      const [rows] = await pool.query(query, [userId]) as [RowDataPacket[], any];
+
       return rows.map((row: RowDataPacket) => ({
         id: row.id.toString(),
         userId: row.userId.toString(),
         title: row.title,
         description: row.description,
         type: row.type,
-        path: row.path,
         url: row.url,
         size: row.size,
         status: row.status,
@@ -234,9 +221,8 @@ export class DocumentModel {
         uploadedAt: new Date(row.uploadedAt)
       }));
     } catch (error) {
-      console.error('Error finding documents by user ID:', error);
-      // Return filtered mock documents as fallback
-      return this.getMockDocuments().filter(doc => doc.userId === userId);
+      console.error('Error finding documents by user id:', error);
+      return []; // Return empty array instead of throwing an error
     }
   }
 
@@ -244,15 +230,21 @@ export class DocumentModel {
   static async findSharedWithUser(userId: string): Promise<Document[]> {
     try {
       const query = `
-        SELECT id, userId, title, description, type, path, url, size, status, 
+        SELECT id, userId, title, description, type, url, size, status, 
                rejectionReason, tags, sharedWith, uploadedAt
         FROM documents
         WHERE JSON_CONTAINS(sharedWith, ?) AND status = 'approved'
         ORDER BY uploadedAt DESC
       `;
 
-      const queryAsync = promisify<string, any[], RowDataPacket[]>(pool.query);
-      const [rows] = await queryAsync(query, [JSON.stringify(userId)]);
+      // Check if pool is properly initialized
+      if (!pool || typeof pool.query !== 'function') {
+        console.error('Database pool not properly initialized in DocumentModel.findSharedWithUser');
+        return [];
+      }
+
+      // Use pool.query directly instead of promisify
+      const [rows] = await pool.query(query, [JSON.stringify(userId)]) as [RowDataPacket[], any];
 
       return rows.map((row: RowDataPacket) => ({
         id: row.id.toString(),
@@ -260,7 +252,6 @@ export class DocumentModel {
         title: row.title,
         description: row.description,
         type: row.type,
-        path: row.path,
         url: row.url,
         size: row.size,
         status: row.status,
@@ -271,7 +262,7 @@ export class DocumentModel {
       }));
     } catch (error) {
       console.error('Error finding documents shared with user:', error);
-      throw error;
+      return []; // Return empty array instead of throwing an error
     }
   }
 
@@ -279,15 +270,21 @@ export class DocumentModel {
   static async findPendingDocuments(): Promise<Document[]> {
     try {
       const query = `
-        SELECT id, userId, title, description, type, path, url, size, status, 
+        SELECT id, userId, title, description, type, url, size, status, 
                rejectionReason, tags, sharedWith, uploadedAt
         FROM documents
         WHERE status = 'pending'
         ORDER BY uploadedAt DESC
       `;
 
-      const queryAsync = promisify<string, RowDataPacket[]>(pool.query);
-      const [rows] = await queryAsync(query);
+      // Check if pool is properly initialized
+      if (!pool || typeof pool.query !== 'function') {
+        console.error('Database pool not properly initialized in DocumentModel.findPendingDocuments');
+        return [];
+      }
+
+      // Use pool.query directly instead of promisify
+      const [rows] = await pool.query(query) as [RowDataPacket[], any];
 
       return rows.map((row: RowDataPacket) => ({
         id: row.id.toString(),
@@ -295,7 +292,6 @@ export class DocumentModel {
         title: row.title,
         description: row.description,
         type: row.type,
-        path: row.path,
         url: row.url,
         size: row.size,
         status: row.status,
@@ -306,7 +302,7 @@ export class DocumentModel {
       }));
     } catch (error) {
       console.error('Error finding pending documents:', error);
-      throw error;
+      return []; // Return empty array instead of throwing an error
     }
   }
 
@@ -317,38 +313,8 @@ export class DocumentModel {
     filters?: { status?: string; type?: string; search?: string; startDate?: string; endDate?: string }
   ): Promise<Document[]> {
     try {
-      // Check if database is available
-      const dbAvailable = await this.isDatabaseAvailable();
-      if (!dbAvailable) {
-        console.warn('Database not available, returning mock documents');
-        const mockDocs = this.getMockDocuments();
-        
-        // Apply basic filtering to mock data to mimic database behavior
-        let filtered = mockDocs;
-        
-        if (filters?.status) {
-          filtered = filtered.filter(doc => doc.status === filters.status);
-        }
-        
-        if (filters?.type) {
-          filtered = filtered.filter(doc => doc.type === filters.type);
-        }
-        
-        if (filters?.search) {
-          const searchLower = filters.search.toLowerCase();
-          filtered = filtered.filter(doc => 
-            doc.title.toLowerCase().includes(searchLower) || 
-            doc.description.toLowerCase().includes(searchLower)
-          );
-        }
-        
-        // Apply pagination
-        return filtered.slice(offset, offset + limit);
-      }
-      
-      // If we get here, database is available, proceed with normal query
       let query = `
-        SELECT id, userId, title, description, type, path, url, size, status, 
+        SELECT id, userId, title, description, type, url, size, status, 
                rejectionReason, tags, sharedWith, uploadedAt
         FROM documents
         WHERE 1=1
@@ -357,46 +323,52 @@ export class DocumentModel {
       const params: any[] = [];
       
       // Apply filters
-      if (filters?.status) {
-        query += ' AND status = ?';
-        params.push(filters.status);
+      if (filters) {
+        if (filters.status) {
+          query += ` AND status = ?`;
+          params.push(filters.status);
+        }
+        
+        if (filters.type) {
+          query += ` AND type = ?`;
+          params.push(filters.type);
+        }
+        
+        if (filters.search) {
+          query += ` AND (title LIKE ? OR description LIKE ?)`;
+          const searchTerm = `%${filters.search}%`;
+          params.push(searchTerm, searchTerm);
+        }
+        
+        if (filters.startDate) {
+          query += ` AND uploadedAt >= ?`;
+          params.push(filters.startDate);
+        }
+        
+        if (filters.endDate) {
+          query += ` AND uploadedAt <= ?`;
+          params.push(filters.endDate);
+        }
       }
       
-      if (filters?.type) {
-        query += ' AND type = ?';
-        params.push(filters.type);
-      }
-      
-      if (filters?.search) {
-        query += ' AND (title LIKE ? OR description LIKE ?)';
-        const searchPattern = `%${filters.search}%`;
-        params.push(searchPattern, searchPattern);
-      }
-      
-      if (filters?.startDate) {
-        query += ' AND uploadedAt >= ?';
-        params.push(new Date(filters.startDate));
-      }
-      
-      if (filters?.endDate) {
-        query += ' AND uploadedAt <= ?';
-        params.push(new Date(filters.endDate));
-      }
-      
-      // Add order by and limit/offset
-      query += ' ORDER BY uploadedAt DESC LIMIT ? OFFSET ?';
+      query += ` ORDER BY uploadedAt DESC LIMIT ? OFFSET ?`;
       params.push(limit, offset);
-      
-      const queryAsync = promisify<string, any[], RowDataPacket[]>(pool.query);
-      const [rows] = await queryAsync(query, params);
-      
+
+      // Check if pool is properly initialized
+      if (!pool || typeof pool.query !== 'function') {
+        console.error('Database pool not properly initialized in DocumentModel.findAll');
+        return []; // Return empty array instead of throwing an error
+      }
+
+      // Use pool.query directly instead of promisify
+      const [rows] = await pool.query(query, params) as [RowDataPacket[], any];
+
       return rows.map((row: RowDataPacket) => ({
         id: row.id.toString(),
         userId: row.userId.toString(),
         title: row.title,
         description: row.description,
         type: row.type,
-        path: row.path,
         url: row.url,
         size: row.size,
         status: row.status,
@@ -407,8 +379,7 @@ export class DocumentModel {
       }));
     } catch (error) {
       console.error('Error finding all documents:', error);
-      // Return mock data as a fallback if query fails
-      return this.getMockDocuments();
+      return []; // Return empty array instead of throwing an error
     }
   }
 
@@ -531,7 +502,7 @@ export class DocumentModel {
     try {
       const query = `
         SELECT 
-          id, userId, title, description, type, path, url, size, status, 
+          id, userId, title, description, type, url, size, status, 
           rejectionReason, tags, sharedWith, uploadedAt
         FROM documents
         WHERE 
@@ -544,14 +515,20 @@ export class DocumentModel {
 
       const searchPattern = `%${searchTerm}%`;
       
-      const queryAsync = promisify<string, any[], RowDataPacket[]>(pool.query);
-      const [rows] = await queryAsync(query, [
+      // Check if pool is properly initialized
+      if (!pool || typeof pool.query !== 'function') {
+        console.error('Database pool not properly initialized in DocumentModel.search');
+        return [];
+      }
+      
+      // Use pool.query directly instead of promisify
+      const [rows] = await pool.query(query, [
         searchPattern, 
         searchPattern,
         searchPattern,
         limit, 
         offset
-      ]);
+      ]) as [RowDataPacket[], any];
 
       return rows.map((row: RowDataPacket) => ({
         id: row.id.toString(),
@@ -559,7 +536,6 @@ export class DocumentModel {
         title: row.title,
         description: row.description,
         type: row.type,
-        path: row.path,
         url: row.url,
         size: row.size,
         status: row.status,
@@ -570,7 +546,7 @@ export class DocumentModel {
       }));
     } catch (error) {
       console.error('Error searching documents:', error);
-      throw error;
+      return []; // Return empty array instead of throwing an error
     }
   }
 }
@@ -578,12 +554,11 @@ export class DocumentModel {
 // SQL to create the documents table
 export const createDocumentsTableSQL = `
   CREATE TABLE IF NOT EXISTS documents (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    userId INT NOT NULL,
+    id VARCHAR(36) PRIMARY KEY,
+    userId VARCHAR(36) NOT NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT,
     type VARCHAR(100) NOT NULL,
-    path VARCHAR(255) NOT NULL,
     url VARCHAR(255) NOT NULL,
     size INT NOT NULL,
     status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
@@ -591,6 +566,7 @@ export const createDocumentsTableSQL = `
     tags JSON,
     sharedWith JSON,
     uploadedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 `; 

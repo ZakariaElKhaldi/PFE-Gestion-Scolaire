@@ -22,8 +22,8 @@ for (const dir of [uploadDir, documentsDir, assignmentsDir, profilesDir]) {
 export interface FileInfo {
   originalName: string;
   fileName: string;
-  path: string;
-  url: string;
+  path: string; // Physical path on disk (used internally, not stored in DB)
+  url: string;  // URL path for accessing the file (stored in DB)
   size: number;
   type: string;
 }
@@ -70,7 +70,7 @@ export function saveFile(
   // Write the file to disk
   fs.writeFileSync(filePath, buffer);
   
-  // Return file info
+  // Return file info with separate path (internal) and url (for DB)
   return {
     originalName,
     fileName,

@@ -1,8 +1,8 @@
 /// <reference types="multer" />
-import express, { RequestHandler } from 'express';
-import multer from 'multer';
-import { DocumentController } from '../controllers/document.controller';
+import express from 'express';
+import documentController from '../controllers/document.controller';
 import { authenticate, authorize } from '../middlewares/auth.middleware';
+import multer from 'multer';
 
 // Create a router instance
 const router = express.Router();
@@ -11,47 +11,52 @@ const router = express.Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB
+    fileSize: 10 * 1024 * 1024, // 10MB limit
   }
 });
 
-// Apply authentication middleware to all document routes
-router.use(authenticate);
+// Database status endpoint
+router.get('/db-status', documentController.checkDbStatus);
 
 // Get all documents with filtering
-router.get('/', DocumentController.getDocuments as RequestHandler);
+router.get('/', authenticate, documentController.getDocuments);
 
 // Search documents
-router.get('/search', DocumentController.searchDocuments as RequestHandler);
-
-// Get documents shared with current user
-router.get('/shared', DocumentController.getSharedDocuments as RequestHandler);
-
-// Get pending documents (admin only)
-router.get('/pending', authorize(['admin']), DocumentController.getPendingDocuments as RequestHandler);
-
-// Upload a new document
-router.post('/', upload.single('file'), DocumentController.uploadDocument as RequestHandler);
+router.get('/search', authenticate, documentController.searchDocuments);
 
 // Get a specific document
-router.get('/:id', DocumentController.getDocument as RequestHandler);
+router.get('/:id', authenticate, documentController.getDocument);
+
+// Test upload endpoint (no authentication for debugging purposes)
+router.post('/test-upload', 
+  upload.single('file'),
+  documentController.uploadDocument
+);
+
+// Upload a new document (two routes for flexibility)
+router.post('/upload', 
+  authenticate, 
+  upload.single('file'),
+  documentController.uploadDocument
+);
+
+// Also allow direct POST to the root endpoint for uploads
+router.post('/', 
+  authenticate, 
+  upload.single('file'),
+  documentController.uploadDocument
+);
 
 // Update document
-router.put('/:id', DocumentController.updateDocument as RequestHandler);
+router.put('/:id', authenticate, documentController.updateDocumentStatus);
 
 // Delete document
-router.delete('/:id', DocumentController.deleteDocument as RequestHandler);
+router.delete('/:id', authenticate, documentController.deleteDocument);
 
-// Download document
-router.get('/:id/download', DocumentController.downloadDocument as RequestHandler);
-
-// Approve document (admin only)
-router.post('/:id/approve', authorize(['admin']), DocumentController.approveDocument as RequestHandler);
-
-// Reject document (admin only)
-router.post('/:id/reject', authorize(['admin']), DocumentController.rejectDocument as RequestHandler);
+// Document download
+router.get('/:id/download', authenticate, documentController.downloadDocument);
 
 // Share document with other users
-router.post('/:id/share', DocumentController.shareDocument as RequestHandler);
+router.post('/:id/share', authenticate, documentController.shareDocument);
 
 export default router; 

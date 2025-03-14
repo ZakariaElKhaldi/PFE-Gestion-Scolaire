@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react"
 import { User } from "../../../types/auth"
 import { StudentLayout } from "../../../components/dashboard/layout/student-layout"
-import { FileText, Download, Search, File, FilePlus2, X, Upload, Loader2 } from "lucide-react"
+import { FileText, Download, Search, File, FilePlus2, X, Upload, Loader2, Wifi, WifiOff, RefreshCw, Trash } from "lucide-react"
 import { documentService, Document } from "../../../services/document.service"
 import { toast } from "react-hot-toast"
 import { format, parseISO } from "date-fns"
@@ -20,6 +20,9 @@ export default function StudentDocuments({ user }: StudentDocumentsProps) {
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [isOffline, setIsOffline] = useState(false)
+  const [storageUsage, setStorageUsage] = useState({ used: 0, documentCount: 0 })
+  const [showStorageDialog, setShowStorageDialog] = useState(false)
   
   // State for upload modal
   const [showUploadModal, setShowUploadModal] = useState(false)
@@ -33,12 +36,36 @@ export default function StudentDocuments({ user }: StudentDocumentsProps) {
   
   useEffect(() => {
     fetchDocuments()
+    updateStorageUsage()
+    
+    // Monitor online/offline status
+    const handleOnlineStatus = () => {
+      setIsOffline(!navigator.onLine)
+      if (navigator.onLine) {
+        toast.success('Back online')
+      } else {
+        toast.error('You are offline. Some features may be limited')
+      }
+    }
+    
+    // Set initial online status
+    setIsOffline(!navigator.onLine)
+    
+    // Add event listeners
+    window.addEventListener('online', handleOnlineStatus)
+    window.addEventListener('offline', handleOnlineStatus)
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('online', handleOnlineStatus)
+      window.removeEventListener('offline', handleOnlineStatus)
+    }
   }, [])
   
-  const fetchDocuments = async () => {
+  const fetchDocuments = async (forceRefresh = false) => {
     try {
       setLoading(true)
-      const docs = await documentService.getDocuments()
+      const docs = await documentService.getDocuments(undefined, { forceRefresh })
       setDocuments(docs)
     } catch (error) {
       console.error("Failed to fetch documents:", error)
@@ -46,6 +73,22 @@ export default function StudentDocuments({ user }: StudentDocumentsProps) {
     } finally {
       setLoading(false)
     }
+  }
+  
+  const updateStorageUsage = () => {
+    const usage = documentService.getDocumentStorageUsage()
+    setStorageUsage(usage)
+  }
+  
+  const handleRefresh = async () => {
+    if (isOffline) {
+      toast.error("Cannot refresh while offline")
+      return
+    }
+    
+    await fetchDocuments(true)
+    updateStorageUsage()
+    toast.success("Documents refreshed")
   }
   
   const handleSearch = (query: string) => {
@@ -59,6 +102,11 @@ export default function StudentDocuments({ user }: StudentDocumentsProps) {
   }
   
   const handleUpload = async () => {
+    if (isOffline) {
+      toast.error("Cannot upload documents while offline")
+      return
+    }
+    
     if (!uploadFile || !uploadTitle || !uploadType) {
       toast.error("Please fill all required fields")
       return
@@ -67,11 +115,22 @@ export default function StudentDocuments({ user }: StudentDocumentsProps) {
     try {
       setUploading(true)
       
+      console.log('Starting document upload:', {
+        fileName: uploadFile.name,
+        fileSize: uploadFile.size,
+        fileType: uploadFile.type,
+        title: uploadTitle,
+        description: uploadDescription,
+        type: uploadType
+      })
+      
       const document = await documentService.uploadDocument(uploadFile, {
         title: uploadTitle,
         description: uploadDescription,
         type: uploadType
       })
+      
+      console.log('Document uploaded successfully:', document)
       
       // Add the new document to the list
       setDocuments(prev => [document, ...prev])
@@ -83,30 +142,94 @@ export default function StudentDocuments({ user }: StudentDocumentsProps) {
       setUploadType("")
       setShowUploadModal(false)
       
+      // Update storage usage
+      updateStorageUsage()
+      
       toast.success("Document uploaded successfully")
     } catch (error) {
       console.error("Failed to upload document:", error)
-      toast.error("Failed to upload document. Please try again later.")
+      toast.error(`Failed to upload document: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setUploading(false)
     }
   }
   
-  const handleDownload = (id: string, title: string) => {
+  const handleDownload = async (id: string, title: string) => {
     try {
-      const url = documentService.getDownloadUrl(id)
+      if (isOffline) {
+        // Try to get from local storage if offline
+        const blob = await documentService.getStoredDocument(id)
+        if (blob) {
+          // Create download from blob
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = title
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          URL.revokeObjectURL(url)
+          return
+        }
+        toast.error("Document not available offline")
+        return
+      }
       
-      // Create an anchor element and trigger the download
+      // If online, download and store for future offline use
+      const blob = await documentService.downloadAndStoreDocument(id)
+      const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
       a.download = title
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      // Refresh document list to show offline status
+      fetchDocuments()
+      // Update storage usage
+      updateStorageUsage()
     } catch (error) {
       console.error("Failed to download document:", error)
       toast.error("Failed to download document. Please try again later.")
     }
+  }
+  
+  const handleToggleOfflineAvailability = async (document: Document) => {
+    try {
+      if (document.isAvailableOffline) {
+        // Remove from offline storage
+        documentService.removeStoredDocument(document.id)
+        toast.success(`"${document.title}" removed from offline storage`)
+      } else {
+        if (isOffline) {
+          toast.error("Cannot save for offline while offline")
+          return
+        }
+        
+        // Download and store for offline
+        await documentService.downloadAndStoreDocument(document.id)
+        toast.success(`"${document.title}" saved for offline use`)
+      }
+      
+      // Refresh document list to show offline status
+      fetchDocuments()
+      // Update storage usage
+      updateStorageUsage()
+    } catch (error) {
+      console.error("Failed to toggle offline availability:", error)
+      toast.error("Failed to update offline availability")
+    }
+  }
+  
+  const handleClearAllOfflineDocuments = () => {
+    documentService.clearStoredDocuments()
+    // Refresh document list to show offline status
+    fetchDocuments()
+    // Update storage usage
+    updateStorageUsage()
+    setShowStorageDialog(false)
   }
   
   // Filter documents based on search query
@@ -115,14 +238,37 @@ export default function StudentDocuments({ user }: StudentDocumentsProps) {
     doc.description.toLowerCase().includes(searchQuery.toLowerCase())
   )
   
+  // Format date safely (handle both string and Date objects)
+  const formatDateSafe = (date: string | Date | undefined) => {
+    if (!date) return 'Unknown date';
+    try {
+      if (typeof date === 'string') {
+        return format(parseISO(date), 'MMM d, yyyy');
+      } else if (date instanceof Date) {
+        return format(date, 'MMM d, yyyy');
+      }
+      return 'Invalid date';
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid date';
+    }
+  };
+  
   // Compute stats
   const totalDocuments = documents.length
   const pendingDocuments = documents.filter(doc => doc.status === "pending").length
+  const offlineDocuments = documents.filter(doc => doc.isAvailableOffline).length
   const recentDocuments = documents.filter(doc => {
-    const date = new Date(doc.createdAt)
-    const now = new Date()
-    const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30))
-    return date > thirtyDaysAgo
+    try {
+      const date = typeof doc.createdAt === 'string' ? new Date(doc.createdAt) : doc.createdAt;
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      return date > thirtyDaysAgo;
+    } catch (error) {
+      console.error('Error filtering recent documents:', error);
+      return false;
+    }
   }).length
   
   const formatBytes = (bytes: number) => {
@@ -165,13 +311,39 @@ export default function StudentDocuments({ user }: StudentDocumentsProps) {
               Manage your academic documents and records
             </p>
           </div>
-          <button 
-            className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            onClick={() => setShowUploadModal(true)}
-          >
-            <FilePlus2 className="h-4 w-4" />
-            Upload Document
-          </button>
+          <div className="flex items-center gap-2">
+            {isOffline && (
+              <div className="flex items-center text-amber-500 bg-amber-50 px-3 py-1 rounded-md mr-2">
+                <WifiOff className="h-4 w-4 mr-1" />
+                <span className="text-sm font-medium">Offline Mode</span>
+              </div>
+            )}
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowStorageDialog(true)}
+              title="Storage Management"
+            >
+              <Wifi className="h-4 w-4 mr-1" />
+              {offlineDocuments} Offline
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRefresh}
+              disabled={isOffline}
+              title="Refresh Documents"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button 
+              onClick={() => setShowUploadModal(true)}
+              disabled={isOffline}
+            >
+              <FilePlus2 className="h-4 w-4 mr-1" />
+              Upload Document
+            </Button>
+          </div>
         </div>
 
         {/* Search Bar */}
@@ -187,7 +359,7 @@ export default function StudentDocuments({ user }: StudentDocumentsProps) {
         </div>
 
         {/* Document Stats */}
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-4">
           <div className="rounded-lg border bg-white p-6">
             <h3 className="text-sm font-medium text-gray-500">Total Documents</h3>
             <p className="mt-2 text-3xl font-semibold text-gray-900">{totalDocuments}</p>
@@ -202,6 +374,11 @@ export default function StudentDocuments({ user }: StudentDocumentsProps) {
             <h3 className="text-sm font-medium text-gray-500">Pending Review</h3>
             <p className="mt-2 text-3xl font-semibold text-yellow-600">{pendingDocuments}</p>
             <p className="mt-1 text-sm text-gray-500">Awaiting verification</p>
+          </div>
+          <div className="rounded-lg border bg-white p-6">
+            <h3 className="text-sm font-medium text-gray-500">Offline Available</h3>
+            <p className="mt-2 text-3xl font-semibold text-green-600">{offlineDocuments}</p>
+            <p className="mt-1 text-sm text-gray-500">{formatBytes(storageUsage.used)} used</p>
           </div>
         </div>
 
@@ -218,11 +395,19 @@ export default function StudentDocuments({ user }: StudentDocumentsProps) {
                         {getFileIcon(document.type)}
                       </div>
                       <div>
-                        <h3 className="font-medium text-gray-900">{document.title}</h3>
+                        <h3 className="font-medium text-gray-900">
+                          {document.title}
+                          {document.isAvailableOffline && (
+                            <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                              <Wifi className="h-3 w-3 mr-1" />
+                              Offline
+                            </span>
+                          )}
+                        </h3>
                         <p className="text-sm text-gray-500">{document.description}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
-                            {format(parseISO(document.createdAt), 'MMM d, yyyy')}
+                            {formatDateSafe(document.createdAt)}
                           </span>
                           {document.status === 'pending' && (
                             <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-600">
@@ -242,17 +427,38 @@ export default function StudentDocuments({ user }: StudentDocumentsProps) {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-500">
                         {document.type.split('/').pop()} • {formatBytes(document.size)}
                       </span>
-                      <button 
-                        className="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-1 text-sm font-medium text-blue-600 hover:bg-blue-100"
-                        onClick={() => handleDownload(document.id, document.title)}
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleToggleOfflineAvailability(document)}
+                        className={document.isAvailableOffline ? "text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50" : "text-green-600 hover:text-green-700 border-green-200 hover:bg-green-50"}
+                        title={document.isAvailableOffline ? "Remove from offline storage" : "Save for offline use"}
                       >
-                        <Download className="h-4 w-4" />
+                        {document.isAvailableOffline ? (
+                          <>
+                            <WifiOff className="h-4 w-4 mr-1" />
+                            Remove
+                          </>
+                        ) : (
+                          <>
+                            <Wifi className="h-4 w-4 mr-1" />
+                            Save Offline
+                          </>
+                        )}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleDownload(document.id, document.title)}
+                        className="text-blue-600 hover:text-blue-700 border-blue-200 hover:bg-blue-50"
+                      >
+                        <Download className="h-4 w-4 mr-1" />
                         Download
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -265,7 +471,7 @@ export default function StudentDocuments({ user }: StudentDocumentsProps) {
               <p className="mt-1 text-sm text-gray-500">
                 {searchQuery ? "Try adjusting your search query." : "Upload your first document to get started."}
               </p>
-              {!searchQuery && (
+              {!searchQuery && !isOffline && (
                 <button 
                   className="mt-4 inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
                   onClick={() => setShowUploadModal(true)}
@@ -391,6 +597,86 @@ export default function StudentDocuments({ user }: StudentDocumentsProps) {
               ) : (
                 'Upload'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Storage Management Dialog */}
+      <Dialog open={showStorageDialog} onOpenChange={setShowStorageDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Offline Storage Management</DialogTitle>
+            <DialogDescription>
+              Manage your offline documents and storage usage
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+              <div>
+                <h3 className="font-medium text-gray-900">Storage Used</h3>
+                <p className="text-sm text-gray-500">{offlineDocuments} documents saved offline</p>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold">{formatBytes(storageUsage.used)}</p>
+                <p className="text-xs text-gray-500">of ~5MB available</p>
+              </div>
+            </div>
+            
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div 
+                className={`h-2.5 rounded-full ${
+                  storageUsage.used / (5 * 1024 * 1024) > 0.8 ? 'bg-red-600' : 'bg-blue-600'
+                }`}
+                style={{ 
+                  width: `${Math.min(100, (storageUsage.used / (5 * 1024 * 1024)) * 100)}%` 
+                }}
+              ></div>
+            </div>
+            
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-gray-700">Documents saved for offline access:</p>
+              
+              {documents.filter(doc => doc.isAvailableOffline).length > 0 ? (
+                <div className="max-h-60 overflow-y-auto border rounded-md divide-y">
+                  {documents.filter(doc => doc.isAvailableOffline).map(doc => (
+                    <div key={doc.id} className="p-3 flex justify-between items-center">
+                      <div className="flex items-center">
+                        {getFileIcon(doc.type)}
+                        <span className="ml-2 text-sm font-medium">{doc.title}</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleToggleOfflineAvailability(doc)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 p-3 bg-gray-50 rounded-md">No documents saved for offline use</p>
+              )}
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowStorageDialog(false)}
+            >
+              Close
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleClearAllOfflineDocuments}
+              disabled={offlineDocuments === 0}
+            >
+              <Trash className="h-4 w-4 mr-1" />
+              Clear All
             </Button>
           </DialogFooter>
         </DialogContent>
