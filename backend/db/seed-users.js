@@ -41,7 +41,8 @@ async function seedUsers() {
     // Generate UUIDs for each user
     const adminId = uuidv4();
     const teacherId = uuidv4();
-    const studentId = uuidv4();
+    // Set specific UUID for Student Johnson to match the one used in the application
+    const studentId = 'f4b969e2-324a-4333-9624-d016a54ea06d';
     const parentId = uuidv4();
     
     // Insert admin user
@@ -91,7 +92,7 @@ async function seedUsers() {
       'ST12345',
       'High school student in science track'
     ]);
-    console.log('Student user created successfully');
+    console.log('Student user created successfully with ID: ' + studentId);
     
     // Insert parent user
     await connection.query(`
@@ -140,7 +141,7 @@ async function seedUsers() {
     console.log('\nLogin Credentials:');
     console.log('- Admin: admin@school.com / password123');
     console.log('- Teacher: teacher@school.com / password123');
-    console.log('- Student: student@school.com / password123');
+    console.log('- Student: student@school.com / password123 (ID: ' + studentId + ')');
     console.log('- Parent: parent@school.com / password123');
     
   } catch (error) {

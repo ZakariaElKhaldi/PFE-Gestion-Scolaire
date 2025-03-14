@@ -61,6 +61,21 @@ async function seedTestData() {
     const teacherUsers = users.filter(u => u.role === 'teacher').map(u => u.id);
     const studentUsers = users.filter(u => u.role === 'student').map(u => u.id);
     
+    // Specific user ID for Student Johnson
+    const studentJohnsonId = 'f4b969e2-324a-4333-9624-d016a54ea06d';
+    
+    // Check if Student Johnson exists
+    const [studentJohnson] = await connection.query('SELECT id FROM users WHERE id = ?', [studentJohnsonId]);
+    if (studentJohnson.length === 0) {
+      console.log('WARNING: Student Johnson user not found. Special assignments will not be created.');
+    } else {
+      console.log('Found Student Johnson user, will create special assignments.');
+      // Ensure this user is in our studentUsers array if they exist
+      if (!studentUsers.includes(studentJohnsonId)) {
+        studentUsers.push(studentJohnsonId);
+      }
+    }
+    
     if (teacherUsers.length === 0 || studentUsers.length === 0) {
       throw new Error('Required users not found. Run seed-users.js first.');
     }
@@ -251,7 +266,70 @@ async function seedTestData() {
       }
     }
     
-    console.log(`Created ${assignmentIds.length} assignments`);
+    // Create special assignments for Student Johnson
+    if (studentJohnson.length > 0) {
+      console.log('Creating special assignments for Student Johnson...');
+      const studentJohnsonCourseId = courseIds[0]; // Use the first course
+      const specialAssignments = [
+        {
+          title: 'Introduction Assignment',
+          description: 'Introductory assignment for the course',
+          dueDate: formatDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)), // 7 days ago (past)
+          points: 30,
+          status: 'published'
+        },
+        {
+          title: 'Mid-term Project',
+          description: 'Project to demonstrate understanding of mid-term concepts',
+          dueDate: formatDate(new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)), // 3 days ago (past)
+          points: 50,
+          status: 'published'
+        },
+        {
+          title: 'Final Exam',
+          description: 'Final examination covering all course material',
+          dueDate: formatDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)), // 14 days from now (future)
+          points: 100,
+          status: 'published'
+        },
+        {
+          title: 'Group Presentation',
+          description: 'Group presentation on selected course topics',
+          dueDate: formatDate(new Date(Date.now() + 21 * 24 * 60 * 60 * 1000)), // 21 days from now (future)
+          points: 75,
+          status: 'published'
+        },
+        {
+          title: 'Research Paper',
+          description: 'Individual research paper on an approved topic',
+          dueDate: formatDate(new Date(Date.now() + 28 * 24 * 60 * 60 * 1000)), // 28 days from now (future)
+          points: 100,
+          status: 'published'
+        }
+      ];
+      
+      for (const assignment of specialAssignments) {
+        const assignmentId = uuidv4();
+        assignmentIds.push(assignmentId);
+        
+        await connection.query(`
+          INSERT INTO assignments (id, courseId, title, description, dueDate, points, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [
+          assignmentId,
+          studentJohnsonCourseId,
+          assignment.title,
+          assignment.description,
+          assignment.dueDate,
+          assignment.points,
+          assignment.status
+        ]);
+      }
+      
+      console.log(`Created 5 special assignments for Student Johnson`);
+    }
+    
+    console.log(`Created ${assignmentIds.length} assignments total`);
     
     // ======= 6. Create Assignment Submissions =======
     console.log('Creating assignment submissions...');
