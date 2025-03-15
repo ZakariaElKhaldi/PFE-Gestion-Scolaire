@@ -1,26 +1,22 @@
-import express from 'express';
+import { Router } from 'express';
 import { adminController } from '../controllers/admin.controller';
-import { authMiddleware } from '../middlewares/auth.middleware';
-import { roleMiddleware } from '../middlewares/role.middleware';
+import { authenticate } from '../middlewares/auth.middleware';
 
-const router = express.Router();
+const router = Router();
 
-// Apply authentication middleware to all admin routes
-router.use(authMiddleware);
-
-// Apply role middleware to ensure only admins can access these routes
-router.use(roleMiddleware(['admin']));
+// Apply auth middleware to all admin routes
+router.use(authenticate);
 
 // Dashboard data
 router.get('/dashboard', adminController.getDashboardData);
 
 // User statistics
-router.get('/user-stats', adminController.getUserStats);
+router.get('/users/stats', adminController.getUserStats);
 
 // System statistics
-router.get('/system-stats', adminController.getSystemStats);
+router.get('/system/stats', adminController.getSystemStats);
 
 // Financial overview
-router.get('/financial-overview', adminController.getFinancialOverview);
+router.get('/financial/overview', adminController.getFinancialOverview);
 
-export default router; 
+export const adminRoutes = router; 

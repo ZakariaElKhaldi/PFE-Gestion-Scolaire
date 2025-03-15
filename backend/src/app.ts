@@ -71,7 +71,7 @@ import paymentRoutes from './routes/payment.routes';
 import materialRoutes from './routes/material.routes';
 import feedbackRoutes from './routes/feedback.routes';
 import certificateRoutes from './routes/certificate.routes';
-import adminRoutes from './routes/admin.routes';
+import { adminRoutes } from './routes/admin.routes';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
