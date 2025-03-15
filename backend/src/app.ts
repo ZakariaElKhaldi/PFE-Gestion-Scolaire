@@ -11,6 +11,7 @@ import { initializeDatabase } from './utils/db-init';
 import { setupSocketIO } from './socket';
 import assignmentRoutes from './routes/assignment.routes';
 import documentRoutes from './routes/document.routes';
+import teacherRoutes from './routes/teacher.routes';
 import { ensureUploadDirectories } from './services/file-upload.service';
 import dotenv from 'dotenv';
 
@@ -55,6 +56,7 @@ app.get('/version', (_req: Request, res: Response) => {
 app.use('/api', routes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/teachers', teacherRoutes);
 
 // Register routes
 import authRoutes from './routes/auth.routes';

@@ -1,25 +1,32 @@
 import { Router } from 'express';
-import { TeacherController } from '../controllers/teacher.controller';
-import { authenticate } from '../middlewares/auth.middleware';
-import { authorize } from '../middlewares/role.middleware';
+import { teacherController } from '../controllers/teacher.controller';
+import { authenticate, authorize } from '../middlewares/auth.middleware';
+import multer from 'multer';
 
 const router = Router();
-const teacherController = new TeacherController();
 
-// Middleware to check if user is authenticated and is a teacher or admin
-const isTeacherOrAdmin = [authenticate, authorize(['teacher', 'admin'])];
-const isTeacher = [authenticate, authorize(['teacher'])];
+// Configure file upload middleware
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB
+  }
+});
 
-// Get dashboard statistics
-router.get('/dashboard-stats/:teacherId?', isTeacherOrAdmin, teacherController.getDashboardStats);
+// Apply authentication middleware to all teacher routes
+router.use(authenticate);
+router.use(authorize(['teacher']));
 
-// Get schedule by day
-router.get('/schedule/:teacherId?/:day', isTeacherOrAdmin, teacherController.getScheduleByDay);
+// Dashboard and basic info routes
+router.get('/dashboard-stats', teacherController.getDashboardStats);
+router.get('/schedule/:day', teacherController.getScheduleByDay);
+router.get('/students', teacherController.getStudents);
+router.get('/courses', teacherController.getCourses);
 
-// Get all students taught by a teacher
-router.get('/students/:teacherId?', isTeacherOrAdmin, teacherController.getStudents);
-
-// Get all courses taught by a teacher
-router.get('/courses/:teacherId?', isTeacherOrAdmin, teacherController.getCourses);
+// Assignment management
+router.get('/assignments', teacherController.getTeacherAssignments);
+router.post('/assignments', teacherController.createTeacherAssignment);
+router.get('/assignments/:assignmentId/submissions', teacherController.getAssignmentSubmissions);
+router.post('/submissions/:submissionId/grade', teacherController.gradeSubmission);
 
 export default router; 

@@ -762,11 +762,16 @@ export const teacherService = {
       let scheduleData: any[] = [];
       
       if (response.data) {
-        // Check for standard API response format with data.schedule
-        if (response.data.data && response.data.data.schedule && Array.isArray(response.data.data.schedule)) {
+        // First check for the standard API response format we're now receiving
+        if (response.data.error === false && 
+            response.data.data && 
+            Array.isArray(response.data.data.schedule)) {
+          scheduleData = response.data.data.schedule;
+        }
+        // Fallback cases for other possible response formats
+        else if (response.data.data && response.data.data.schedule && Array.isArray(response.data.data.schedule)) {
           scheduleData = response.data.data.schedule;
         } 
-        // Fallback cases for other possible response formats
         else if (response.data.schedule && Array.isArray(response.data.schedule)) {
           scheduleData = response.data.schedule;
         } else if (Array.isArray(response.data)) {
@@ -776,7 +781,8 @@ export const teacherService = {
         }
       }
       
-      if (scheduleData.length === 0) {
+      // Only log a warning if we couldn't extract schedule data when we should have data
+      if (scheduleData.length === 0 && response.data && !response.data.message?.includes('success')) {
         console.warn('Invalid schedule data format from API:', response.data);
       }
       

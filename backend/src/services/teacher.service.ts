@@ -5,6 +5,8 @@ import { StudentModel } from '../models/student.model';
 import { attendanceModel } from '../models/attendance.model';
 import { assignmentModel } from '../models/assignment.model';
 import { feedbackModel } from '../models/feedback.model';
+import { assignmentService } from './assignment.service';
+import { AssignmentSubmissionModel } from '../models/assignment-submission.model';
 
 // Interface for schedule item
 interface ScheduleItem {
@@ -235,5 +237,106 @@ export class TeacherService {
         name: course.name
       };
     });
+  }
+
+  /**
+   * Check if a teacher is assigned to a course
+   */
+  async isTeacherAssignedToCourse(teacherId: string, courseId: string): Promise<boolean> {
+    try {
+      // Get the course
+      const course = await courseModel.findById(courseId);
+      
+      // If course doesn't exist, teacher can't be assigned to it
+      if (!course) {
+        return false;
+      }
+      
+      // Check if teacher is assigned to this course
+      return course.teacherId === teacherId;
+    } catch (error) {
+      console.error('Error checking teacher course assignment:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if a teacher can grade a submission
+   */
+  async canTeacherGradeSubmission(teacherId: string, submissionId: string): Promise<boolean> {
+    try {
+      // Get the submission using the static method
+      const submission = await AssignmentSubmissionModel.findById(submissionId);
+      if (!submission) {
+        return false;
+      }
+      
+      // Get the assignment
+      const assignment = await assignmentModel.findById(submission.assignmentId);
+      if (!assignment) {
+        return false;
+      }
+      
+      // Get the course to check if teacher is assigned
+      const course = await courseModel.findById(assignment.courseId);
+      if (!course) {
+        return false;
+      }
+      
+      // Check if teacher is the owner of the course
+      return course.teacherId === teacherId;
+    } catch (error) {
+      console.error('Error checking teacher grading permission:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get assignments created by a teacher
+   * This is a convenience method that uses assignmentService under the hood
+   */
+  async getAssignments(teacherId: string, filters?: {
+    courseId?: string;
+    status?: string;
+  }): Promise<any[]> {
+    try {
+      // Make sure teacher exists
+      const teacher = await userModel.findById(teacherId);
+      if (!teacher || teacher.role !== 'teacher') {
+        throw new Error('Teacher not found');
+      }
+      
+      // Get courses taught by this teacher
+      const courses = await courseModel.findByTeacherId(teacherId);
+      if (!courses || courses.length === 0) {
+        return [];
+      }
+
+      // Get course IDs
+      const courseIds = courses.map(course => course.id);
+      
+      // Filter by provided courseId if it exists and is taught by this teacher
+      const finalCourseIds = filters?.courseId && courseIds.includes(filters.courseId) 
+        ? [filters.courseId] 
+        : courseIds;
+      
+      // Convert status string to valid assignment status
+      const status = filters?.status as "draft" | "published" | "closed" | undefined;
+      
+      try {
+        // Use assignmentService to get assignments
+        return await assignmentService.getAssignments({
+          courseId: finalCourseIds.length === 1 ? finalCourseIds[0] : undefined,
+          status
+        });
+      } catch (error) {
+        console.error('Error getting assignments from assignment service:', error);
+        // Return empty array if assignment service fails
+        return [];
+      }
+    } catch (error) {
+      console.error('Error getting teacher assignments:', error);
+      throw error;
+    }
   }
 } 

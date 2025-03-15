@@ -30,9 +30,10 @@ export default function TeacherAssignments({ user }: TeacherAssignmentsProps) {
   useEffect(() => {
     const fetchAssignments = async () => {
       try {
-        const data = await assignmentService.getAssignments({
-          status: selectedStatus === "all" ? undefined : selectedStatus,
-          teacherId: user.id
+        setIsLoading(true);
+        // Use the teacher-specific method
+        const data = await assignmentService.getTeacherAssignments({
+          status: selectedStatus === "all" ? undefined : selectedStatus
         });
         setAssignments(data);
         setError(null);
@@ -45,7 +46,7 @@ export default function TeacherAssignments({ user }: TeacherAssignmentsProps) {
     };
 
     fetchAssignments();
-  }, [selectedStatus, user.id]);
+  }, [selectedStatus]);
 
   // Filter assignments based on search query
   const filteredAssignments = assignments.filter(assignment => {
@@ -57,50 +58,66 @@ export default function TeacherAssignments({ user }: TeacherAssignmentsProps) {
   });
 
   // Handle assignment creation
-  const handleCreateAssignment = async (data: Omit<Assignment, 'id' | 'createdAt' | 'updatedAt' | 'stats'>) => {
-    setIsSubmitting(true);
+  const handleCreateAssignment = async (data: any) => {
     try {
-      await assignmentService.createAssignment(data);
+      setIsSubmitting(true);
+      // Use the teacher-specific method
+      await assignmentService.createTeacherAssignment(data);
+      setIsCreateModalOpen(false);
       
-      // Refresh assignments
-      const updatedAssignments = await assignmentService.getAssignments({
-        teacherId: user.id
+      // Refresh the list
+      const updatedAssignments = await assignmentService.getTeacherAssignments({
+        status: selectedStatus === "all" ? undefined : selectedStatus
       });
       setAssignments(updatedAssignments);
-
-      // Close modal
-      setIsCreateModalOpen(false);
-    } catch (err: any) {
-      setError("Failed to create assignment: " + (err.message || "Unknown error"));
+      
+    } catch (error: any) {
+      setError("Failed to create assignment: " + (error.message || "Unknown error"));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   // Handle assignment grading
-  const handleGradeSubmission = async (grade: number, feedback: string) => {
-    if (!selectedSubmission) return;
-
-    setIsSubmitting(true);
+  const handleGradeSubmission = async (data: any) => {
     try {
-      await assignmentService.gradeSubmission(selectedSubmission.id, {
-        grade,
-        feedback
+      setIsSubmitting(true);
+      if (!selectedSubmission) return;
+      
+      // Use the teacher-specific method
+      await assignmentService.gradeSubmissionAsTeacher(selectedSubmission.id, {
+        grade: data.grade,
+        feedback: data.feedback
       });
-
-      // Refresh assignments
-      const updatedAssignments = await assignmentService.getAssignments({
-        teacherId: user.id
+      
+      setIsGradeModalOpen(false);
+      
+      // Refresh the list
+      const updatedAssignments = await assignmentService.getTeacherAssignments({
+        status: selectedStatus === "all" ? undefined : selectedStatus
       });
       setAssignments(updatedAssignments);
-
-      // Close modal
-      setIsGradeModalOpen(false);
-      setSelectedSubmission(null);
-    } catch (err: any) {
-      setError("Failed to grade submission: " + (err.message || "Unknown error"));
+      
+    } catch (error: any) {
+      setError("Failed to grade submission: " + (error.message || "Unknown error"));
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Handle viewing assignment details
+  const handleViewSubmissions = async (assignment: AssignmentWithDetails) => {
+    try {
+      setSelectedAssignment(assignment);
+      const submissions = await assignmentService.getTeacherSubmissions(assignment.id);
+      if (submissions.length > 0) {
+        setSelectedSubmission(submissions[0]); // Show first submission
+        setIsGradeModalOpen(true);
+      } else {
+        setError("No submissions found for this assignment");
+      }
+    } catch (error) {
+      setError("Failed to load submissions: " + (error instanceof Error ? error.message : "Unknown error"));
     }
   };
 
@@ -204,19 +221,7 @@ export default function TeacherAssignments({ user }: TeacherAssignmentsProps) {
                 assignment={assignment}
                 role="teacher"
                 onGrade={async () => {
-                  setSelectedAssignment(assignment);
-                  // Fetch submissions for this assignment
-                  try {
-                    const submissions = await assignmentService.getSubmissionsForAssignment(assignment.id);
-                    if (submissions.length > 0) {
-                      setSelectedSubmission(submissions[0]); // Show first submission
-                      setIsGradeModalOpen(true);
-                    } else {
-                      setError("No submissions found for this assignment");
-                    }
-                  } catch (err: any) {
-                    setError("Failed to load submissions: " + (err.message || "Unknown error"));
-                  }
+                  await handleViewSubmissions(assignment);
                 }}
                 onView={() => {
                   // Handle viewing assignment details

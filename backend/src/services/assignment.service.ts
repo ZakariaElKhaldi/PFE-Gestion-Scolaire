@@ -87,10 +87,19 @@ class AssignmentService {
       assignments.map(async (assignment) => {
         const course = await courseModel.findById(assignment.courseId);
         
-        // Get submission stats
-        const submissionCount = await submissionModel.countByAssignment(assignment.id);
-        const gradedCount = await submissionModel.countByAssignment(assignment.id, 'graded');
-        const averageGrade = await submissionModel.getAverageGradeForAssignment(assignment.id);
+        // Get submission stats - handle database errors gracefully
+        let submissionCount = 0;
+        let gradedCount = 0;
+        let averageGrade = null;
+        
+        try {
+          submissionCount = await submissionModel.countByAssignment(assignment.id);
+          gradedCount = await submissionModel.countByAssignment(assignment.id, 'graded');
+          averageGrade = await submissionModel.getAverageGradeForAssignment(assignment.id);
+        } catch (error) {
+          console.warn(`Error getting submission stats for assignment ${assignment.id}:`, error);
+          // Continue with default values if an error occurs
+        }
         
         return {
           ...assignment,
