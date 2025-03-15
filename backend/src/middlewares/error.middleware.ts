@@ -13,43 +13,26 @@ export class ApiError extends Error {
   }
 }
 
-// Standard error handling middleware
-export const errorHandler = (
-  err: Error | ApiError,
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  // Default values
-  let statusCode = 500;
-  let message = 'Internal server error';
-  let isOperational = false;
-
-  // If it's our custom ApiError, use its properties
-  if (err instanceof ApiError) {
-    statusCode = err.statusCode;
-    message = err.message;
-    isOperational = err.isOperational;
-  } else if (err.name === 'ValidationError') {
-    // Handle validation errors (e.g., from Joi or express-validator)
-    statusCode = 400;
-    message = err.message;
-    isOperational = true;
-  } else if (err.name === 'UnauthorizedError') {
-    // Handle JWT authorization errors
-    statusCode = 401;
-    message = 'Unauthorized access';
-    isOperational = true;
+/**
+ * Global error handler middleware for Express
+ * Catches and processes errors that occur synchronously and asynchronously
+ */
+export const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
+  // If the response is already being sent, let Express handle it
+  if (res.headersSent) {
+    return next(err);
   }
 
-  // Log error for debugging
-  console.error(`[ERROR] ${new Date().toISOString()} - ${err.stack}`);
-
-  // Send standardized error response
+  // Set status code (use existing code or default to 500)
+  const statusCode = res.statusCode !== 200 ? res.statusCode : 500;
+  
+  console.error('Error occurred:', err);
+  
+  // Format the error response
   res.status(statusCode).json({
     error: true,
-    message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    message: err.message || 'An unexpected error occurred',
+    stack: process.env.NODE_ENV === 'production' ? undefined : err.stack
   });
 };
 
@@ -61,9 +44,10 @@ export const notFoundHandler = (req: Request, res: Response) => {
   });
 };
 
-// Async handler to avoid try/catch blocks in route handlers
-export const asyncHandler = (fn: Function) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
-  };
+/**
+ * Async handler wrapper to avoid try/catch blocks in route handlers
+ * This automatically catches errors and passes them to the next middleware
+ */
+export const asyncHandler = (fn: Function) => (req: Request, res: Response, next: NextFunction) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
 }; 

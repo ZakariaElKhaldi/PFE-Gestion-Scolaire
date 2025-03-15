@@ -12,6 +12,7 @@ import { setupSocketIO } from './socket';
 import assignmentRoutes from './routes/assignment.routes';
 import documentRoutes from './routes/document.routes';
 import teacherRoutes from './routes/teacher.routes';
+import { attendanceRoutes } from './routes/attendance.routes';
 import { ensureUploadDirectories } from './services/file-upload.service';
 import dotenv from 'dotenv';
 
@@ -57,6 +58,7 @@ app.use('/api', routes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/teachers', teacherRoutes);
+app.use('/api/attendance', attendanceRoutes);
 
 // Register routes
 import authRoutes from './routes/auth.routes';
@@ -88,7 +90,7 @@ app.get('/', (req, res) => {
 // 404 handler
 app.use(notFoundHandler);
 
-// Error handling middleware
+// Register error handling middleware (should be the last middleware)
 app.use(errorHandler);
 
 // Start the server
