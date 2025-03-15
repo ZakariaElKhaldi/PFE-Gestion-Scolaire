@@ -12,6 +12,7 @@ A comprehensive full-stack school management system for managing educational ins
 - **Document Management**: Upload, store, and share academic documents
 - **Attendance Tracking**: Record and monitor student attendance
 - **Grading System**: Manage grades across courses and assignments
+- **Feedback System**: Allow students to provide course feedback with ratings and comments
 - **Responsive Interface**: Works on desktop and mobile devices
 
 ## Tech Stack
@@ -177,6 +178,7 @@ The system uses a relational database with the following main tables:
 - `events`: School events and activities
 - `notifications`: System notifications for users
 - `parent_child`: Relationship between parent and student users
+- `feedback`: Student feedback for courses
 
 ## API Endpoints
 
@@ -203,6 +205,12 @@ The system uses a relational database with the following main tables:
 - `GET /api/documents/:id`: Get document details
 - `PUT /api/documents/:id`: Update document metadata
 - `DELETE /api/documents/:id`: Delete a document
+
+### Feedback Endpoints
+- `GET /api/feedback/student`: Get feedback submitted by the current student
+- `POST /api/feedback/submit`: Submit new course feedback
+- `GET /api/feedback/course/:courseId`: Get feedback for a specific course
+- `GET /api/feedback/teacher`: Get feedback for courses taught by the current teacher
 
 ## Default Users
 
@@ -234,6 +242,10 @@ After running the seed script, you can use the following users to login:
 - **Document Management**: Fixed issues with document uploads and retrieval
 - **API Endpoints**: Corrected routing for assignment submissions
 - **Database Seeding**: Improved seeding process with reset script
+- **Feedback System**: Added auto-enrollment feature for course feedback submission and fixed 404/500 errors
+- **API Authentication**: Fixed authentication issues in the feedback component
+- **Table Creation**: Automated feedback table creation to avoid missing table errors
+- **Feedback Routes**: Fixed missing API routes registration in Express app
 
 ## Troubleshooting
 
@@ -243,11 +255,12 @@ After running the seed script, you can use the following users to login:
 3. Check that the backend server is running properly
 4. Verify in the browser console that you're logged in with the correct user ID
 
-### API 404 Errors
-1. Check that the backend server is running on the correct port
-2. Ensure API routes match the expected endpoints
-3. Verify that your database contains the necessary data
-4. Check authentication (JWT token) in local storage
+### API 401 Unauthorized Errors
+1. Check that you're properly logged in (JWT token in localStorage)
+2. Verify that the frontend API client is configured to include the Authorization header
+3. Make sure you're using the correct API client for requests rather than direct fetch calls
+4. Check that the Vite proxy is properly configured in vite.config.ts
+5. Restart both frontend and backend servers
 
 ### Database Connection Issues
 1. Verify your MySQL server is running
@@ -258,6 +271,13 @@ After running the seed script, you can use the following users to login:
 1. Check that the uploads directory exists and has write permissions
 2. Verify the file size is within limits
 3. Ensure you're authenticated before attempting uploads
+
+### Feedback Submission Issues
+1. Make sure all feedback fields (course, rating, comment) are filled out
+2. Check that the API client is properly configured to use the correct base URL
+3. Verify that you have the necessary permissions (student role) to submit feedback
+4. **Auto-enrollment now activated**: Students will now be automatically enrolled in courses when submitting feedback
+5. If you see a "You have already submitted feedback for this course" error, you can only submit one feedback per course
 
 ## Contributing
 
@@ -270,3 +290,38 @@ After running the seed script, you can use the following users to login:
 ## License
 
 [MIT](LICENSE)
+
+## Testing the Feedback System
+
+To test the feedback system, follow these steps:
+
+1. Log in as a student (e.g., Student Johnson with email student@school.com)
+2. Navigate to the Feedback page in the student dashboard
+3. You should see a dropdown with available courses
+4. Select the course "Test Course [timestamp]" that was created for testing
+5. Provide a rating (1-5 stars) and a comment
+6. Submit the feedback
+
+If you encounter any issues:
+
+- Make sure you're logged in as a student
+- Check that you're enrolled in at least one course
+- Verify that you haven't already submitted feedback for all your courses
+
+To create a new test course for feedback testing, run:
+```bash
+cd backend
+npx ts-node src/utils/create-test-course.ts
+```
+
+To check which courses you're enrolled in and which ones you've already submitted feedback for:
+```bash
+cd backend
+npx ts-node src/utils/list-courses.ts
+```
+
+### Troubleshooting
+
+- If you see "No courses available" in the dropdown, it means you're not enrolled in any courses or there was an error fetching your courses.
+- If you get a "You have already submitted feedback for this course" error, you can only submit one feedback per course.
+- The auto-enrollment feature is now active - students will be automatically enrolled in courses when submitting feedback.

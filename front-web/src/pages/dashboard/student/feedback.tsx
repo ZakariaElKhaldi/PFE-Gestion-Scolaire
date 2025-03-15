@@ -22,13 +22,19 @@ import {
   MessageSquare, 
   Send, 
   Star, 
-  Loader2
+  Loader2,
+  Edit,
+  X,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar';
-import { feedbackService, Feedback as FeedbackType, SubmitFeedbackRequest } from '../../../services/feedback-service';
+import { feedbackService, Feedback as FeedbackType, SubmitFeedbackRequest, UpdateFeedbackRequest } from '../../../services/feedback-service';
 import { toast } from 'react-hot-toast';
 import { format, parseISO } from 'date-fns';
+import { studentService } from '../../../services/student-service';
 
 interface StudentFeedbackProps {
   user: User;
@@ -37,6 +43,7 @@ interface StudentFeedbackProps {
 interface Course {
   id: string;
   name: string;
+  hasFeedback?: boolean;  // Added to track if course already has feedback
 }
 
 export default function StudentFeedback({ user }: StudentFeedbackProps) {
@@ -50,39 +57,199 @@ export default function StudentFeedback({ user }: StudentFeedbackProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [courses, setCourses] = useState<Course[]>([]);
   const [submissions, setSubmissions] = useState<FeedbackType[]>([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
+  
+  // State for editing
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingFeedbackId, setEditingFeedbackId] = useState<string | null>(null);
+
+  // Debug function to display data structure
+  const debugData = (data: unknown, label: string): void => {
+    console.log(`===== DEBUG ${label} =====`);
+    console.log(JSON.stringify(data, null, 2));
+    
+    if (Array.isArray(data)) {
+      console.log(`${label} is an array with ${data.length} items`);
+      if (data.length > 0) {
+        console.log(`First item sample:`, data[0]);
+      } else {
+        console.log(`${label} array is empty`);
+      }
+    } else if (data === null) {
+      console.log(`${label} is null`);
+    } else if (data === undefined) {
+      console.log(`${label} is undefined`);
+    } else {
+      console.log(`${label} type:`, typeof data);
+    }
+  };
+
+  // Function to manually refresh data
+  const refreshData = () => {
+    setRefreshTrigger(prev => prev + 1);
+    toast.success("Refreshing feedback data...");
+  };
 
   // Fetch data
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
+      setLoadingError(null);
       try {
-        // Fetch student's courses
-        const response = await fetch('/api/students/courses');
-        if (!response.ok) {
-          throw new Error('Failed to fetch courses');
+        // Add debug logging
+        console.log('Starting to fetch courses for student feedback...');
+        
+        // Fetch student's courses using the student service
+        const fetchedCourses = await studentService.getStudentCourses();
+        console.log('Fetched courses from service:', fetchedCourses);
+        debugData(fetchedCourses, 'COURSES');
+        
+        // Check if we actually have courses
+        if (!Array.isArray(fetchedCourses) || fetchedCourses.length === 0) {
+          console.warn('No courses were found or courses is not an array');
+          setCourses([]);
+          setSubmissions([]);
+          toast.error(
+            Array.isArray(fetchedCourses) 
+              ? 'You are not enrolled in any courses. Please enroll in a course to provide feedback.' 
+              : 'There was an issue loading your courses. Please try again later.'
+          );
+          setIsLoading(false);
+          return;
         }
-        const data = await response.json();
-        setCourses(data.courses);
         
         // Fetch feedback submissions
+        console.log('Fetching feedback submissions...');
         const feedbackData = await feedbackService.getStudentFeedback();
-        setSubmissions(feedbackData);
+        console.log('Feedback submissions:', feedbackData);
+        debugData(feedbackData, 'FEEDBACK');
+        
+        // Check if the feedback data is in the expected format
+        if (!Array.isArray(feedbackData)) {
+          console.error('Feedback data is not an array:', feedbackData);
+          throw new Error('Invalid feedback data format');
+        }
+        
+        // Try to add course names to feedback entries if they're missing
+        const enhancedFeedback = feedbackData.map(feedback => {
+          if (!feedback.courseName) {
+            const course = fetchedCourses.find(c => c.id === feedback.courseId);
+            if (course) {
+              return { ...feedback, courseName: course.name };
+            }
+          }
+          return feedback;
+        });
+        
+        // Check if we found any course that doesn't exist in the course list
+        const unknownCourseIds = feedbackData
+          .filter(feedback => !fetchedCourses.some(course => course.id === feedback.courseId))
+          .map(feedback => feedback.courseId);
+        
+        if (unknownCourseIds.length > 0) {
+          console.warn('Found feedback for courses that are not in your course list:', unknownCourseIds);
+        }
+        
+        // Explicitly log the IDs of all courses and feedback for comparison
+        console.log('All course IDs:', fetchedCourses.map(c => c.id));
+        console.log('All feedback courseIds:', feedbackData.map(f => f.courseId));
+        
+        setSubmissions(enhancedFeedback);
+        
+        // Mark courses that already have feedback
+        const coursesWithFeedbackStatus = fetchedCourses.map(course => {
+          const hasFeedback = enhancedFeedback.some(feedback => feedback.courseId === course.id);
+          console.log(`Course ${course.name} (${course.id}) has feedback: ${hasFeedback}`);
+          return {
+            ...course,
+            hasFeedback
+          };
+        });
+        
+        // Set courses in state
+        setCourses(coursesWithFeedbackStatus);
+        
+        // Generate a summary for debugging
+        const withFeedback = coursesWithFeedbackStatus.filter(c => c.hasFeedback).length;
+        const withoutFeedback = coursesWithFeedbackStatus.length - withFeedback;
+        console.log(`Feedback summary: ${withFeedback} courses with feedback, ${withoutFeedback} without feedback`);
+        
       } catch (error) {
         console.error('Error fetching data:', error);
-        toast.error('Failed to load data. Please try again later.');
+        console.error('Error details:', JSON.stringify(error));
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        setLoadingError(errorMessage);
+        toast.error('Failed to load course data. Please try again later.');
+        setCourses([]);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [refreshTrigger]);
+
+  // Get existing feedback for a course
+  const getExistingFeedback = (courseId: string) => {
+    const feedback = submissions.find(feedback => feedback.courseId === courseId);
+    console.log(`Looking for feedback for course ${courseId}:`, feedback);
+    return feedback;
+  };
+
+  // Handle course selection
+  const handleCourseChange = (courseId: string) => {
+    setSelectedCourse(courseId);
+    
+    // Check if course already has feedback
+    const existingFeedback = getExistingFeedback(courseId);
+    if (existingFeedback) {
+      // If the course has feedback, suggest editing instead
+      toast.custom((t) => (
+        <div className="bg-amber-50 border border-amber-200 rounded-md p-4 shadow-md">
+          <div className="flex items-start">
+            <AlertCircle className="text-amber-500 h-5 w-5 mt-0.5 mr-2" />
+            <div>
+              <h3 className="font-medium text-amber-800">You've already submitted feedback</h3>
+              <p className="text-sm text-amber-700 mt-1">
+                You already provided feedback for this course. You can view or edit your feedback in the History tab.
+              </p>
+              <div className="mt-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    handleEdit(existingFeedback);
+                  }}
+                  className="mr-2 bg-white"
+                >
+                  <Edit className="h-4 w-4 mr-1" />
+                  Edit Feedback
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    setActiveTab('history');
+                  }}
+                >
+                  View History
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ), { duration: 8000 });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validation
-    if (!selectedCourse) {
+    if (!selectedCourse && !isEditing) {
       setFormError('Please select a course');
       return;
     }
@@ -101,15 +268,42 @@ export default function StudentFeedback({ user }: StudentFeedbackProps) {
     setSubmitting(true);
     
     try {
-      const feedbackData: SubmitFeedbackRequest = {
-        courseId: selectedCourse,
-        rating,
-        comment
-      };
-      
-      await feedbackService.submitFeedback(feedbackData);
-      
-      toast.success('Feedback submitted successfully');
+      if (isEditing && editingFeedbackId) {
+        // Update existing feedback
+        const updateData: UpdateFeedbackRequest = {
+          rating,
+          comment
+        };
+        
+        await feedbackService.updateFeedback(editingFeedbackId, updateData);
+        toast.success('Feedback updated successfully');
+        
+        // Reset editing state
+        setIsEditing(false);
+        setEditingFeedbackId(null);
+      } else {
+        // Check if feedback already exists for this course
+        const existingFeedback = getExistingFeedback(selectedCourse);
+        if (existingFeedback) {
+          setSubmitting(false);
+          toast.error('You have already submitted feedback for this course');
+          return;
+        }
+        
+        // Submit new feedback
+        console.log("Selected course ID:", selectedCourse);
+        console.log("Available courses:", courses);
+        
+        const feedbackData: SubmitFeedbackRequest = {
+          courseId: selectedCourse,
+          rating,
+          comment
+        };
+        
+        const result = await feedbackService.submitFeedback(feedbackData);
+        console.log("Feedback submission result:", result);
+        toast.success('Feedback submitted successfully');
+      }
       
       // Reset form
       setSelectedCourse('');
@@ -118,10 +312,14 @@ export default function StudentFeedback({ user }: StudentFeedbackProps) {
       
       // Refresh feedback submissions
       const updatedFeedback = await feedbackService.getStudentFeedback();
+      console.log("Updated feedback after submission:", updatedFeedback);
       setSubmissions(updatedFeedback);
       
       // Switch to history tab
       setActiveTab('history');
+      
+      // Refresh all data
+      setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error('Error submitting feedback:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to submit feedback. Please try again.';
@@ -131,6 +329,30 @@ export default function StudentFeedback({ user }: StudentFeedbackProps) {
     }
   };
 
+  const handleEdit = (feedback: FeedbackType) => {
+    console.log("Editing feedback:", feedback);
+    
+    // Set form fields with existing values
+    setRating(feedback.rating);
+    setComment(feedback.comment);
+    
+    // Set editing state
+    setIsEditing(true);
+    setEditingFeedbackId(feedback.id);
+    
+    // Switch to give-feedback tab
+    setActiveTab('give-feedback');
+  };
+
+  const cancelEdit = () => {
+    // Reset form and editing state
+    setSelectedCourse('');
+    setRating(0);
+    setComment('');
+    setIsEditing(false);
+    setEditingFeedbackId(null);
+  };
+
   const formatDate = (dateString: string) => {
     try {
       return format(parseISO(dateString), 'MMM d, yyyy');
@@ -138,6 +360,11 @@ export default function StudentFeedback({ user }: StudentFeedbackProps) {
       return dateString;
     }
   };
+
+  // Calculate stats
+  const totalCourses = courses.length;
+  const coursesWithFeedback = courses.filter(c => c.hasFeedback).length;
+  const coursesWithoutFeedback = totalCourses - coursesWithFeedback;
 
   return (
     <StudentLayout user={user}>
@@ -149,18 +376,66 @@ export default function StudentFeedback({ user }: StudentFeedbackProps) {
               Share your thoughts and help improve your courses
             </p>
           </div>
+          <div className="flex items-center space-x-4">
+            {!isLoading && (
+              <div className="flex items-center space-x-4">
+                <div className="text-sm text-gray-500">
+                  <span className="font-medium">{coursesWithFeedback}</span> of <span className="font-medium">{totalCourses}</span> courses with feedback
+                </div>
+                <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-green-500" 
+                    style={{ width: `${totalCourses ? (coursesWithFeedback / totalCourses) * 100 : 0}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={refreshData}
+              className="ml-2"
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
+
+        {loadingError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-md mb-4">
+            <h3 className="font-medium">Error loading data</h3>
+            <p className="text-sm mt-1">{loadingError}</p>
+            <p className="text-sm mt-2">Please try refreshing the page or clicking the refresh button above.</p>
+          </div>
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="give-feedback">Give Feedback</TabsTrigger>
+            <TabsTrigger value="give-feedback">
+              {isEditing ? 'Edit Feedback' : 'Give Feedback'}
+            </TabsTrigger>
             <TabsTrigger value="history">Feedback History</TabsTrigger>
           </TabsList>
           
           <TabsContent value="give-feedback" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Submit Course Feedback</CardTitle>
+                <CardTitle>
+                  {isEditing ? 'Edit Feedback' : 'Submit Course Feedback'}
+                  {isEditing && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="ml-2" 
+                      onClick={cancelEdit}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Cancel
+                    </Button>
+                  )}
+                </CardTitle>
                 <CardDescription>
                   Your feedback helps instructors improve their teaching and course content
                 </CardDescription>
@@ -172,21 +447,52 @@ export default function StudentFeedback({ user }: StudentFeedbackProps) {
                   </div>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Select Course</label>
-                      <Select value={selectedCourse} onValueChange={setSelectedCourse}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a course" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {courses.map(course => (
-                            <SelectItem key={course.id} value={course.id}>
-                              {course.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {!isEditing && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Select Course</label>
+                        <Select value={selectedCourse} onValueChange={handleCourseChange}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a course" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {courses.length > 0 ? (
+                              courses.map(course => (
+                                <SelectItem 
+                                  key={course.id} 
+                                  value={course.id}
+                                  className="flex items-center"
+                                >
+                                  <div className="flex items-center justify-between w-full">
+                                    <span>{course.name}</span>
+                                    {course.hasFeedback && (
+                                      <CheckCircle2 className="h-4 w-4 ml-2 text-green-500" />
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-courses" disabled>
+                                No courses available
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        
+                        {coursesWithoutFeedback === 0 && courses.length > 0 && (
+                          <div className="mt-2 text-amber-600 text-sm flex items-center">
+                            <AlertCircle className="h-4 w-4 mr-1" />
+                            You've already submitted feedback for all your courses.
+                            <Button 
+                              variant="link" 
+                              className="p-0 h-auto ml-1"
+                              onClick={() => setActiveTab('history')}
+                            >
+                              View history
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Rating</label>
@@ -220,16 +526,29 @@ export default function StudentFeedback({ user }: StudentFeedbackProps) {
                       <div className="text-red-500 text-sm">{formError}</div>
                     )}
                     
-                    <Button type="submit" disabled={submitting} className="w-full">
+                    <Button 
+                      type="submit" 
+                      disabled={submitting || (!isEditing && coursesWithoutFeedback === 0)} 
+                      className="w-full"
+                    >
                       {submitting ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Submitting...
+                          {isEditing ? 'Updating...' : 'Submitting...'}
                         </>
                       ) : (
                         <>
-                          <Send className="mr-2 h-4 w-4" />
-                          Submit Feedback
+                          {isEditing ? (
+                            <>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Update Feedback
+                            </>
+                          ) : (
+                            <>
+                              <Send className="mr-2 h-4 w-4" />
+                              Submit Feedback
+                            </>
+                          )}
                         </>
                       )}
                     </Button>
@@ -275,9 +594,20 @@ export default function StudentFeedback({ user }: StudentFeedbackProps) {
                               </span>
                             </div>
                           </div>
-                          <Badge variant={submission.status === 'reviewed' ? 'secondary' : 'outline'}>
-                            {submission.status === 'reviewed' ? 'Reviewed' : 'Pending'}
-                          </Badge>
+                          <div className="flex items-center space-x-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleEdit(submission)}
+                              disabled={submission.status === 'reviewed'}
+                              title={submission.status === 'reviewed' ? "Cannot edit after teacher has reviewed" : "Edit feedback"}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Badge variant={submission.status === 'reviewed' ? 'secondary' : 'outline'}>
+                              {submission.status === 'reviewed' ? 'Reviewed' : 'Pending'}
+                            </Badge>
+                          </div>
                         </div>
                         
                         <div className="bg-gray-50 p-3 rounded-lg mb-4">
@@ -317,6 +647,15 @@ export default function StudentFeedback({ user }: StudentFeedbackProps) {
                     <p className="text-gray-500">
                       You haven't submitted any feedback for your courses yet.
                     </p>
+                    {courses.length > 0 && (
+                      <Button 
+                        variant="outline" 
+                        className="mt-4"
+                        onClick={() => setActiveTab('give-feedback')}
+                      >
+                        Submit your first feedback
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardContent>

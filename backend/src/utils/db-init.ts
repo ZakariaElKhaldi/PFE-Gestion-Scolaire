@@ -11,7 +11,7 @@ import { createDocumentsTableSQL } from '../models/document.model';
 import { createSubmissionsTableSQL } from '../models/submission.model';
 import { paymentModel } from '../models/payment.model';
 import { materialModel } from '../models/material.model';
-import { feedbackModel } from '../models/feedback.model';
+import { feedbackModel, FeedbackModel } from '../models/feedback.model';
 import { certificateModel } from '../models/certificate.model';
 
 /**
@@ -45,7 +45,7 @@ export const initializeDatabase = async (): Promise<void> => {
         await paymentModel.createPaymentMethodsTable();
         await materialModel.createTable();
         await materialModel.createProgressTable();
-        await feedbackModel.createTable();
+        await FeedbackModel.createTable();
         await certificateModel.createTable();
       } catch (error) {
         console.error('Error executing schema, falling back to direct table creation:', error);
@@ -63,7 +63,7 @@ export const initializeDatabase = async (): Promise<void> => {
         await paymentModel.createPaymentMethodsTable();
         await materialModel.createTable();
         await materialModel.createProgressTable();
-        await feedbackModel.createTable();
+        await FeedbackModel.createTable();
         await certificateModel.createTable();
       }
     } else {
@@ -83,7 +83,7 @@ export const initializeDatabase = async (): Promise<void> => {
       await paymentModel.createPaymentMethodsTable();
       await materialModel.createTable();
       await materialModel.createProgressTable();
-      await feedbackModel.createTable();
+      await FeedbackModel.createTable();
       await certificateModel.createTable();
     }
     

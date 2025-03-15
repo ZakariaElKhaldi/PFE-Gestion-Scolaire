@@ -1,52 +1,18 @@
+import { useState, useEffect } from 'react';
 import { User } from '../../../types/auth';
-import { useState } from 'react';
-import { DashboardLayout } from "../../../components/dashboard/layout/dashboard-layout";
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
+import { TeacherLayout } from '../../../components/dashboard/layout/teacher-layout';
 import { 
   Card, 
   CardContent, 
   CardDescription, 
   CardHeader, 
-  CardTitle 
+  CardTitle,
+  CardFooter,
 } from '../../../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
-import { 
-  BarChart, 
-  Bar, 
-  LineChart, 
-  Line, 
-  PieChart, 
-  Pie, 
-  Cell, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer, 
-  RadarChart,
-  Radar,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis
-} from 'recharts';
-import { 
-  MessageSquare, 
-  ThumbsUp, 
-  ThumbsDown, 
-  Search, 
-  Filter, 
-  ArrowUpDown, 
-  Star, 
-  Reply,
-  Mail,
-  UserCheck,
-  Calendar
-} from 'lucide-react';
-import { Badge } from '../../../components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar';
-import { Separator } from '../../../components/ui/separator';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Textarea } from '../../../components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -54,795 +20,838 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../components/ui/select';
+import { 
+  MessageSquare, 
+  Search, 
+  Filter, 
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  WifiOff,
+  Loader2,
+  Save
+} from 'lucide-react';
 import {
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
-  TableRow,
+  TableRow 
 } from '../../../components/ui/table';
-import { Textarea } from '../../../components/ui/textarea';
+import { Badge } from '../../../components/ui/badge';
+import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
+import { format, parseISO } from 'date-fns';
+import { toast } from 'react-hot-toast';
+import { teacherService } from '../../../services/teacher-service';
+import { Alert, AlertDescription, AlertTitle } from '../../../components/ui/alert';
 
-interface TeacherFeedbackProps {
+interface TeacherFeedbackPageProps {
   user: User;
 }
 
-// Sample data types
-interface StudentFeedback {
+interface Student {
   id: string;
-  studentName: string;
+  name: string;
+  profileImage?: string;
+  className: string;
+}
+
+interface FeedbackItem {
+  id: string;
+  courseId: string;
+  courseName: string;
   studentId: string;
-  avatar: string;
-  course: string;
-  rating: number;
-  comment: string;
-  date: string;
-  replied: boolean;
+  studentName: string;
+  type: 'academic' | 'behavioral' | 'attendance' | 'general';
+  content: string;
+  rating?: number;
+  status: 'pending' | 'reviewed' | 'addressed';
+  isPrivate: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
-interface FeedbackMetric {
-  category: string;
-  score: number;
-  maxScore: number;
-  previousScore?: number;
+interface Course {
+  id: string;
+  name: string;
 }
 
-interface CourseRating {
-  course: string;
-  rating: number;
-  students: number;
-  semester: string;
+interface FeedbackStats {
+  total: number;
+  pending: number;
+  reviewed: number;
+  addressed: number;
+  byType: {
+    academic: number;
+    behavioral: number; 
+    attendance: number;
+    general: number;
+  };
+  averageRating: number;
 }
 
-export const TeacherFeedback = ({ user }: TeacherFeedbackProps) => {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [selectedCourse, setSelectedCourse] = useState('all');
-  const [selectedSemester, setSelectedSemester] = useState('current');
-  const [showReplies, setShowReplies] = useState(false);
-  const [replyText, setReplyText] = useState('');
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+interface NewFeedback {
+  studentId: string;
+  courseId: string;
+  type: 'academic' | 'behavioral' | 'attendance' | 'general';
+  content: string;
+  rating?: number;
+  isPrivate: boolean;
+}
 
-  // Sample feedback data
-  const studentFeedbacks: StudentFeedback[] = [
-    {
-      id: 'fb-001',
-      studentName: 'Emma Thompson',
-      studentId: 'ST12345',
-      avatar: 'https://i.pravatar.cc/150?img=1',
-      course: 'Introduction to Computer Science',
-      rating: 5,
-      comment: 'Dr. Turing is an excellent teacher! The way he explains complex concepts makes them easy to understand. Always available for additional help.',
-      date: '2023-11-15',
-      replied: true
-    },
-    {
-      id: 'fb-002',
-      studentName: 'James Wilson',
-      studentId: 'ST12346',
-      avatar: 'https://i.pravatar.cc/150?img=2',
-      course: 'Introduction to Computer Science',
-      rating: 4,
-      comment: 'The course content is well-structured and engaging. Could use more practical examples.',
-      date: '2023-11-16',
-      replied: false
-    },
-    {
-      id: 'fb-003',
-      studentName: 'Sophia Lee',
-      studentId: 'ST12347',
-      avatar: 'https://i.pravatar.cc/150?img=3',
-      course: 'Advanced Algorithms',
-      rating: 5,
-      comment: 'I appreciate the challenging assignments and how they push us to think critically. Dr. Turing is always patient with questions.',
-      date: '2023-11-17',
-      replied: false
-    },
-    {
-      id: 'fb-004',
-      studentName: 'Oliver Brown',
-      studentId: 'ST12348',
-      avatar: 'https://i.pravatar.cc/150?img=4',
-      course: 'Advanced Algorithms',
-      rating: 3,
-      comment: 'The pace of the course is a bit fast for me, but the study materials provided are helpful.',
-      date: '2023-11-18',
-      replied: true
-    },
-    {
-      id: 'fb-005',
-      studentName: 'Ava Martinez',
-      studentId: 'ST12349',
-      avatar: 'https://i.pravatar.cc/150?img=5',
-      course: 'Data Structures',
-      rating: 4,
-      comment: 'Great teaching style and informative lectures. Would like more office hours.',
-      date: '2023-11-19',
-      replied: false
-    },
-  ];
-
-  const courseRatings: CourseRating[] = [
-    { course: 'Introduction to Computer Science', rating: 4.7, students: 45, semester: 'Fall 2023' },
-    { course: 'Advanced Algorithms', rating: 4.2, students: 28, semester: 'Fall 2023' },
-    { course: 'Data Structures', rating: 4.5, students: 36, semester: 'Fall 2023' },
-    { course: 'Operating Systems', rating: 4.8, students: 32, semester: 'Spring 2023' },
-    { course: 'Database Systems', rating: 4.4, students: 40, semester: 'Spring 2023' },
-  ];
-
-  const feedbackMetrics: FeedbackMetric[] = [
-    { category: 'Teaching Style', score: 4.8, maxScore: 5, previousScore: 4.6 },
-    { category: 'Content Clarity', score: 4.7, maxScore: 5, previousScore: 4.5 },
-    { category: 'Responsiveness', score: 4.9, maxScore: 5, previousScore: 4.7 },
-    { category: 'Assignment Quality', score: 4.5, maxScore: 5, previousScore: 4.3 },
-    { category: 'Grading Fairness', score: 4.6, maxScore: 5, previousScore: 4.4 },
-  ];
-
-  const skillsData = [
-    { subject: 'Teaching Style', A: 4.8, fullMark: 5 },
-    { subject: 'Content Clarity', A: 4.7, fullMark: 5 },
-    { subject: 'Responsiveness', A: 4.9, fullMark: 5 },
-    { subject: 'Assignment Quality', A: 4.5, fullMark: 5 },
-    { subject: 'Grading Fairness', A: 4.6, fullMark: 5 },
-  ];
-
-  const feedbackTrend = [
-    { month: 'Jan', rating: 4.5 },
-    { month: 'Feb', rating: 4.6 },
-    { month: 'Mar', rating: 4.5 },
-    { month: 'Apr', rating: 4.7 },
-    { month: 'May', rating: 4.8 },
-    { month: 'Jun', rating: 4.7 },
-    { month: 'Jul', rating: 4.6 },
-    { month: 'Aug', rating: 4.7 },
-    { month: 'Sep', rating: 4.8 },
-    { month: 'Oct', rating: 4.9 },
-    { month: 'Nov', rating: 4.8 },
-  ];
-
-  const ratingDistribution = [
-    { name: '5 Stars', value: 65 },
-    { name: '4 Stars', value: 25 },
-    { name: '3 Stars', value: 8 },
-    { name: '2 Stars', value: 1.5 },
-    { name: '1 Star', value: 0.5 },
-  ];
-
-  const handleReply = (feedbackId: string) => {
-    if (replyingTo === feedbackId) {
-      // In a real application, you would send the reply to the backend
-      console.log(`Reply to feedback ${feedbackId}: ${replyText}`);
-      setReplyingTo(null);
-      setReplyText('');
-    } else {
-      setReplyingTo(feedbackId);
-      setReplyText('');
+export function TeacherFeedbackPage({ user }: TeacherFeedbackPageProps) {
+  const [activeTab, setActiveTab] = useState<string>('list');
+  const [students, setStudents] = useState<Student[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
+  const [stats, setStats] = useState<FeedbackStats | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
+  const [newFeedback, setNewFeedback] = useState<NewFeedback>({
+    studentId: '',
+    courseId: '',
+    type: 'academic',
+    content: '',
+    isPrivate: false
+  });
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  
+  // Check API connection
+  const checkConnection = async () => {
+    setConnectionStatus('checking');
+    try {
+      const isConnected = await teacherService.checkApiConnection();
+      setConnectionStatus(isConnected ? 'connected' : 'disconnected');
+    } catch {
+      setConnectionStatus('disconnected');
     }
   };
 
-  const filteredFeedback = studentFeedbacks.filter(feedback => {
-    if (selectedCourse !== 'all' && feedback.course !== selectedCourse) return false;
-    if (showReplies === false && feedback.replied) return false;
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // Check API connection first
+        await checkConnection();
+        
+        // Fetch all required data
+        const [studentsData, coursesData, feedbackData, statsData] = await Promise.all([
+          teacherService.getStudents(),
+          teacherService.getCourses(),
+          teacherService.getFeedback(),
+          teacherService.getFeedbackStats()
+        ]);
+        
+        setStudents(studentsData);
+        setCourses(coursesData);
+        setFeedback(feedbackData);
+        setStats(statsData);
+      } catch (err: Error | unknown) {
+        console.error('Failed to load data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load feedback data. Please try again.');
+        toast.error('Failed to load feedback data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
+  
+  // Handle creating new feedback
+  const handleSubmitFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validate form
+    if (!newFeedback.studentId) {
+      toast.error('Please select a student');
+      return;
+    }
+    if (!newFeedback.courseId) {
+      toast.error('Please select a course');
+      return;
+    }
+    if (!newFeedback.content || newFeedback.content.trim().length < 10) {
+      toast.error('Please enter feedback content (minimum 10 characters)');
+      return;
+    }
+    
+    setSubmitting(true);
+    setError(null);
+    
+    try {
+      // Submit the new feedback
+      const createdFeedback = await teacherService.createFeedback(newFeedback);
+      
+      // Update the feedback list
+      setFeedback([createdFeedback, ...feedback]);
+      
+      // Update stats
+      if (stats) {
+        setStats({
+          ...stats,
+          total: stats.total + 1,
+          pending: stats.pending + 1,
+          byType: {
+            ...stats.byType,
+            [newFeedback.type]: stats.byType[newFeedback.type as keyof typeof stats.byType] + 1
+          }
+        });
+      }
+      
+      // Reset form
+      setNewFeedback({
+        studentId: '',
+        courseId: '',
+        type: 'academic',
+        content: '',
+        isPrivate: false
+      });
+      
+      // Show success message
+      toast.success('Feedback submitted successfully');
+      
+      // Switch to list tab
+      setActiveTab('list');
+    } catch (err: Error | unknown) {
+      console.error('Failed to submit feedback:', err);
+      setError(err instanceof Error ? err.message : 'Failed to submit feedback. Please try again.');
+      toast.error('Failed to submit feedback');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  
+  // Handle updating feedback status
+  const handleUpdateStatus = async (feedbackId: string, newStatus: FeedbackItem['status']) => {
+    // Find the feedback item
+    const feedbackItem = feedback.find(f => f.id === feedbackId);
+    if (!feedbackItem) return;
+    
+    // Don't update if status is the same
+    if (feedbackItem.status === newStatus) return;
+    
+    try {
+      // Optimistically update UI
+      setFeedback(feedback.map(f => 
+        f.id === feedbackId ? { ...f, status: newStatus } : f
+      ));
+      
+      // Update stats
+      if (stats) {
+        const oldStatus = feedbackItem.status;
+        setStats({
+          ...stats,
+          [oldStatus]: stats[oldStatus as keyof FeedbackStats] as number - 1,
+          [newStatus]: stats[newStatus as keyof FeedbackStats] as number + 1
+        });
+      }
+      
+      // Send update to server
+      await teacherService.updateFeedbackStatus(feedbackId, newStatus);
+      
+      // Show success toast
+      toast.success(`Feedback status updated to ${newStatus}`);
+    } catch (err: Error | unknown) {
+      console.error('Failed to update feedback status:', err);
+      
+      // Revert changes in case of error
+      setFeedback(feedback);
+      toast.error('Failed to update feedback status');
+    }
+  };
+  
+  // Handle refreshing data
+  const handleRefresh = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Check connection first
+      await checkConnection();
+      
+      // Fetch all required data
+      const [studentsData, coursesData, feedbackData, statsData] = await Promise.all([
+        teacherService.getStudents(),
+        teacherService.getCourses(),
+        teacherService.getFeedback(),
+        teacherService.getFeedbackStats()
+      ]);
+      
+      setStudents(studentsData);
+      setCourses(coursesData);
+      setFeedback(feedbackData);
+      setStats(statsData);
+      
+      toast.success('Data refreshed successfully');
+    } catch (err: Error | unknown) {
+      console.error('Failed to refresh data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to refresh data. Please try again.');
+      toast.error('Failed to refresh data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter feedback based on search query and filters
+  const filteredFeedback = feedback.filter(item => {
+    // Apply search query filter
+    if (searchQuery && !item.content.toLowerCase().includes(searchQuery.toLowerCase()) &&
+        !item.studentName.toLowerCase().includes(searchQuery.toLowerCase()) &&
+        !item.courseName.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+    
+    // Apply type filter
+    if (filterType !== 'all' && item.type !== filterType) {
+      return false;
+    }
+    
+    // Apply status filter
+    if (filterStatus !== 'all' && item.status !== filterStatus) {
+      return false;
+    }
+    
     return true;
   });
 
-  const averageRating = studentFeedbacks.reduce((sum, feedback) => sum + feedback.rating, 0) / studentFeedbacks.length;
+  // Get status badge variant
+  const getStatusBadge = (status: FeedbackItem['status']) => {
+    switch (status) {
+      case 'pending':
+        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">Pending</Badge>;
+      case 'reviewed':
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Reviewed</Badge>;
+      case 'addressed':
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Addressed</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+  
+  // Get type badge variant
+  const getTypeBadge = (type: FeedbackItem['type']) => {
+    switch (type) {
+      case 'academic':
+        return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">Academic</Badge>;
+      case 'behavioral':
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Behavioral</Badge>;
+      case 'attendance':
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Attendance</Badge>;
+      case 'general':
+        return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">General</Badge>;
+      default:
+        return <Badge variant="outline">{type}</Badge>;
+    }
+  };
+
+  // Show loading state
+  if (loading) {
+  return (
+      <TeacherLayout user={user}>
+        <div className="p-6 flex flex-col items-center justify-center min-h-[70vh]">
+          <Loader2 className="h-12 w-12 animate-spin text-gray-400 mb-4" />
+          <p className="text-gray-500">Loading feedback data...</p>
+          </div>
+      </TeacherLayout>
+    );
+  }
+  
+  // Show error state
+  if (error && !feedback.length && !students.length && !courses.length) {
+    return (
+      <TeacherLayout user={user}>
+        <div className="p-6">
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>
+              {error}
+              <div className="mt-4">
+                <Button onClick={handleRefresh} disabled={loading}>
+                  Try Again
+                </Button>
+                    </div>
+            </AlertDescription>
+          </Alert>
+                    </div>
+      </TeacherLayout>
+    );
+  }
 
   return (
-    <DashboardLayout user={user}>
+    <TeacherLayout user={user}>
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Student Feedback</h1>
-          <div className="text-sm text-gray-600">
-            Logged in as: {user.firstName} {user.lastName}
-          </div>
-        </div>
-        
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="feedback">Feedback List</TabsTrigger>
-            <TabsTrigger value="courses">Course Ratings</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Average Rating</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col items-center">
-                    <div className="text-4xl font-bold text-yellow-500 flex items-center">
-                      {averageRating.toFixed(1)}
-                      <Star className="ml-2 h-6 w-6 fill-yellow-500 text-yellow-500" />
-                    </div>
-                    <div className="flex space-x-1 mt-2">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <Star
-                          key={star}
-                          className={`h-5 w-5 ${
-                            star <= Math.round(averageRating)
-                              ? 'fill-yellow-500 text-yellow-500'
-                              : 'text-gray-300'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <p className="text-sm text-gray-500 mt-2">
-                      Based on {studentFeedbacks.length} student reviews
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Student Feedback</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Manage feedback for your students
                     </p>
                   </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Pending Responses</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col items-center">
-                    <div className="text-4xl font-bold text-blue-500 flex items-center">
-                      {studentFeedbacks.filter(f => !f.replied).length}
-                      <MessageSquare className="ml-2 h-6 w-6 text-blue-500" />
+          
+          <div className="flex items-center space-x-4">
+            {/* Connection status indicator */}
+            <div className="flex items-center">
+              {connectionStatus === 'connected' ? (
+                <Badge variant="outline" className="flex items-center gap-1 bg-green-50 text-green-700 border-green-200">
+                  <CheckCircle2 className="h-3 w-3" />
+                  <span>Connected to API</span>
+                </Badge>
+              ) : connectionStatus === 'disconnected' ? (
+                <Badge variant="outline" className="flex items-center gap-1 bg-red-50 text-red-700 border-red-200">
+                  <WifiOff className="h-3 w-3" />
+                  <span>Using mock data</span>
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                  <span>Checking connection</span>
+                </Badge>
+              )}
                     </div>
-                    <p className="text-sm text-gray-500 mt-2">
-                      Feedback items awaiting your response
-                    </p>
+            
+            {/* Refresh button */}
                     <Button 
                       variant="outline" 
-                      className="mt-4 w-full"
-                      onClick={() => {
-                        setActiveTab('feedback');
-                        setShowReplies(false);
-                      }}
-                    >
-                      View Pending Feedback
+              size="sm" 
+              onClick={handleRefresh} 
+              disabled={loading}
+              className="flex items-center gap-1"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
+            </Button>
+            
+            {/* Create button */}
+            <Button 
+              onClick={() => setActiveTab('create')}
+              className="flex items-center gap-1"
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span>New Feedback</span>
                     </Button>
                   </div>
+        </div>
+        
+        {/* Stats cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-medium">Total Feedback</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.total || 0}</div>
+              <p className="text-sm text-gray-500">Feedback entries submitted</p>
                 </CardContent>
               </Card>
               
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Highest Rated Course</CardTitle>
+              <CardTitle className="text-base font-medium">Pending</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-col items-center">
-                    <div className="text-lg font-bold text-center">
-                      {courseRatings.sort((a, b) => b.rating - a.rating)[0].course}
-                    </div>
-                    <div className="flex items-center mt-1">
-                      <span className="text-2xl font-bold text-green-500 mr-2">
-                        {courseRatings.sort((a, b) => b.rating - a.rating)[0].rating.toFixed(1)}
-                      </span>
-                      <Star className="h-5 w-5 fill-green-500 text-green-500" />
-                    </div>
-                    <p className="text-sm text-gray-500 mt-2">
-                      {courseRatings.sort((a, b) => b.rating - a.rating)[0].students} students enrolled
-                    </p>
-                  </div>
+              <div className="text-2xl font-bold text-yellow-600">{stats?.pending || 0}</div>
+              <p className="text-sm text-gray-500">Awaiting action</p>
                 </CardContent>
               </Card>
-            </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
-                <CardHeader>
-                  <CardTitle>Feedback Rating Trend</CardTitle>
-                  <CardDescription>
-                    Average monthly rating over the past year
-                  </CardDescription>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-medium">Reviewed</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={feedbackTrend}
-                        margin={{
-                          top: 20,
-                          right: 30,
-                          left: 20,
-                          bottom: 5,
-                        }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" />
-                        <YAxis domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} />
-                        <Tooltip />
-                        <Legend />
-                        <Line
-                          type="monotone"
-                          dataKey="rating"
-                          stroke="#8884d8"
-                          activeDot={{ r: 8 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
+              <div className="text-2xl font-bold text-blue-600">{stats?.reviewed || 0}</div>
+              <p className="text-sm text-gray-500">Assessed feedback</p>
                 </CardContent>
               </Card>
               
               <Card>
-                <CardHeader>
-                  <CardTitle>Rating Distribution</CardTitle>
-                  <CardDescription>
-                    Distribution of student ratings
-                  </CardDescription>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-medium">Addressed</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={ratingDistribution}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {ratingDistribution.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={['#4CAF50', '#8BC34A', '#FFC107', '#FF9800', '#F44336'][index % 5]} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value) => [`${value}%`, 'Students']} />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
+              <div className="text-2xl font-bold text-green-600">{stats?.addressed || 0}</div>
+              <p className="text-sm text-gray-500">Fully resolved</p>
                 </CardContent>
               </Card>
             </div>
             
+        {/* Main content tabs */}
+        <Tabs defaultValue="list" value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-6">
+            <TabsTrigger value="list">Feedback List</TabsTrigger>
+            <TabsTrigger value="create">Create Feedback</TabsTrigger>
+            <TabsTrigger value="stats">Statistics</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="list">
             <Card>
               <CardHeader>
-                <CardTitle>Recent Feedback</CardTitle>
+                <CardTitle>All Feedback</CardTitle>
                 <CardDescription>
-                  The most recent feedback from your students
+                  Browse all feedback submitted to students
                 </CardDescription>
+                
+                {/* Search and filter */}
+                <div className="flex flex-col md:flex-row gap-4 mt-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                    <Input
+                      placeholder="Search by student, course or content..."
+                      className="pl-10"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                              </div>
+                  
+                  <div className="flex gap-4">
+                    <Select value={filterType} onValueChange={setFilterType}>
+                      <SelectTrigger className="w-[160px]">
+                        <Filter className="mr-2" size={16} />
+                        <SelectValue placeholder="Filter by type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="academic">Academic</SelectItem>
+                        <SelectItem value="behavioral">Behavioral</SelectItem>
+                        <SelectItem value="attendance">Attendance</SelectItem>
+                        <SelectItem value="general">General</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    <Select value={filterStatus} onValueChange={setFilterStatus}>
+                      <SelectTrigger className="w-[160px]">
+                        <Filter className="mr-2" size={16} />
+                        <SelectValue placeholder="Filter by status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="reviewed">Reviewed</SelectItem>
+                        <SelectItem value="addressed">Addressed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                            </div>
+                            </div>
               </CardHeader>
+              
               <CardContent>
-                <div className="space-y-4">
-                  {studentFeedbacks
-                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                    .slice(0, 3)
-                    .map((feedback) => (
-                      <div key={feedback.id} className="border rounded-lg p-4">
-                        <div className="flex items-start">
-                          <Avatar className="h-10 w-10 mr-3">
-                            <AvatarImage src={feedback.avatar} alt={feedback.studentName} />
-                            <AvatarFallback>{feedback.studentName.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="font-semibold">{feedback.studentName}</h4>
-                                <div className="text-sm text-gray-500">{feedback.course}</div>
-                              </div>
-                              <div className="flex items-center">
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                  <Star
-                                    key={star}
-                                    className={`h-4 w-4 ${
-                                      star <= feedback.rating
-                                        ? 'fill-yellow-500 text-yellow-500'
-                                        : 'text-gray-300'
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                            <p className="mt-2 text-sm">{feedback.comment}</p>
-                            <div className="flex items-center justify-between mt-3">
-                              <span className="text-xs text-gray-500">{feedback.date}</span>
-                              {feedback.replied ? (
-                                <Badge variant="outline" className="text-green-600 bg-green-50">
-                                  Replied
-                                </Badge>
-                              ) : (
-                                <Button variant="outline" size="sm" onClick={() => handleReply(feedback.id)}>
-                                  <Reply className="mr-2 h-3 w-3" />
-                                  Reply
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                {filteredFeedback.length ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Student</TableHead>
+                        <TableHead>Course</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredFeedback.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback className="bg-primary-100 text-primary-700">
+                                  {item.studentName.split(' ').map(n => n[0]).join('')}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>{item.studentName}</div>
                 </div>
-                <Button 
-                  variant="outline" 
-                  className="w-full mt-4"
-                  onClick={() => setActiveTab('feedback')}
-                >
-                  View All Feedback
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="feedback" className="space-y-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Student Feedback</CardTitle>
-                  <CardDescription>
-                    Review and respond to feedback from your students
-                  </CardDescription>
-                </div>
-                <div className="flex items-center space-x-2">
+                          </TableCell>
+                          <TableCell>{item.courseName}</TableCell>
+                          <TableCell>{getTypeBadge(item.type)}</TableCell>
+                          <TableCell>{format(parseISO(item.createdAt), 'MMM d, yyyy')}</TableCell>
+                          <TableCell>{getStatusBadge(item.status)}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
                   <Select
-                    value={selectedCourse}
-                    onValueChange={setSelectedCourse}
+                                value={item.status} 
+                                onValueChange={(value) => handleUpdateStatus(item.id, value as FeedbackItem['status'])}
                   >
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="Select Course" />
+                                <SelectTrigger className="w-[130px]">
+                                  <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Courses</SelectItem>
-                      {Array.from(new Set(studentFeedbacks.map(f => f.course))).map(course => (
-                        <SelectItem key={course} value={course}>{course}</SelectItem>
-                      ))}
+                                  <SelectItem value="pending">Pending</SelectItem>
+                                  <SelectItem value="reviewed">Reviewed</SelectItem>
+                                  <SelectItem value="addressed">Addressed</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowReplies(!showReplies)}
-                  >
-                    {showReplies ? 'Show All' : 'Show Unreplied'}
-                  </Button>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {filteredFeedback.length > 0 ? (
-                    filteredFeedback.map((feedback) => (
-                      <div key={feedback.id} className="border rounded-lg p-4">
-                        <div className="flex items-start">
-                          <Avatar className="h-10 w-10 mr-3">
-                            <AvatarImage src={feedback.avatar} alt={feedback.studentName} />
-                            <AvatarFallback>{feedback.studentName.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="font-semibold">{feedback.studentName}</h4>
-                                <div className="text-sm text-gray-500">
-                                  {feedback.course} • ID: {feedback.studentId}
-                                </div>
-                              </div>
-                              <div className="flex items-center">
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                  <Star
-                                    key={star}
-                                    className={`h-4 w-4 ${
-                                      star <= feedback.rating
-                                        ? 'fill-yellow-500 text-yellow-500'
-                                        : 'text-gray-300'
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                            <p className="mt-2">{feedback.comment}</p>
-                            <div className="flex items-center justify-between mt-3">
-                              <span className="text-xs text-gray-500">{feedback.date}</span>
-                              {feedback.replied ? (
-                                <Badge variant="outline" className="text-green-600 bg-green-50">
-                                  Replied
-                                </Badge>
-                              ) : (
-                                <Button variant="outline" size="sm" onClick={() => handleReply(feedback.id)}>
-                                  <Reply className="mr-2 h-3 w-3" />
-                                  Reply
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-8">
+                    <FileText className="mx-auto h-12 w-12 text-gray-300 mb-2" />
+                    <h3 className="text-lg font-medium text-gray-900">No feedback found</h3>
+                    <p className="text-gray-500 mt-1">
+                      {searchQuery || filterType !== 'all' || filterStatus !== 'all'
+                        ? 'Try adjusting your search or filters'
+                        : 'Start by creating some feedback for your students'}
+                    </p>
+                    {(searchQuery || filterType !== 'all' || filterStatus !== 'all') && (
+                      <Button variant="outline" className="mt-4" onClick={() => {
+                        setSearchQuery('');
+                        setFilterType('all');
+                        setFilterStatus('all');
+                      }}>
+                        Clear Filters
                                 </Button>
                               )}
-                            </div>
-                            
-                            {replyingTo === feedback.id && (
-                              <div className="mt-4 space-y-3">
-                                <Textarea 
-                                  placeholder="Write your response to the student..." 
-                                  value={replyText}
-                                  onChange={(e) => setReplyText(e.target.value)}
-                                  className="min-h-[100px]"
-                                />
-                                <div className="flex justify-end space-x-2">
-                                  <Button variant="outline" onClick={() => setReplyingTo(null)}>
-                                    Cancel
-                                  </Button>
-                                  <Button onClick={() => handleReply(feedback.id)}>
-                                    Send Response
-                                  </Button>
-                                </div>
                               </div>
                             )}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      No feedback matches your current filters.
-                    </div>
-                  )}
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
           
-          <TabsContent value="courses" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <TabsContent value="create">
               <Card>
                 <CardHeader>
-                  <CardTitle>Course Ratings</CardTitle>
+                <CardTitle>Create New Feedback</CardTitle>
                   <CardDescription>
-                    Average ratings across all your courses
+                  Provide feedback for a student's performance
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={courseRatings}
-                        margin={{
-                          top: 20,
-                          right: 30,
-                          left: 20,
-                          bottom: 5,
-                        }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="course" />
-                        <YAxis domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="rating" name="Average Rating" fill="#8884d8" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
               
-              <Card>
-                <CardHeader>
-                  <CardTitle>Performance Metrics</CardTitle>
-                  <CardDescription>
-                    Detailed feedback metrics across categories
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RadarChart cx="50%" cy="50%" outerRadius={80} data={skillsData}>
-                        <PolarGrid />
-                        <PolarAngleAxis dataKey="subject" />
-                        <PolarRadiusAxis angle={30} domain={[0, 5]} />
-                        <Radar
-                          name="Performance"
-                          dataKey="A"
-                          stroke="#8884d8"
-                          fill="#8884d8"
-                          fillOpacity={0.6}
-                        />
-                        <Tooltip />
-                        <Legend />
-                      </RadarChart>
-                    </ResponsiveContainer>
+              <form onSubmit={handleSubmitFeedback}>
+                <CardContent className="space-y-4">
+                  {/* Error alert */}
+                  {error && (
+                    <Alert variant="destructive" className="mb-4">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Error</AlertTitle>
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Student</label>
+                      <Select 
+                        value={newFeedback.studentId} 
+                        onValueChange={(value) => setNewFeedback({...newFeedback, studentId: value})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select student" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {students.map((student) => (
+                            <SelectItem key={student.id} value={student.id}>
+                              {student.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                   </div>
-                </CardContent>
-              </Card>
+                    
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Course</label>
+                      <Select 
+                        value={newFeedback.courseId} 
+                        onValueChange={(value) => setNewFeedback({...newFeedback, courseId: value})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select course" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {courses.map((course) => (
+                            <SelectItem key={course.id} value={course.id}>
+                              {course.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                  </div>
             </div>
             
-            <Card>
-              <CardHeader>
-                <CardTitle>Course Rating Details</CardTitle>
-                <CardDescription>
-                  Comprehensive view of each course's ratings and feedback
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Course</TableHead>
-                      <TableHead>Rating</TableHead>
-                      <TableHead>Students</TableHead>
-                      <TableHead>Semester</TableHead>
-                      <TableHead>Feedback</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {courseRatings.map((course, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="font-medium">{course.course}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center">
-                            <span className="mr-2">{course.rating.toFixed(1)}</span>
-                            <div className="flex">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Star
-                                  key={star}
-                                  className={`h-4 w-4 ${
-                                    star <= Math.round(course.rating)
-                                      ? 'fill-yellow-500 text-yellow-500'
-                                      : 'text-gray-300'
-                                  }`}
-                                />
-                              ))}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Feedback Type</label>
+                    <Select 
+                      value={newFeedback.type} 
+                      onValueChange={(value) => setNewFeedback({
+                        ...newFeedback, 
+                        type: value as 'academic' | 'behavioral' | 'attendance' | 'general'
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="academic">Academic</SelectItem>
+                        <SelectItem value="behavioral">Behavioral</SelectItem>
+                        <SelectItem value="attendance">Attendance</SelectItem>
+                        <SelectItem value="general">General</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Feedback Content</label>
+                    <Textarea 
+                      placeholder="Enter detailed feedback..." 
+                      className="min-h-[120px]"
+                      value={newFeedback.content}
+                      onChange={(e) => setNewFeedback({...newFeedback, content: e.target.value})}
+                    />
                             </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <input 
+                      type="checkbox" 
+                      id="isPrivate" 
+                      className="rounded border-gray-300" 
+                      checked={newFeedback.isPrivate}
+                      onChange={(e) => setNewFeedback({...newFeedback, isPrivate: e.target.checked})}
+                    />
+                    <label htmlFor="isPrivate" className="text-sm text-gray-700">
+                      Make this feedback private (only visible to staff)
+                    </label>
                           </div>
-                        </TableCell>
-                        <TableCell>{course.students}</TableCell>
-                        <TableCell>{course.semester}</TableCell>
-                        <TableCell>
-                          {studentFeedbacks.filter(f => f.course === course.course).length} comments
-                        </TableCell>
-                        <TableCell className="text-right">
+                </CardContent>
+                
+                <CardFooter className="flex justify-between">
                           <Button 
+                    type="button" 
                             variant="outline" 
-                            size="sm"
                             onClick={() => {
-                              setSelectedCourse(course.course);
-                              setActiveTab('feedback');
+                      setActiveTab('list');
+                      setError(null);
                             }}
                           >
-                            View Feedback
+                    Cancel
                           </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
+                  
+                  <Button 
+                    type="submit" 
+                    disabled={submitting}
+                    className="flex items-center gap-2"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Submitting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4" />
+                        <span>Submit Feedback</span>
+                      </>
+                    )}
+                  </Button>
+                </CardFooter>
+              </form>
             </Card>
           </TabsContent>
           
-          <TabsContent value="analytics" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <TabsContent value="stats">
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Average Response Time</CardTitle>
+              <CardHeader>
+                <CardTitle>Feedback Statistics</CardTitle>
+                <CardDescription>
+                  Analyze feedback patterns and performance
+                </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="bg-blue-100 p-3 rounded-full mr-3">
-                        <Mail className="h-6 w-6 text-blue-700" />
-                      </div>
-                      <div>
-                        <div className="text-3xl font-bold">24h</div>
-                        <div className="text-sm text-gray-500">
-                          Average feedback response time
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
               
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Response Rate</CardTitle>
-                </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="bg-green-100 p-3 rounded-full mr-3">
-                        <UserCheck className="h-6 w-6 text-green-700" />
-                      </div>
+                <div className="space-y-6">
+                  {/* Feedback by type */}
                       <div>
-                        <div className="text-3xl font-bold">
-                          {Math.round((studentFeedbacks.filter(f => f.replied).length / studentFeedbacks.length) * 100)}%
+                    <h3 className="text-lg font-medium mb-4">Feedback by Type</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex justify-between mb-1">
+                          <span className="text-sm font-medium">Academic</span>
+                          <span className="text-sm text-gray-500">
+                            {stats ? `${stats.byType.academic} (${Math.round((stats.byType.academic / stats.total) * 100)}%)` : '0 (0%)'}
+                          </span>
                         </div>
-                        <div className="text-sm text-gray-500">
-                          Feedback response rate
-                        </div>
+                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className="bg-purple-500 h-full"
+                            style={{ width: stats ? `${(stats.byType.academic / stats.total) * 100}%` : '0%' }}
+                          ></div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Feedback Volume</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="bg-purple-100 p-3 rounded-full mr-3">
-                        <Calendar className="h-6 w-6 text-purple-700" />
-                      </div>
+                      
                       <div>
-                        <div className="text-3xl font-bold">
-                          {studentFeedbacks.length}
+                        <div className="flex justify-between mb-1">
+                          <span className="text-sm font-medium">Behavioral</span>
+                          <span className="text-sm text-gray-500">
+                            {stats ? `${stats.byType.behavioral} (${Math.round((stats.byType.behavioral / stats.total) * 100)}%)` : '0 (0%)'}
+                          </span>
                         </div>
-                        <div className="text-sm text-gray-500">
-                          Total feedback this semester
+                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className="bg-red-500 h-full"
+                            style={{ width: stats ? `${(stats.byType.behavioral / stats.total) * 100}%` : '0%' }}
+                          ></div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                      
+                      <div>
+                        <div className="flex justify-between mb-1">
+                          <span className="text-sm font-medium">Attendance</span>
+                          <span className="text-sm text-gray-500">
+                            {stats ? `${stats.byType.attendance} (${Math.round((stats.byType.attendance / stats.total) * 100)}%)` : '0 (0%)'}
+                          </span>
+                        </div>
+                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className="bg-blue-500 h-full"
+                            style={{ width: stats ? `${(stats.byType.attendance / stats.total) * 100}%` : '0%' }}
+                          ></div>
+                        </div>
             </div>
             
-            <Card>
-              <CardHeader>
-                <CardTitle>Performance Analysis</CardTitle>
-                <CardDescription>
-                  Detailed breakdown of feedback metrics
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {feedbackMetrics.map((metric, index) => (
-                    <div key={index}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium">{metric.category}</span>
-                        <div className="flex items-center">
-                          <span className="text-xl font-bold mr-2">{metric.score.toFixed(1)}</span>
-                          <span className="text-sm text-gray-500">/ {metric.maxScore.toFixed(1)}</span>
-                          {metric.previousScore && (
-                            <span className={`ml-2 text-xs ${metric.score >= metric.previousScore ? 'text-green-600' : 'text-red-600'}`}>
-                              {metric.score >= metric.previousScore ? '▲' : '▼'} {Math.abs(metric.score - metric.previousScore).toFixed(1)}
+                      <div>
+                        <div className="flex justify-between mb-1">
+                          <span className="text-sm font-medium">General</span>
+                          <span className="text-sm text-gray-500">
+                            {stats ? `${stats.byType.general} (${Math.round((stats.byType.general / stats.total) * 100)}%)` : '0 (0%)'}
                             </span>
-                          )}
                         </div>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                         <div
-                          className="bg-blue-600 h-2.5 rounded-full"
-                          style={{ width: `${(metric.score / metric.maxScore) * 100}%` }}
+                            className="bg-gray-500 h-full"
+                            style={{ width: stats ? `${(stats.byType.general / stats.total) * 100}%` : '0%' }}
                         ></div>
                       </div>
                     </div>
-                  ))}
+                    </div>
                 </div>
                 
-                <Separator className="my-6" />
-                
-                <div className="space-y-3">
-                  <h3 className="font-semibold">Top Positive Comments</h3>
-                  <ul className="space-y-2">
-                    <li className="flex items-start">
-                      <ThumbsUp className="h-4 w-4 text-green-600 mr-2 mt-1" />
-                      <span>"Dr. Turing explains complex concepts in an easy-to-understand way."</span>
-                    </li>
-                    <li className="flex items-start">
-                      <ThumbsUp className="h-4 w-4 text-green-600 mr-2 mt-1" />
-                      <span>"Always available for additional help and guidance."</span>
-                    </li>
-                    <li className="flex items-start">
-                      <ThumbsUp className="h-4 w-4 text-green-600 mr-2 mt-1" />
-                      <span>"The course materials are well-structured and comprehensive."</span>
-                    </li>
-                  </ul>
-                  
-                  <h3 className="font-semibold mt-4">Areas for Improvement</h3>
-                  <ul className="space-y-2">
-                    <li className="flex items-start">
-                      <ThumbsDown className="h-4 w-4 text-amber-600 mr-2 mt-1" />
-                      <span>"Could use more practical examples in lectures."</span>
-                    </li>
-                    <li className="flex items-start">
-                      <ThumbsDown className="h-4 w-4 text-amber-600 mr-2 mt-1" />
-                      <span>"Would benefit from additional office hours."</span>
-                    </li>
-                  </ul>
+                  {/* Feedback by status */}
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Feedback by Status</h3>
+                    <div className="h-36 w-full relative border rounded-lg p-4 flex items-center justify-center">
+                      <div className="text-center text-gray-500">
+                        Status chart visualization would go here
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </div>
-    </DashboardLayout>
+    </TeacherLayout>
   );
-};
+}
+
+export default TeacherFeedbackPage;

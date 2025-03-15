@@ -58,7 +58,7 @@ import TeacherAnalytics from './pages/dashboard/teacher/analytics';
 import TeacherGrades from './pages/dashboard/teacher/grades';
 import TeacherCurriculum from './pages/dashboard/teacher/curriculum';
 import { TeacherSchedule } from './pages/dashboard/teacher/schedule';
-import { TeacherFeedback } from './pages/dashboard/teacher/feedback';
+import { TeacherFeedbackPage } from './pages/dashboard/teacher/feedback';
 import { TeacherReports } from './pages/dashboard/teacher/reports';
 
 // Parent Pages
@@ -267,7 +267,7 @@ function App() {
         <Route path="/dashboard/teacher/grades" element={<PrivateRoute allowedRoles={['teacher']}><TeacherGrades user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/teacher/curriculum" element={<PrivateRoute allowedRoles={['teacher']}><TeacherCurriculum user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/teacher/schedule" element={<PrivateRoute allowedRoles={['teacher']}><TeacherSchedule user={user as UserResponse} /></PrivateRoute>} />
-        <Route path="/dashboard/teacher/feedback" element={<PrivateRoute allowedRoles={['teacher']}><TeacherFeedback user={user as UserResponse} /></PrivateRoute>} />
+        <Route path="/dashboard/teacher/feedback" element={<PrivateRoute allowedRoles={['teacher']}><TeacherFeedbackPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/teacher/reports" element={<PrivateRoute allowedRoles={['teacher']}><TeacherReports user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/teacher/notifications" element={<PrivateRoute allowedRoles={['teacher']}><SharedNotificationsPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/teacher/profile" element={<PrivateRoute allowedRoles={['teacher']}><ProfilePage user={user as UserResponse} /></PrivateRoute>} />

@@ -45,19 +45,131 @@ class StudentService {
    * Get courses for the current student
    */
   async getStudentCourses(filters?: StudentCourseFilters): Promise<Course[]> {
-    const response = await apiClient.get<{ courses: Course[] }>(`${this.basePath}/courses`, filters as Record<string, string>);
-    return response.data.courses || [];
+    console.log('StudentService: Fetching courses with filters:', filters);
+    try {
+      // Create a cleaned filters object without undefined values
+      const cleanedFilters: Record<string, string> = {};
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== 'undefined' && value !== null) {
+            cleanedFilters[key] = value;
+          }
+        });
+      }
+      
+      console.log('StudentService: Using cleaned filters:', cleanedFilters);
+      
+      // Get the raw response with unknown type
+      const response = await apiClient.get<unknown>(`${this.basePath}/courses`, Object.keys(cleanedFilters).length > 0 ? cleanedFilters : undefined);
+      
+      console.log('StudentService: Complete API response structure:', JSON.stringify(response.data));
+      
+      // Check for different possible locations of the courses data
+      let courses: Course[] = [];
+      
+      // Type guard function to check if an object has courses property
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const hasCourses = (obj: any): obj is { courses: Course[] } => 
+        obj && Array.isArray(obj.courses);
+      
+      // Type guard function to check if an object is an array
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const isArray = (obj: any): obj is any[] => Array.isArray(obj);
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = response.data as any;
+      
+      if (data && data.data && hasCourses(data.data)) {
+        // If courses are at response.data.data.courses
+        courses = data.data.courses;
+        console.log('Found courses at response.data.data.courses');
+      } else if (data && data.data && isArray(data.data)) {
+        // If courses are directly at response.data.data
+        courses = data.data;
+        console.log('Found courses at response.data.data (array)');
+      } else if (data && hasCourses(data)) {
+        // If courses are at response.data.courses
+        courses = data.courses;
+        console.log('Found courses at response.data.courses');
+      } else if (isArray(data)) {
+        // If courses are directly in response.data
+        courses = data;
+        console.log('Found courses directly in response.data');
+      }
+      
+      console.log(`StudentService: Found ${courses.length} courses:`, courses);
+      return courses;
+    } catch (error) {
+      console.error('StudentService: Error fetching courses:', error);
+      return [];
+    }
   }
 
   /**
    * Get courses for a specific student (admin/teacher only)
    */
   async getCoursesForStudent(studentId: string, filters?: StudentCourseFilters): Promise<Course[]> {
-    const response = await apiClient.get<{ courses: Course[] }>(
-      `${this.basePath}/${studentId}/courses`, 
-      filters as Record<string, string>
-    );
-    return response.data.courses || [];
+    console.log('StudentService: Fetching courses for student:', studentId);
+    try {
+      // Create a cleaned filters object without undefined values
+      const cleanedFilters: Record<string, string> = {};
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== 'undefined' && value !== null) {
+            cleanedFilters[key] = value;
+          }
+        });
+      }
+      
+      console.log('StudentService: Using cleaned filters for student courses:', cleanedFilters);
+      
+      // Get the raw response with unknown type
+      const response = await apiClient.get<unknown>(
+        `${this.basePath}/${studentId}/courses`, 
+        Object.keys(cleanedFilters).length > 0 ? cleanedFilters : undefined
+      );
+      
+      console.log('StudentService: Complete API response structure:', JSON.stringify(response.data));
+      
+      // Check for different possible locations of the courses data
+      let courses: Course[] = [];
+      
+      // Type guard function to check if an object has courses property
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const hasCourses = (obj: any): obj is { courses: Course[] } => 
+        obj && Array.isArray(obj.courses);
+      
+      // Type guard function to check if an object is an array
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const isArray = (obj: any): obj is any[] => Array.isArray(obj);
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = response.data as any;
+      
+      if (data && data.data && hasCourses(data.data)) {
+        // If courses are at response.data.data.courses
+        courses = data.data.courses;
+        console.log('Found courses at response.data.data.courses');
+      } else if (data && data.data && isArray(data.data)) {
+        // If courses are directly at response.data.data
+        courses = data.data;
+        console.log('Found courses at response.data.data (array)');
+      } else if (data && hasCourses(data)) {
+        // If courses are at response.data.courses
+        courses = data.courses;
+        console.log('Found courses at response.data.courses');
+      } else if (isArray(data)) {
+        // If courses are directly in response.data
+        courses = data;
+        console.log('Found courses directly in response.data');
+      }
+      
+      console.log(`StudentService: Found ${courses.length} courses for student ${studentId}:`, courses);
+      return courses;
+    } catch (error) {
+      console.error('StudentService: Error fetching courses for student:', error);
+      return [];
+    }
   }
 
   /**

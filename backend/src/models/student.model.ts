@@ -210,13 +210,16 @@ export class StudentModel {
   // Get student courses
   static async getStudentCourses(studentId: string, filters?: { status?: string; search?: string }): Promise<any[]> {
     try {
-      if (!checkDbAvailability()) {
-        return mockStudentData.courses;
+      // Instead of falling back to mock data, let's ensure the pool is available
+      // and throw an informative error if it's not
+      if (!pool || !pool.query) {
+        console.error('Database pool is not properly initialized.');
+        throw new Error('Database connection is not available');
       }
 
       let query = `
         SELECT c.id, c.name, c.code, c.description, c.credits, c.startDate, c.endDate, c.status,
-               ce.status as enrollmentStatus, ce.enrolledAt
+               ce.status as enrollmentStatus
         FROM courses c
         JOIN course_enrollments ce ON c.id = ce.courseId
         WHERE ce.studentId = ?
@@ -239,24 +242,34 @@ export class StudentModel {
 
       query += ` ORDER BY c.startDate DESC`;
 
-      const queryAsync = promisify<string, any[], RowDataPacket[]>(pool.query);
-      const [rows] = await queryAsync(query, params);
+      console.log('Executing getStudentCourses query for student:', studentId);
+      
+      // Use the pool directly instead of promisifying
+      const [rows] = await pool.query<RowDataPacket[]>(query, params);
+      
+      console.log(`Found ${rows.length} real courses for student ${studentId}`);
+
+      if (rows.length === 0) {
+        console.log('No courses found in database, returning empty array');
+        return [];
+      }
 
       return rows.map((row: RowDataPacket) => ({
         id: row.id.toString(),
         name: row.name,
         code: row.code,
         description: row.description,
-        credits: row.credits,
-        startDate: new Date(row.startDate),
-        endDate: new Date(row.endDate),
+        credits: row.credits || 0,
+        startDate: row.startDate ? new Date(row.startDate) : new Date(),
+        endDate: row.endDate ? new Date(row.endDate) : new Date(),
         status: row.status,
-        enrollmentStatus: row.enrollmentStatus,
-        enrolledAt: new Date(row.enrolledAt)
+        enrollmentStatus: row.enrollmentStatus
       }));
     } catch (error) {
       console.error('Error getting student courses:', error);
-      return mockStudentData.courses;
+      // Instead of returning mock data, throw the error or return an empty array
+      console.log('Returning empty array instead of mock data');
+      return [];
     }
   }
 

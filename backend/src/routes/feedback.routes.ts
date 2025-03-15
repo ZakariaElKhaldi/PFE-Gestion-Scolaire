@@ -21,4 +21,12 @@ router.post('/:feedbackId/respond', authorize(['teacher', 'admin']), feedbackCon
 router.get('/course/:courseId', feedbackController.getCourseFeedback as RequestHandler);
 router.get('/course/:courseId/stats', feedbackController.getCourseFeedbackStats as RequestHandler);
 
+// Log all registered routes for debugging purposes
+console.log('Feedback routes registered:');
+router.stack.forEach((r) => {
+  if (r.route && r.route.path) {
+    console.log(`- ${r.route.stack[0].method.toUpperCase()} /api/feedback${r.route.path}`);
+  }
+});
+
 export default router; 
