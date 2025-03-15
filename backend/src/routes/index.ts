@@ -11,6 +11,7 @@ import materialRoutes from './material.routes';
 import feedbackRoutes from './feedback.routes';
 import certificateRoutes from './certificate.routes';
 import teacherRoutes from './teacher.routes';
+import parentRoutes from './parent.routes';
 
 const router = Router();
 
@@ -49,5 +50,8 @@ router.use('/certificates', certificateRoutes);
 
 // Teacher routes
 router.use('/teachers', teacherRoutes);
+
+// Parent routes
+router.use('/parent', parentRoutes);
 
 export default router; 

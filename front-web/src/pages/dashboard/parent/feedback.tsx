@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UserResponse } from "../../../types/auth";
 import { DashboardLayout } from "../../../components/dashboard/layout/dashboard-layout";
 import { Search, ThumbsUp, ThumbsDown, MessageCircle, ChevronLeft, ChevronRight, BarChart2 } from "lucide-react";
@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+import { parentService } from "../../../services/parent-service";
+import { toast } from "react-hot-toast";
 
 
 interface ParentFeedbackProps {
@@ -28,6 +30,7 @@ interface TeacherFeedback {
   sentiment: "positive" | "negative" | "neutral";
   comment: string;
   recommendations?: string;
+  isRead?: boolean;
 }
 
 interface FeedbackStats {
@@ -46,32 +49,149 @@ export default function ParentFeedback({ user }: ParentFeedbackProps) {
   const [selectedType, setSelectedType] = useState<TeacherFeedback["type"] | "all">("all");
   const [selectedSentiment, setSelectedSentiment] = useState<TeacherFeedback["sentiment"] | "all">("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [feedbackData, setFeedbackData] = useState<TeacherFeedback[]>([]);
+  const [selectedFeedback, setSelectedFeedback] = useState<TeacherFeedback | null>(null);
+  const [feedbackResponses, setFeedbackResponses] = useState<any[]>([]);
+  const [responseText, setResponseText] = useState("");
+  const [children, setChildren] = useState<any[]>([]);
   const itemsPerPage = 5;
 
-  // Mock data for children
-  const children = [
-    { id: "1", name: "John Smith" },
-    { id: "2", name: "Emma Smith" }
-  ];
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // First, get the children list
+        const childrenResponse = await parentService.getChildren();
+        setChildren(childrenResponse);
 
-  // Mock feedback data
-  const feedbackData: TeacherFeedback[] = [
-    {
-      id: "1",
-      studentId: "1",
-      studentName: "John Smith",
-      teacherId: "t1",
-      teacherName: "Mr. Anderson",
-      courseId: "c1",
-      courseName: "Mathematics",
-      date: "2024-03-08",
-      type: "academic",
-      sentiment: "positive",
-      comment: "John has shown significant improvement in problem-solving skills.",
-      recommendations: "Continue practicing complex word problems."
-    },
-    // ... more mock data ...
-  ];
+        // Then get feedback
+        const feedback = await parentService.getFeedback();
+        // Cast the feedback data to the correct type
+        setFeedbackData(feedback as unknown as TeacherFeedback[]);
+      } catch (err) {
+        console.error("Failed to fetch feedback data:", err);
+        setError("Failed to load feedback data. Please try again later.");
+        toast.error("Error loading feedback");
+        
+        // Mock data for children if API fails
+        setChildren([
+          { id: "1", name: "John Smith" },
+          { id: "2", name: "Emma Smith" }
+        ]);
+
+        // Mock feedback data if API fails
+        setFeedbackData([
+          {
+            id: "1",
+            studentId: "1",
+            studentName: "John Smith",
+            teacherId: "t1",
+            teacherName: "Mr. Anderson",
+            courseId: "c1",
+            courseName: "Mathematics",
+            date: "2024-03-08",
+            type: "academic",
+            sentiment: "positive",
+            comment: "John has shown significant improvement in problem-solving skills.",
+            recommendations: "Continue practicing complex word problems."
+          },
+          {
+            id: "2",
+            studentId: "2",
+            studentName: "Emma Smith",
+            teacherId: "t2",
+            teacherName: "Ms. Johnson",
+            courseId: "c2",
+            courseName: "English",
+            date: "2024-03-07",
+            type: "behavioral",
+            sentiment: "negative",
+            comment: "Emma has been disruptive in class this week.",
+            recommendations: "Please discuss classroom behavior at home."
+          },
+          {
+            id: "3",
+            studentId: "1",
+            studentName: "John Smith",
+            teacherId: "t3",
+            teacherName: "Mr. Williams",
+            courseId: "c3",
+            courseName: "Science",
+            date: "2024-03-05",
+            type: "general",
+            sentiment: "neutral",
+            comment: "John participated in the science fair project.",
+            recommendations: "Consider joining the science club."
+          }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const handleViewResponses = async (feedback: TeacherFeedback) => {
+    setSelectedFeedback(feedback);
+    setLoading(true);
+    try {
+      const responses = await parentService.getFeedbackResponses(feedback.id);
+      setFeedbackResponses(responses);
+    } catch (err) {
+      console.error("Failed to fetch feedback responses:", err);
+      toast.error("Error loading responses");
+      setFeedbackResponses([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendResponse = async () => {
+    if (!selectedFeedback || !responseText.trim()) {
+      toast.error("Please enter a response");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await parentService.respondToFeedback(selectedFeedback.id, { message: responseText });
+      toast.success("Response sent successfully");
+      setResponseText("");
+      
+      // Refresh responses
+      const responses = await parentService.getFeedbackResponses(selectedFeedback.id);
+      setFeedbackResponses(responses);
+    } catch (err) {
+      console.error("Failed to send response:", err);
+      toast.error("Failed to send response");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMarkAsRead = async (feedbackId: string) => {
+    setLoading(true);
+    try {
+      await parentService.markFeedbackAsRead(feedbackId);
+      toast.success("Marked as read");
+      
+      // Update local state
+      setFeedbackData(prevData => 
+        prevData.map(item => 
+          item.id === feedbackId ? { ...item, isRead: true } : item
+        )
+      );
+    } catch (err) {
+      console.error("Failed to mark feedback as read:", err);
+      toast.error("Failed to update status");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Calculate feedback statistics
   const calculateStats = (feedback: TeacherFeedback[]): FeedbackStats => {
@@ -138,9 +258,25 @@ export default function ParentFeedback({ user }: ParentFeedbackProps) {
     }
   };
 
+  if (loading && !feedbackData.length) {
+    return (
+      <DashboardLayout user={user}>
+        <div className="p-6 flex justify-center items-center h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout user={user}>
       <div className="p-6 space-y-6">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+            {error}
+          </div>
+        )}
+
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold">Student Feedback</h1>
@@ -438,7 +574,78 @@ export default function ParentFeedback({ user }: ParentFeedbackProps) {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Add response modal */}
+        {selectedFeedback && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-xl w-full max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Feedback Details</h2>
+                <button 
+                  onClick={() => setSelectedFeedback(null)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  &times;
+                </button>
+              </div>
+              
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="font-medium">{selectedFeedback.studentName}</h3>
+                  <span className="text-gray-400">•</span>
+                  <span className="text-sm text-gray-500">{selectedFeedback.courseName}</span>
+                </div>
+                <p className="text-sm text-gray-500 mb-2">
+                  {selectedFeedback.teacherName} • {format(new Date(selectedFeedback.date), "MMM d, yyyy")}
+                </p>
+                <p className="mb-2">{selectedFeedback.comment}</p>
+                {selectedFeedback.recommendations && (
+                  <div className="mt-2">
+                    <p className="text-sm font-medium">Recommendations:</p>
+                    <p className="text-sm">{selectedFeedback.recommendations}</p>
+                  </div>
+                )}
+              </div>
+              
+              <h3 className="font-medium mb-2">Responses</h3>
+              <div className="space-y-3 mb-4">
+                {feedbackResponses.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No responses yet</p>
+                ) : (
+                  feedbackResponses.map(response => (
+                    <div key={response.id} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex justify-between items-center mb-1">
+                        <p className="font-medium text-sm">{response.senderName}</p>
+                        <p className="text-xs text-gray-500">{format(new Date(response.date), "MMM d, yyyy")}</p>
+                      </div>
+                      <p className="text-sm">{response.message}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <label className="block text-sm font-medium">Your Response</label>
+                <textarea 
+                  className="w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  rows={3}
+                  value={responseText}
+                  onChange={(e) => setResponseText(e.target.value)}
+                  placeholder="Type your response here..."
+                ></textarea>
+                <div className="flex justify-end">
+                  <Button 
+                    onClick={handleSendResponse} 
+                    disabled={loading || !responseText.trim()}
+                  >
+                    {loading ? "Sending..." : "Send Response"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );
-};
+}

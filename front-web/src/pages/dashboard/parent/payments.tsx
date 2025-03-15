@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User } from "../../../types/auth";
 import { DashboardLayout } from "../../../components/dashboard/layout/dashboard-layout";
 import { CreditCard, Download, Search, DollarSign, Calendar, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import { format } from "date-fns";
+import { parentService } from "../../../services/parent-service";
+import { toast } from "react-hot-toast";
 
 interface ParentPaymentsProps {
   user: User;
@@ -32,68 +34,115 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
   const [selectedStudent, setSelectedStudent] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [selectedPayment, setSelectedPayment] = useState<any>(null);
+  const [paymentAmount, setPaymentAmount] = useState<string>("");
+  const [paymentMethod, setPaymentMethod] = useState<string>("credit_card");
 
-  // Mock student data
-  const students: Student[] = [
-    {
-      id: "s1",
-      name: "John Smith",
-      grade: "10th Grade",
-      balance: 1500,
-      tuition: 5000,
-      dueDate: "2025-03-15"
-    },
-    {
-      id: "s2",
-      name: "Emma Johnson",
-      grade: "8th Grade",
-      balance: 750,
-      tuition: 4500,
-      dueDate: "2025-03-15"
-    }
-  ];
+  useEffect(() => {
+    // Fetch children data when component mounts
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Fetch payments from the backend
+        const paymentsData = await parentService.getPayments();
+        setPayments(paymentsData);
+        
+        // Get children information (we would normally have this from another API call)
+        // This is mock data for now
+        const childrenData = paymentsData.reduce((acc: any, payment: any) => {
+          if (!acc.find((s: any) => s.id === payment.studentId)) {
+            acc.push({
+              id: payment.studentId,
+              name: payment.studentName,
+              grade: payment.grade || "Not specified",
+              balance: payment.balance || 0,
+              tuition: payment.amount || 0,
+              dueDate: payment.dueDate || new Date().toISOString()
+            });
+          }
+          return acc;
+        }, []);
+        
+        setStudents(childrenData);
+      } catch (err: any) {
+        console.error("Failed to fetch payments:", err);
+        setError("Failed to load payment data. Please try again later.");
+        toast.error("Error loading payments");
+        
+        // Fallback to mock data
+        setStudents([
+          {
+            id: "s1",
+            name: "John Smith",
+            grade: "10th Grade",
+            balance: 1500,
+            tuition: 5000,
+            dueDate: "2025-03-15"
+          },
+          {
+            id: "s2",
+            name: "Emma Johnson",
+            grade: "8th Grade",
+            balance: 750,
+            tuition: 4500,
+            dueDate: "2025-03-15"
+          }
+        ]);
+        
+        setPayments([
+          {
+            id: "p1",
+            studentId: "s1",
+            studentName: "John Smith",
+            amount: 500,
+            date: "2025-03-01",
+            status: "completed",
+            type: "tuition",
+            description: "March Tuition Payment",
+            reference: "TUI-2025-001"
+          },
+          {
+            id: "p2",
+            studentId: "s2",
+            studentName: "Emma Johnson",
+            amount: 250,
+            date: "2025-03-02",
+            status: "completed",
+            type: "fees",
+            description: "Lab Fees",
+            reference: "FEE-2025-001"
+          },
+          {
+            id: "p3",
+            studentId: "s1",
+            studentName: "John Smith",
+            amount: 1000,
+            date: "2025-02-15",
+            status: "completed",
+            type: "tuition",
+            description: "February Tuition Payment",
+            reference: "TUI-2025-002"
+          }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Mock payment history
-  const payments: Payment[] = [
-    {
-      id: "p1",
-      studentId: "s1",
-      amount: 500,
-      date: "2025-03-01",
-      status: "completed",
-      type: "tuition",
-      description: "March Tuition Payment",
-      reference: "TUI-2025-001"
-    },
-    {
-      id: "p2",
-      studentId: "s2",
-      amount: 250,
-      date: "2025-03-02",
-      status: "completed",
-      type: "fees",
-      description: "Lab Fees",
-      reference: "FEE-2025-001"
-    },
-    {
-      id: "p3",
-      studentId: "s1",
-      amount: 1000,
-      date: "2025-02-15",
-      status: "completed",
-      type: "tuition",
-      description: "February Tuition Payment",
-      reference: "TUI-2025-002"
-    }
-  ];
+    fetchData();
+  }, []);
 
   const filteredPayments = payments.filter(payment => {
     const matchesStudent = selectedStudent === "all" || payment.studentId === selectedStudent;
-    const student = students.find(s => s.id === payment.studentId);
     const matchesSearch = 
-      student?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      payment.reference.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      payment.description.toLowerCase().includes(searchQuery.toLowerCase());
+      payment.studentName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      payment.reference?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      payment.description?.toLowerCase().includes(searchQuery.toLowerCase());
     
     return matchesStudent && matchesSearch;
   });
@@ -111,19 +160,69 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
     }
   };
 
-  const handleMakePayment = () => {
+  const handleMakePayment = (payment?: any) => {
+    if (payment) {
+      setSelectedPayment(payment);
+      setPaymentAmount(payment.balance?.toString() || "");
+    } else {
+      setSelectedPayment(null);
+      setPaymentAmount("");
+    }
     setShowPaymentForm(true);
   };
 
   const handleDownloadReport = () => {
     // In a real application, this would generate and download a PDF report
     console.log("Downloading payment report");
-    alert("Payment report would be downloaded in a real application.");
+    toast.success("Generating payment report...");
   };
+
+  const handleProcessPayment = async () => {
+    if (!selectedPayment || !paymentAmount || !paymentMethod) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await parentService.makePayment(selectedPayment.id, {
+        amount: parseFloat(paymentAmount),
+        paymentMethod
+      });
+      
+      toast.success("Payment processed successfully");
+      setShowPaymentForm(false);
+      
+      // Refresh payments data
+      const updatedPayments = await parentService.getPayments();
+      setPayments(updatedPayments);
+    } catch (err) {
+      console.error("Payment processing failed:", err);
+      toast.error("Payment processing failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading && !payments.length) {
+    return (
+      <DashboardLayout user={user}>
+        <div className="p-6 flex justify-center items-center h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout user={user}>
       <div className="p-6 space-y-6">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+            {error}
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Payments & Billing</h1>
@@ -133,7 +232,7 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={handleMakePayment}
+              onClick={() => handleMakePayment()}
               className="flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
             >
               <CreditCard className="h-4 w-4" />
@@ -233,61 +332,119 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Payment History</h2>
           <div className="space-y-4">
-            {filteredPayments.map((payment) => {
-              const student = students.find(s => s.id === payment.studentId);
-              return (
-                <div key={payment.id} className="rounded-lg border bg-white p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className={`rounded-lg p-3 ${getStatusColor(payment.status)}`}>
-                        {payment.status === "completed" ? (
-                          <CheckCircle className="h-5 w-5" />
-                        ) : payment.status === "pending" ? (
-                          <Clock className="h-5 w-5" />
-                        ) : (
-                          <AlertCircle className="h-5 w-5" />
-                        )}
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-gray-900">{payment.description}</h3>
-                        <div className="mt-1 flex items-center gap-4 text-sm text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            {format(new Date(payment.date), "MMM d, yyyy")}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <DollarSign className="h-4 w-4" />
-                            ${payment.amount.toFixed(2)}
-                          </span>
-                          {student && (
-                            <span className="text-gray-500">
-                              {student.name}
-                            </span>
+            {filteredPayments.length === 0 ? (
+              <div className="bg-gray-50 rounded-lg p-8 text-center">
+                <p className="text-gray-500">No payment records found.</p>
+              </div>
+            ) : (
+              filteredPayments.map((payment) => {
+                const student = students.find(s => s.id === payment.studentId);
+                return (
+                  <div key={payment.id} className="rounded-lg border bg-white p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className={`rounded-lg p-3 ${getStatusColor(payment.status)}`}>
+                          {payment.status === "completed" ? (
+                            <CheckCircle className="h-5 w-5" />
+                          ) : payment.status === "pending" ? (
+                            <Clock className="h-5 w-5" />
+                          ) : (
+                            <AlertCircle className="h-5 w-5" />
                           )}
                         </div>
-                        <p className="mt-1 text-sm text-gray-600">
-                          Reference: {payment.reference}
-                        </p>
+                        <div>
+                          <h3 className="font-medium text-gray-900">{payment.description}</h3>
+                          <div className="mt-1 flex items-center gap-4 text-sm text-gray-500">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-4 w-4" />
+                              {format(new Date(payment.date), "MMM d, yyyy")}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <DollarSign className="h-4 w-4" />
+                              ${payment.amount.toFixed(2)}
+                            </span>
+                            {payment.studentName && (
+                              <span className="text-gray-500">
+                                {payment.studentName}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-sm text-gray-600">
+                            Reference: {payment.reference}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded-full px-3 py-1 text-sm font-medium ${getStatusColor(payment.status)}`}>
+                          {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                        </span>
+                        {payment.status === "pending" && (
+                          <button
+                            onClick={() => handleMakePayment(payment)}
+                            className="ml-2 rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+                          >
+                            Pay Now
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`rounded-full px-3 py-1 text-sm font-medium ${getStatusColor(payment.status)}`}>
-                        {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
-                      </span>
-                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 
         {/* Payment Form Modal */}
         {showPaymentForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 max-w-md w-full">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Make a Payment</h2>
-              {/* Payment form would go here */}
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                {selectedPayment ? `Pay ${selectedPayment.description}` : "Make a Payment"}
+              </h2>
+              
+              <div className="space-y-4">
+                {!selectedPayment && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Student</label>
+                    <select
+                      className="w-full rounded-lg border border-gray-300 py-2 px-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      {students.map(student => (
+                        <option key={student.id} value={student.id}>{student.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-gray-500">$</span>
+                    <input
+                      type="text"
+                      className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="0.00"
+                      value={paymentAmount}
+                      onChange={(e) => setPaymentAmount(e.target.value.replace(/[^0-9.]/g, ''))}
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                  <select
+                    className="w-full rounded-lg border border-gray-300 py-2 px-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  >
+                    <option value="credit_card">Credit Card</option>
+                    <option value="debit_card">Debit Card</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                  </select>
+                </div>
+              </div>
+              
               <div className="flex justify-end gap-2 mt-6">
                 <button
                   onClick={() => setShowPaymentForm(false)}
@@ -296,13 +453,11 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
-                    alert("Payment processing would happen here");
-                    setShowPaymentForm(false);
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+                  onClick={handleProcessPayment}
+                  disabled={loading}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Process Payment
+                  {loading ? "Processing..." : "Process Payment"}
                 </button>
               </div>
             </div>
