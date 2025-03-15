@@ -416,6 +416,80 @@ interface FeedbackResponse {
   isRead: boolean;
 }
 
+// Helper to check online status and log appropriately
+const checkOnlineStatus = (context: string): boolean => {
+  const isOnline = navigator.onLine;
+  if (!isOnline) {
+    console.error(`[PARENT-SERVICE] ${context} - Browser is offline. Using fallback data.`);
+  }
+  return isOnline;
+};
+
+/**
+ * Helper function for consistent error logging and handling
+ * @param context The method or operation where error occurred
+ * @param error The error object
+ * @param fallback Optional fallback data to return
+ */
+const handleApiError = <T>(context: string, error: any, fallback?: T): T => {
+  // Log detailed error information to console for debugging
+  console.error(`[PARENT-SERVICE] ${context} - API Error:`, error);
+  
+  // Log specific error details if available
+  if (error.response) {
+    console.error(`[PARENT-SERVICE] ${context} - Status:`, error.response.status);
+    console.error(`[PARENT-SERVICE] ${context} - Response Data:`, error.response.data);
+  } else if (error.request) {
+    console.error(`[PARENT-SERVICE] ${context} - No Response:`, error.request);
+  } else {
+    console.error(`[PARENT-SERVICE] ${context} - Error Message:`, error.message);
+  }
+  
+  // Additional context about the error
+  console.error(`[PARENT-SERVICE] ${context} - Using fallback data:`, !!fallback);
+  
+  // Re-throw if no fallback provided, otherwise return fallback data
+  if (fallback === undefined) {
+    throw error;
+  }
+  
+  return fallback as T;
+};
+
+// Enhanced error handler for network connection issues
+const handleNetworkError = <T>(context: string, error: any, fallback?: T): T => {
+  console.error(`[PARENT-SERVICE] ${context} - Network connection error:`, error);
+  
+  // Check if it's a network connectivity issue
+  if (error.message && (
+    error.message.includes('Network Error') || 
+    error.message.includes('Failed to fetch') ||
+    error.message.includes('Network request failed')
+  )) {
+    console.error(`[PARENT-SERVICE] ${context} - This appears to be a network connectivity issue. The server might be down or unreachable.`);
+  }
+  
+  // Check for CORS issues
+  if (error.message && error.message.includes('CORS')) {
+    console.error(`[PARENT-SERVICE] ${context} - This appears to be a CORS issue. Check server CORS configuration.`);
+  }
+  
+  // Log URL that failed if available
+  if (error.config && error.config.url) {
+    console.error(`[PARENT-SERVICE] ${context} - Failed request URL:`, error.config.url);
+  }
+  
+  // Additional context about the error
+  console.error(`[PARENT-SERVICE] ${context} - Using fallback data:`, !!fallback);
+  
+  // Re-throw if no fallback provided, otherwise return fallback data
+  if (fallback === undefined) {
+    throw error;
+  }
+  
+  return fallback as T;
+};
+
 /**
  * Parent Service for managing parent-related operations
  */
@@ -423,139 +497,82 @@ export const parentService = {
   /**
    * Get all children of the parent
    */
-  getChildren: async (): Promise<Child[]> => {
+  async getChildren() {
+    console.log('[PARENT-SERVICE] getChildren - Fetching children');
     try {
-      const { data } = await axios.get<ApiResponse<Child[]>>('/api/parent/children');
-      return data.data;
-    } catch (error) {
-      console.error('Error fetching children:', error);
-      // Fallback to mock data if API fails
-      await delay(800);
-      return [...MOCK_CHILDREN];
+      // Check online status first
+      if (!checkOnlineStatus('getChildren')) {
+        return MOCK_CHILDREN;
+      }
+      
+      const response = await axios.get('/api/parent/children');
+      console.log('[PARENT-SERVICE] getChildren - Success:', response.data.data);
+      return response.data.data;
+    } catch (error: any) {
+      return handleApiError('getChildren', error, MOCK_CHILDREN);
     }
   },
   
   /**
    * Get monitoring data for a specific child
    */
-  getChildMonitoringData: async (childId: string): Promise<ChildMonitoringData> => {
+  async getChildMonitoringData(childId: string): Promise<ChildMonitoringData> {
+    console.log('[PARENT-SERVICE] getChildMonitoringData - Fetching for child:', childId);
     try {
       const { data } = await axios.get<ApiResponse<ChildMonitoringData>>(`/api/parent/child/${childId}/monitoring`);
+      console.log('[PARENT-SERVICE] getChildMonitoringData - Success');
       return data.data;
     } catch (error) {
-      console.error(`Error fetching monitoring data for child ${childId}:`, error);
-      // Fallback to mock data if API fails
-      await delay(1200);
-      
-      const data = MOCK_MONITORING_DATA[childId];
-      
-      if (!data) {
-        throw new Error('Child not found');
-      }
-      
-      return data;
+      return handleApiError('getChildMonitoringData', error, MOCK_MONITORING_DATA[childId] || MOCK_MONITORING_DATA['1']);
     }
   },
 
   /**
    * Get attendance records for all children of the parent
    */
-  getChildrenAttendance: async (filters?: {
+  async getChildrenAttendance(filters?: {
     startDate?: string;
     endDate?: string;
     courseId?: string;
     status?: 'present' | 'absent' | 'late' | 'excused';
-  }): Promise<AttendanceRecord[]> => {
+  }): Promise<AttendanceRecord[]> {
+    console.log('[PARENT-SERVICE] getChildrenAttendance - Fetching attendance with options:', filters);
     try {
       const { data } = await axios.get<ApiResponse<AttendanceRecord[]>>('/api/parent/children/attendance', { 
         params: filters
       });
+      console.log('[PARENT-SERVICE] getChildrenAttendance - Success:', data.data.length, 'records');
       return data.data;
     } catch (error) {
-      console.error('Error fetching children attendance:', error);
-      // Fallback to mock data if API fails
-      await delay(800);
-      
-      // Return mock data for now
-      return [
-        {
-          id: "a1",
-          studentId: "1",
-          studentName: "Emma Johnson",
-          date: "2023-03-01",
-          courseId: "c1",
-          courseName: "Mathematics 101",
-          status: "present",
-          timeIn: "09:00",
-          timeOut: "10:30",
-          notes: "Active participation in class"
-        },
-        {
-          id: "a2",
-          studentId: "1",
-          studentName: "Emma Johnson",
-          date: "2023-03-02",
-          courseId: "c2",
-          courseName: "Physics 201",
-          status: "late",
-          timeIn: "10:15",
-          timeOut: "11:45",
-          notes: "Arrived 15 minutes late"
-        },
-        {
-          id: "a3",
-          studentId: "2",
-          studentName: "Noah Johnson",
-          date: "2023-03-01",
-          courseId: "c1",
-          courseName: "Mathematics 101",
-          status: "present",
-          timeIn: "09:00",
-          timeOut: "10:30"
-        },
-        {
-          id: "a4",
-          studentId: "2",
-          studentName: "Noah Johnson",
-          date: "2023-03-02",
-          courseId: "c2",
-          courseName: "Physics 201",
-          status: "absent",
-          notes: "Medical appointment"
-        }
-      ];
+      return handleApiError('getChildrenAttendance', error, []);
     }
   },
   
   /**
    * Get attendance records for a specific child
    */
-  getChildAttendance: async (childId: string, filters?: {
+  async getChildAttendance(childId: string, filters?: {
     startDate?: string;
     endDate?: string;
     courseId?: string;
     status?: 'present' | 'absent' | 'late' | 'excused';
-  }): Promise<AttendanceRecord[]> => {
+  }): Promise<AttendanceRecord[]> {
+    console.log('[PARENT-SERVICE] getChildAttendance - Fetching attendance for child:', childId, 'with options:', filters);
     try {
       const { data } = await axios.get<ApiResponse<AttendanceRecord[]>>(`/api/parent/child/${childId}/attendance`, { 
         params: filters
       });
+      console.log('[PARENT-SERVICE] getChildAttendance - Success:', data.data.length, 'records');
       return data.data;
     } catch (error) {
-      console.error(`Error fetching attendance for child ${childId}:`, error);
-      // Fallback to mock data if API fails
-      await delay(800);
-      
-      // Return filtered mock data for now
-      const allRecords = await parentService.getChildrenAttendance();
-      return allRecords.filter(record => record.studentId === childId);
+      return handleApiError('getChildAttendance', error, []);
     }
   },
   
   /**
    * Get attendance statistics for all children of the parent
    */
-  getChildrenAttendanceStats: async (): Promise<{
+  async getChildrenAttendanceStats(): Promise<{
     childId: string;
     childName: string;
     stats: {
@@ -566,7 +583,8 @@ export const parentService = {
       excusedCount: number;
       attendanceRate: number;
     }
-  }[]> => {
+  }[]> {
+    console.log('[PARENT-SERVICE] getChildrenAttendanceStats - Fetching stats');
     try {
       const { data } = await axios.get<ApiResponse<{
         childId: string;
@@ -580,116 +598,38 @@ export const parentService = {
           attendanceRate: number;
         }
       }[]>>('/api/parent/children/attendance/stats');
+      console.log('[PARENT-SERVICE] getChildrenAttendanceStats - Success:', data.data);
       return data.data;
     } catch (error) {
-      console.error('Error fetching children attendance statistics:', error);
-      // Fallback to mock data if API fails
-      await delay(1000);
-      
-      // Get all children
-      const children = await parentService.getChildren();
-      
-      // Get all attendance records
-      const attendanceRecords = await parentService.getChildrenAttendance();
-      
-      // Calculate statistics for each child
-      return children.map(child => {
-        const childRecords = attendanceRecords.filter(record => record.studentId === child.id);
-        const totalClasses = childRecords.length;
-        const presentCount = childRecords.filter(r => r.status === "present").length;
-        const absentCount = childRecords.filter(r => r.status === "absent").length;
-        const lateCount = childRecords.filter(r => r.status === "late").length;
-        const excusedCount = childRecords.filter(r => r.status === "excused").length;
-        
-        return {
-          childId: child.id,
-          childName: child.name,
-          stats: {
-            totalClasses,
-            presentCount,
-            absentCount,
-            lateCount,
-            excusedCount,
-            attendanceRate: totalClasses > 0 ? Math.round((presentCount / totalClasses) * 100) : 0
-          }
-        };
-      });
+      return handleApiError('getChildrenAttendanceStats', error, []);
     }
   },
 
   /**
    * Get payment information for all children of the parent
    */
-  getPayments: async (filters?: {
+  async getPayments(filters?: {
     startDate?: string;
     endDate?: string;
     status?: 'paid' | 'pending' | 'overdue';
     childId?: string;
-  }): Promise<Payment[]> => {
+  }): Promise<Payment[]> {
+    console.log('[PARENT-SERVICE] getPayments - Fetching with options:', filters);
     try {
       const { data } = await axios.get<ApiResponse<Payment[]>>('/api/parent/payments', { 
         params: filters
       });
+      console.log('[PARENT-SERVICE] getPayments - Success:', data.data.length, 'payments');
       return data.data;
     } catch (error) {
-      console.error('Error fetching payments:', error);
-      // Fallback to mock data if API fails
-      await delay(800);
-      
-      // Return mock data for now
-      return [
-        {
-          id: "p1",
-          childId: "1",
-          childName: "Emma Johnson",
-          description: "School Fees - Term 1",
-          amount: 500,
-          dueDate: "2023-03-15",
-          status: "paid",
-          transactionId: "tx-12345",
-          paymentDate: "2023-03-10",
-          paymentMethod: "Credit Card",
-          invoiceUrl: "/documents/invoices/inv-12345.pdf"
-        },
-        {
-          id: "p2",
-          childId: "1",
-          childName: "Emma Johnson",
-          description: "Field Trip - Science Museum",
-          amount: 45,
-          dueDate: "2023-04-05",
-          status: "pending"
-        },
-        {
-          id: "p3",
-          childId: "2",
-          childName: "Noah Johnson",
-          description: "School Fees - Term 1",
-          amount: 500,
-          dueDate: "2023-03-15",
-          status: "paid",
-          transactionId: "tx-12346",
-          paymentDate: "2023-03-14",
-          paymentMethod: "Bank Transfer",
-          invoiceUrl: "/documents/invoices/inv-12346.pdf"
-        },
-        {
-          id: "p4",
-          childId: "2",
-          childName: "Noah Johnson",
-          description: "Art Supplies",
-          amount: 30,
-          dueDate: "2023-02-28",
-          status: "overdue"
-        }
-      ];
+      return handleApiError('getPayments', error, []);
     }
   },
 
   /**
    * Pay for a specific payment
    */
-  makePayment: async (paymentId: string, paymentDetails: {
+  async makePayment(paymentId: string, paymentDetails: {
     amount: number;
     paymentMethod: string;
   }): Promise<{
@@ -697,7 +637,8 @@ export const parentService = {
     transactionId?: string;
     paymentDate?: string;
     message: string;
-  }> => {
+  }> {
+    console.log('[PARENT-SERVICE] makePayment - Making payment for:', paymentId, 'with details:', paymentDetails);
     try {
       const { data } = await axios.post<ApiResponse<{
         success: boolean;
@@ -705,63 +646,98 @@ export const parentService = {
         paymentDate?: string;
         message: string;
       }>>(`/api/parent/payments/${paymentId}/pay`, paymentDetails);
+      console.log('[PARENT-SERVICE] makePayment - Success:', data);
       return data.data;
     } catch (error) {
-      console.error(`Error making payment for ${paymentId}:`, error);
-      // Simulate payment processing
-      await delay(1500);
-      
-      // Simulate payment success
-      return {
-        success: true,
-        transactionId: `tx-${Math.floor(Math.random() * 100000)}`,
-        paymentDate: new Date().toISOString(),
-        message: 'Payment processed successfully'
-      };
+      return handleApiError('makePayment', error);
     }
   },
 
   /**
    * Get documents for children of the parent
    */
-  getDocuments: async (filters?: {
+  async getDocuments(filters?: {
     childId?: string;
     type?: string;
     startDate?: string;
     endDate?: string;
-  }): Promise<Document[]> => {
+  }): Promise<Document[]> {
+    console.log('[PARENT-SERVICE] getDocuments - Fetching with options:', filters);
     try {
+      // Check online status first
+      if (!checkOnlineStatus('getDocuments')) {
+        return [
+          {
+            id: "d1",
+            childId: "1",
+            childName: "Emma Johnson",
+            title: "Report Card - Q1",
+            type: "report_card",
+            uploadDate: "2023-11-15",
+            size: 1250000,
+            fileUrl: "/mock/reports/report-q1.pdf",
+            isNew: false,
+            requiresSignature: true,
+            signatureStatus: "signed"
+          },
+          {
+            id: "d2",
+            childId: "1",
+            childName: "Emma Johnson",
+            title: "Field Trip Permission Slip",
+            type: "permission_slip",
+            uploadDate: "2023-12-01",
+            size: 850000,
+            fileUrl: "/mock/forms/field-trip.pdf",
+            isNew: true,
+            requiresSignature: true,
+            signatureStatus: "pending"
+          },
+          {
+            id: "d3",
+            childId: "2",
+            childName: "Noah Johnson",
+            title: "School Newsletter - December",
+            type: "newsletter",
+            uploadDate: "2023-12-05",
+            size: 2500000,
+            fileUrl: "/mock/newsletter/dec-2023.pdf",
+            isNew: true,
+            requiresSignature: false
+          }
+        ];
+      }
+      
       const { data } = await axios.get<ApiResponse<Document[]>>('/api/parent/documents', { 
         params: filters
       });
+      console.log('[PARENT-SERVICE] getDocuments - Success:', data.data.length, 'documents');
       return data.data;
-    } catch (error) {
-      console.error('Error fetching documents:', error);
-      // Fallback to mock data if API fails
-      await delay(800);
-      
-      // Return mock data for now
-      return [
+    } catch (error: any) {
+      return handleApiError('getDocuments', error, [
         {
           id: "d1",
-          childId: "1",
+          childId: "1", 
           childName: "Emma Johnson",
-          title: "Term 1 Report Card",
+          title: "Report Card - Q1",
           type: "report_card",
-          uploadDate: "2023-03-20",
-          size: 1240000, // in bytes
-          fileUrl: "/documents/report_cards/emma_term1.pdf",
-          isNew: true
+          uploadDate: "2023-11-15",
+          size: 1250000,
+          fileUrl: "/mock/reports/report-q1.pdf",
+          isNew: false,
+          requiresSignature: true,
+          signatureStatus: "signed"
         },
         {
           id: "d2",
           childId: "1",
           childName: "Emma Johnson",
-          title: "Science Museum Field Trip Permission",
+          title: "Field Trip Permission Slip",
           type: "permission_slip",
-          uploadDate: "2023-03-10",
-          size: 540000,
-          fileUrl: "/documents/permission_slips/science_museum.pdf",
+          uploadDate: "2023-12-01",
+          size: 850000,
+          fileUrl: "/mock/forms/field-trip.pdf",
+          isNew: true,
           requiresSignature: true,
           signatureStatus: "pending"
         },
@@ -769,94 +745,140 @@ export const parentService = {
           id: "d3",
           childId: "2",
           childName: "Noah Johnson",
-          title: "Term 1 Report Card",
-          type: "report_card",
-          uploadDate: "2023-03-20",
-          size: 1180000,
-          fileUrl: "/documents/report_cards/noah_term1.pdf",
-          isNew: true
-        },
-        {
-          id: "d4",
-          title: "School Newsletter - March 2023",
+          title: "School Newsletter - December",
           type: "newsletter",
-          uploadDate: "2023-03-01",
-          size: 2540000,
-          fileUrl: "/documents/newsletters/march_2023.pdf"
+          uploadDate: "2023-12-05",
+          size: 2500000,
+          fileUrl: "/mock/newsletter/dec-2023.pdf",
+          isNew: true,
+          requiresSignature: false
         }
-      ];
+      ]);
     }
   },
 
   /**
    * Download a document
    */
-  downloadDocument: async (documentId: string): Promise<Blob> => {
+  async downloadDocument(documentId: string): Promise<Blob> {
+    console.log('[PARENT-SERVICE] downloadDocument - Downloading document:', documentId);
     try {
       const response = await axios.get<Blob>(`/api/parent/documents/${documentId}/download`, {
         responseType: 'blob'
       });
+      console.log('[PARENT-SERVICE] downloadDocument - Success');
       return response.data;
     } catch (error) {
-      console.error(`Error downloading document ${documentId}:`, error);
-      throw new Error('Failed to download document');
+      return handleApiError('downloadDocument', error);
     }
   },
 
   /**
    * Sign a document
    */
-  signDocument: async (documentId: string, signature: {
+  async signDocument(documentId: string, signature: {
     signatureData: string;
     signatureDate: string;
   }): Promise<{
     success: boolean;
     signatureId?: string;
     message: string;
-  }> => {
+  }> {
+    console.log('[PARENT-SERVICE] signDocument - Signing document:', documentId, 'with data:', signature);
     try {
       const { data } = await axios.post<ApiResponse<{
         success: boolean;
         signatureId?: string;
         message: string;
       }>>(`/api/parent/documents/${documentId}/sign`, signature);
+      console.log('[PARENT-SERVICE] signDocument - Success:', data);
       return data.data;
     } catch (error) {
-      console.error(`Error signing document ${documentId}:`, error);
-      // Simulate signature processing
-      await delay(1000);
-      
-      // Simulate signature success
-      return {
-        success: true,
-        signatureId: `sig-${Math.floor(Math.random() * 100000)}`,
-        message: 'Document signed successfully'
-      };
+      return handleApiError('signDocument', error);
     }
   },
 
   /**
    * Get feedback messages for children of the parent
    */
-  getFeedback: async (filters?: {
+  async getFeedback(filters?: {
     childId?: string;
     startDate?: string;
     endDate?: string;
     isRead?: boolean;
     category?: 'academic' | 'behavior' | 'attendance' | 'general';
-  }): Promise<FeedbackItem[]> => {
+  }): Promise<FeedbackItem[]> {
+    console.log('[PARENT-SERVICE] getFeedback - Fetching with options:', filters);
     try {
-      const { data } = await axios.get<ApiResponse<FeedbackItem[]>>('/api/parent/feedback', { 
+      // Log the request URL for debugging
+      const requestUrl = '/api/parent/feedback';
+      console.log(`[PARENT-SERVICE] getFeedback - Request URL: ${requestUrl}`, { params: filters });
+      
+      // Check online status first
+      if (!checkOnlineStatus('getFeedback')) {
+        return [
+          {
+            id: "f1",
+            childId: "1",
+            childName: "Emma Johnson",
+            teacherId: "t1",
+            teacherName: "Mr. Anderson",
+            subject: "Mathematics Performance",
+            message: "Emma has shown great improvement in her calculus skills this month. Keep encouraging her practice at home.",
+            date: "2023-03-18",
+            isRead: false,
+            category: "academic",
+            priority: "medium"
+          },
+          {
+            id: "f2",
+            childId: "1",
+            childName: "Emma Johnson",
+            teacherId: "t2",
+            teacherName: "Ms. Thompson",
+            subject: "Late Arrival Notice",
+            message: "Emma was 15 minutes late to class today. Please ensure she arrives on time for morning classes.",
+            date: "2023-03-15",
+            isRead: true,
+            category: "attendance",
+            priority: "high",
+            responseRequired: true
+          },
+          {
+            id: "f3",
+            childId: "2",
+            childName: "Noah Johnson",
+            teacherId: "t3",
+            teacherName: "Mr. Roberts",
+            subject: "History Project Excellence",
+            message: "Noah's history project on Ancient Egypt was exceptional. He demonstrated great research skills and creativity.",
+            date: "2023-03-10",
+            isRead: true,
+            category: "academic",
+            priority: "medium"
+          }
+        ];
+      }
+      
+      const { data } = await axios.get<ApiResponse<FeedbackItem[]>>(requestUrl, { 
         params: filters
       });
+      console.log('[PARENT-SERVICE] getFeedback - Success:', data.data.length, 'feedback items');
       return data.data;
-    } catch (error) {
-      console.error('Error fetching feedback:', error);
-      // Fallback to mock data if API fails
-      await delay(800);
+    } catch (error: any) {
+      // Check for specific error types
+      if (axios.isCancel(error)) {
+        console.error('[PARENT-SERVICE] getFeedback - Request was cancelled');
+      } else if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error(`[PARENT-SERVICE] getFeedback - Server responded with error ${error.response.status}:`, error.response.data);
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('[PARENT-SERVICE] getFeedback - No response received from server');
+      }
       
-      // Return mock data for now
-      return [
+      return handleApiError('getFeedback', error, [
         {
           id: "f1",
           childId: "1",
@@ -896,117 +918,97 @@ export const parentService = {
           isRead: true,
           category: "academic",
           priority: "medium"
-        },
-        {
-          id: "f4",
-          childId: "2",
-          childName: "Noah Johnson",
-          teacherId: "t1",
-          teacherName: "Mr. Anderson",
-          subject: "Missing Math Homework",
-          message: "Noah has not submitted his math homework for the past two assignments. Please help ensure he completes and submits them.",
-          date: "2023-03-05",
-          isRead: false,
-          category: "academic",
-          priority: "high",
-          responseRequired: true
         }
-      ];
+      ]);
     }
   },
 
   /**
    * Get responses for a specific feedback message
    */
-  getFeedbackResponses: async (feedbackId: string): Promise<FeedbackResponse[]> => {
+  async getFeedbackResponses(feedbackId: string): Promise<FeedbackResponse[]> {
+    console.log('[PARENT-SERVICE] getFeedbackResponses - Fetching for feedback:', feedbackId);
     try {
-      const { data } = await axios.get<ApiResponse<FeedbackResponse[]>>(`/api/parent/feedback/${feedbackId}/responses`);
-      return data.data;
-    } catch (error) {
-      console.error(`Error fetching responses for feedback ${feedbackId}:`, error);
-      // Fallback to mock data if API fails
-      await delay(800);
+      // Log the request URL for debugging
+      const requestUrl = `/api/parent/feedback/${feedbackId}/responses`;
+      console.log(`[PARENT-SERVICE] getFeedbackResponses - Request URL: ${requestUrl}`);
       
-      // Return mock data for now
-      return [
+      // Check online status first
+      if (!checkOnlineStatus('getFeedbackResponses')) {
+        return [
+          {
+            id: "r1",
+            feedbackId: feedbackId,
+            responderId: "p1",
+            responderName: "Mrs. Johnson",
+            responderRole: "parent",
+            message: "Thank you for letting me know. I'll make sure this is addressed at home.",
+            date: "2023-03-15T14:30:00Z",
+            isRead: true
+          }
+        ];
+      }
+      
+      const { data } = await axios.get<ApiResponse<FeedbackResponse[]>>(requestUrl);
+      console.log('[PARENT-SERVICE] getFeedbackResponses - Success:', data.data.length, 'responses');
+      return data.data;
+    } catch (error: any) {
+      return handleApiError('getFeedbackResponses', error, [
         {
           id: "r1",
           feedbackId: feedbackId,
           responderId: "p1",
           responderName: "Mrs. Johnson",
           responderRole: "parent",
-          message: "Thank you for letting me know. I'll make sure she arrives on time from now on.",
+          message: "Thank you for letting me know. I'll make sure this is addressed at home.",
           date: "2023-03-15T14:30:00Z",
           isRead: true
-        },
-        {
-          id: "r2",
-          feedbackId: feedbackId,
-          responderId: "t2",
-          responderName: "Ms. Thompson",
-          responderRole: "teacher",
-          message: "Thank you for your prompt response. I appreciate your cooperation.",
-          date: "2023-03-15T15:45:00Z",
-          isRead: false
         }
-      ];
+      ]);
     }
   },
 
   /**
    * Send response to a feedback message
    */
-  respondToFeedback: async (feedbackId: string, response: {
+  async respondToFeedback(feedbackId: string, response: {
     message: string;
   }): Promise<{
     success: boolean;
     responseId?: string;
     message: string;
-  }> => {
+  }> {
+    console.log('[PARENT-SERVICE] respondToFeedback - Responding to feedback:', feedbackId, 'with message:', response);
     try {
       const { data } = await axios.post<ApiResponse<{
         success: boolean;
         responseId?: string;
         message: string;
       }>>(`/api/parent/feedback/${feedbackId}/respond`, response);
+      console.log('[PARENT-SERVICE] respondToFeedback - Success:', data);
       return data.data;
     } catch (error) {
-      console.error(`Error responding to feedback ${feedbackId}:`, error);
-      // Simulate response processing
-      await delay(1000);
-      
-      // Simulate response success
-      return {
-        success: true,
-        responseId: `r-${Math.floor(Math.random() * 100000)}`,
-        message: 'Response sent successfully'
-      };
+      return handleApiError('respondToFeedback', error);
     }
   },
 
   /**
    * Mark feedback as read
    */
-  markFeedbackAsRead: async (feedbackId: string): Promise<{
+  async markFeedbackAsRead(feedbackId: string): Promise<{
     success: boolean;
     message: string;
-  }> => {
+  }> {
+    console.log('[PARENT-SERVICE] markFeedbackAsRead - Marking feedback as read:', feedbackId);
     try {
       const { data } = await axios.put<ApiResponse<{
         success: boolean;
         message: string;
       }>>(`/api/parent/feedback/${feedbackId}/read`);
+      console.log('[PARENT-SERVICE] markFeedbackAsRead - Success:', data);
       return data.data;
     } catch (error) {
-      console.error(`Error marking feedback ${feedbackId} as read:`, error);
-      // Simulate processing
-      await delay(500);
-      
-      // Simulate success
-      return {
-        success: true,
-        message: 'Feedback marked as read'
-      };
+      return handleApiError('markFeedbackAsRead', error);
     }
-  }
+  },
 }; 

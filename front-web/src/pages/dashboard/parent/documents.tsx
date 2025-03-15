@@ -16,6 +16,30 @@ export default function ParentDocuments({ user }: ParentDocumentsProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  /**
+   * Helper function for consistent error handling in component
+   */
+  const handleError = (context: string, error: any) => {
+    // Log the error with context
+    console.error(`[PARENT-DOCUMENTS] ${context} - Error:`, error);
+    
+    // Log additional details if available
+    if (error.response) {
+      console.error(`[PARENT-DOCUMENTS] ${context} - Status:`, error.response.status);
+      console.error(`[PARENT-DOCUMENTS] ${context} - Data:`, error.response.data);
+    } else if (error.request) {
+      console.error(`[PARENT-DOCUMENTS] ${context} - No Response:`, error.request);
+    } else {
+      console.error(`[PARENT-DOCUMENTS] ${context} - Message:`, error.message);
+    }
+    
+    // Set component error state
+    setError(`Failed to ${context.toLowerCase()}. Please try again later.`);
+    
+    // Show toast notification
+    toast.error(`Error: ${context}`);
+  };
+
   const getDocumentIcon = (fileType: string) => {
     switch (fileType.toLowerCase()) {
       case "pdf":
@@ -31,6 +55,7 @@ export default function ParentDocuments({ user }: ParentDocumentsProps) {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value
     setSearchQuery(query)
+    console.log('[PARENT-DOCUMENTS] handleSearchChange - Filtering documents with query:', query)
     
     if (query.trim() === "") {
       setFilteredDocuments(documents)
@@ -41,10 +66,12 @@ export default function ParentDocuments({ user }: ParentDocumentsProps) {
         doc.category.toLowerCase().includes(query.toLowerCase())
       )
       setFilteredDocuments(filtered)
+      console.log('[PARENT-DOCUMENTS] handleSearchChange - Found', filtered.length, 'matching documents')
     }
   }
 
   const handleDownload = async (documentId: string) => {
+    console.log('[PARENT-DOCUMENTS] handleDownload - Downloading document:', documentId)
     try {
       setLoading(true)
       const blob = await parentService.downloadDocument(documentId)
@@ -59,16 +86,17 @@ export default function ParentDocuments({ user }: ParentDocumentsProps) {
       window.URL.revokeObjectURL(url)
       a.remove()
       
+      console.log('[PARENT-DOCUMENTS] handleDownload - Document downloaded successfully')
       toast.success("Document downloaded successfully")
     } catch (err) {
-      console.error("Failed to download document:", err)
-      toast.error("Failed to download document")
+      handleError('download document', err)
     } finally {
       setLoading(false)
     }
   }
 
   const handleSignDocument = async (documentId: string) => {
+    console.log('[PARENT-DOCUMENTS] handleSignDocument - Signing document:', documentId)
     try {
       setLoading(true)
       const signatureData = {
@@ -76,15 +104,17 @@ export default function ParentDocuments({ user }: ParentDocumentsProps) {
         signatureDate: new Date().toISOString()
       }
       await parentService.signDocument(documentId, signatureData)
+      console.log('[PARENT-DOCUMENTS] handleSignDocument - Document signed successfully')
       toast.success("Document signed successfully")
       
       // Refresh documents to update UI
+      console.log('[PARENT-DOCUMENTS] handleSignDocument - Refreshing documents')
       const updatedDocs = await parentService.getDocuments()
       setDocuments(updatedDocs)
       setFilteredDocuments(updatedDocs)
+      console.log('[PARENT-DOCUMENTS] handleSignDocument - Documents refreshed:', updatedDocs.length)
     } catch (err) {
-      console.error("Failed to sign document:", err)
-      toast.error("Failed to sign document")
+      handleError('sign document', err)
     } finally {
       setLoading(false)
     }
@@ -92,18 +122,49 @@ export default function ParentDocuments({ user }: ParentDocumentsProps) {
 
   useEffect(() => {
     const fetchDocuments = async () => {
+      console.log('[PARENT-DOCUMENTS] fetchDocuments - Starting document fetch')
       setLoading(true)
       setError(null)
       try {
+        console.log('[PARENT-DOCUMENTS] fetchDocuments - Fetching documents from API')
         const docs = await parentService.getDocuments()
         setDocuments(docs)
         setFilteredDocuments(docs)
+        console.log('[PARENT-DOCUMENTS] fetchDocuments - Retrieved', docs.length, 'documents')
       } catch (err) {
-        console.error("Failed to fetch documents:", err)
-        setError("Failed to load documents. Please try again later.")
-        toast.error("Error loading documents")
+        handleError('fetch documents', err)
+        
+        // Add mock data if needed
+        console.log('[PARENT-DOCUMENTS] fetchDocuments - Using mock document data')
+        const mockDocs = [
+          {
+            id: "d1",
+            name: "Report Card Q1",
+            type: "pdf",
+            category: "academic",
+            studentName: "Emma Johnson",
+            size: 2458000,
+            uploadDate: new Date().toISOString(),
+            downloads: 0
+          },
+          {
+            id: "d2",
+            name: "Permission Slip - Field Trip",
+            type: "pdf",
+            category: "administrative",
+            studentName: "Emma Johnson",
+            size: 1240000,
+            uploadDate: new Date().toISOString(),
+            downloads: 0,
+            requiresSignature: true,
+            signed: false
+          }
+        ]
+        setDocuments(mockDocs)
+        setFilteredDocuments(mockDocs)
       } finally {
         setLoading(false)
+        console.log('[PARENT-DOCUMENTS] fetchDocuments - Completed')
       }
     }
 

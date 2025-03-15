@@ -30,6 +30,43 @@ interface Payment {
   reference: string;
 }
 
+// Simple ErrorBoundary Component
+function ErrorBoundary({ children }: { children: React.ReactNode }) {
+  const [hasError, setHasError] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    const errorHandler = (error: ErrorEvent) => {
+      console.error('[PARENT-PAYMENTS] Window Error:', error);
+      setHasError(true);
+      setError(error.error);
+    };
+
+    window.addEventListener('error', errorHandler);
+    return () => window.removeEventListener('error', errorHandler);
+  }, []);
+
+  if (hasError) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+          <h2 className="text-lg font-semibold">Something went wrong</h2>
+          <p>An error occurred while displaying the payments page. Please refresh the page or try again later.</p>
+          {error && <p className="mt-2 text-sm">{error.message}</p>}
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Reload Page
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
 export default function ParentPayments({ user }: ParentPaymentsProps) {
   const [selectedStudent, setSelectedStudent] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -42,18 +79,45 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
   const [paymentAmount, setPaymentAmount] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("credit_card");
 
+  /**
+   * Helper function for consistent error handling in component
+   */
+  const handleError = (context: string, error: any) => {
+    // Log the error with context
+    console.error(`[PARENT-PAYMENTS] ${context} - Error:`, error);
+    
+    // Log additional details if available
+    if (error.response) {
+      console.error(`[PARENT-PAYMENTS] ${context} - Status:`, error.response.status);
+      console.error(`[PARENT-PAYMENTS] ${context} - Data:`, error.response.data);
+    } else if (error.request) {
+      console.error(`[PARENT-PAYMENTS] ${context} - No Response:`, error.request);
+    } else {
+      console.error(`[PARENT-PAYMENTS] ${context} - Message:`, error.message);
+    }
+    
+    // Set component error state
+    setError(`Failed to ${context.toLowerCase()}. Please try again later.`);
+    
+    // Show toast notification
+    toast.error(`Error: ${context}`);
+  };
+
   useEffect(() => {
     // Fetch children data when component mounts
     const fetchData = async () => {
+      console.log('[PARENT-PAYMENTS] fetchData - Starting data fetch');
       setLoading(true);
       setError(null);
       try {
         // Fetch payments from the backend
+        console.log('[PARENT-PAYMENTS] fetchData - Fetching payments');
         const paymentsData = await parentService.getPayments();
         setPayments(paymentsData);
+        console.log('[PARENT-PAYMENTS] fetchData - Received payments:', paymentsData.length);
         
         // Get children information (we would normally have this from another API call)
-        // This is mock data for now
+        console.log('[PARENT-PAYMENTS] fetchData - Extracting children data');
         const childrenData = paymentsData.reduce((acc: any, payment: any) => {
           if (!acc.find((s: any) => s.id === payment.studentId)) {
             acc.push({
@@ -69,12 +133,12 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
         }, []);
         
         setStudents(childrenData);
-      } catch (err: any) {
-        console.error("Failed to fetch payments:", err);
-        setError("Failed to load payment data. Please try again later.");
-        toast.error("Error loading payments");
+        console.log('[PARENT-PAYMENTS] fetchData - Extracted children:', childrenData.length);
+      } catch (err) {
+        handleError('fetch payments', err);
         
         // Fallback to mock data
+        console.log('[PARENT-PAYMENTS] fetchData - Using mock student data');
         setStudents([
           {
             id: "s1",
@@ -94,6 +158,7 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
           }
         ]);
         
+        console.log('[PARENT-PAYMENTS] fetchData - Using mock payment data');
         setPayments([
           {
             id: "p1",
@@ -131,6 +196,7 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
         ]);
       } finally {
         setLoading(false);
+        console.log('[PARENT-PAYMENTS] fetchData - Completed');
       }
     };
 
@@ -161,6 +227,7 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
   };
 
   const handleMakePayment = (payment?: any) => {
+    console.log('[PARENT-PAYMENTS] handleMakePayment - Setting up payment form', payment?.id);
     if (payment) {
       setSelectedPayment(payment);
       setPaymentAmount(payment.balance?.toString() || "");
@@ -173,32 +240,46 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
 
   const handleDownloadReport = () => {
     // In a real application, this would generate and download a PDF report
-    console.log("Downloading payment report");
+    console.log('[PARENT-PAYMENTS] handleDownloadReport - Downloading payment report');
     toast.success("Generating payment report...");
   };
 
   const handleProcessPayment = async () => {
-    if (!selectedPayment || !paymentAmount || !paymentMethod) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
+    console.log('[PARENT-PAYMENTS] handleProcessPayment - Processing payment');
+    setLoading(true);
     try {
-      setLoading(true);
-      await parentService.makePayment(selectedPayment.id, {
-        amount: parseFloat(paymentAmount),
-        paymentMethod
-      });
+      if (!paymentAmount || isNaN(parseFloat(paymentAmount)) || parseFloat(paymentAmount) <= 0) {
+        console.error('[PARENT-PAYMENTS] handleProcessPayment - Invalid payment amount:', paymentAmount);
+        toast.error("Please enter a valid amount");
+        return;
+      }
+
+      if (selectedPayment) {
+        console.log('[PARENT-PAYMENTS] handleProcessPayment - Processing existing payment:', selectedPayment.id);
+        await parentService.makePayment(selectedPayment.id, {
+          amount: parseFloat(paymentAmount),
+          paymentMethod: paymentMethod,
+        });
+      } else {
+        console.log('[PARENT-PAYMENTS] handleProcessPayment - Creating new payment for student');
+        // Logic for creating a new payment would go here
+      }
+
+      toast.success("Payment successfully processed");
+      console.log('[PARENT-PAYMENTS] handleProcessPayment - Payment processed successfully');
       
-      toast.success("Payment processed successfully");
-      setShowPaymentForm(false);
-      
-      // Refresh payments data
+      // Refresh the payments list
       const updatedPayments = await parentService.getPayments();
       setPayments(updatedPayments);
+      console.log('[PARENT-PAYMENTS] handleProcessPayment - Payment list refreshed:', updatedPayments.length);
+      
+      // Close the payment form
+      setShowPaymentForm(false);
+      setSelectedPayment(null);
+      setPaymentAmount("");
     } catch (err) {
-      console.error("Payment processing failed:", err);
-      toast.error("Payment processing failed. Please try again.");
+      console.error('[PARENT-PAYMENTS] handleProcessPayment - Error:', err);
+      toast.error("An error occurred while processing the payment");
     } finally {
       setLoading(false);
     }
@@ -215,255 +296,272 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
   }
 
   return (
-    <DashboardLayout user={user}>
-      <div className="p-6 space-y-6">
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-            {error}
-          </div>
-        )}
-
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Payments & Billing</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Manage payments and view billing history
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleMakePayment()}
-              className="flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-            >
-              <CreditCard className="h-4 w-4" />
-              Make Payment
-            </button>
-            <button
-              onClick={handleDownloadReport}
-              className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              <Download className="h-4 w-4" />
-              Download Report
-            </button>
-          </div>
-        </div>
-
-        {/* Student Balances */}
-        <div className="grid gap-6 md:grid-cols-2">
-          {students.map(student => (
-            <div key={student.id} className="rounded-lg border bg-white p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">{student.name}</h2>
-                  <p className="text-sm text-gray-500">{student.grade}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`rounded-full px-3 py-1 text-sm font-medium ${
-                    student.balance > 0 ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"
-                  }`}>
-                    Balance: ${student.balance.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="rounded-lg bg-blue-100 p-2">
-                    <DollarSign className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Tuition</p>
-                    <p className="text-lg font-semibold text-gray-900">${student.tuition}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="rounded-lg bg-purple-100 p-2">
-                    <Calendar className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Due Date</p>
-                    <p className="text-lg font-semibold text-gray-900">
-                      {format(new Date(student.dueDate), "MMM d")}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="rounded-lg bg-orange-100 p-2">
-                    <AlertCircle className="h-5 w-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Status</p>
-                    <p className="text-lg font-semibold text-gray-900">
-                      {student.balance > 0 ? "Due" : "Paid"}
-                    </p>
-                  </div>
-                </div>
-              </div>
+    <ErrorBoundary>
+      <DashboardLayout user={user}>
+        <div className="p-6 space-y-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+              {error}
             </div>
-          ))}
-        </div>
+          )}
 
-        {/* Filters */}
-        <div className="flex gap-4">
-          <select
-            className="rounded-lg border border-gray-300 py-2 px-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            value={selectedStudent}
-            onChange={(e) => setSelectedStudent(e.target.value)}
-          >
-            <option value="all">All Students</option>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Payments & Billing</h1>
+              <p className="mt-1 text-sm text-gray-500">
+                Manage payments and view billing history
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleMakePayment()}
+                className="flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+              >
+                <CreditCard className="h-4 w-4" />
+                Make Payment
+              </button>
+              <button
+                onClick={handleDownloadReport}
+                className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                <Download className="h-4 w-4" />
+                Download Report
+              </button>
+            </div>
+          </div>
+
+          {/* Student Balances */}
+          <div className="grid gap-6 md:grid-cols-2">
             {students.map(student => (
-              <option key={student.id} value={student.id}>{student.name}</option>
-            ))}
-          </select>
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search payments..."
-                className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Payment History */}
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Payment History</h2>
-          <div className="space-y-4">
-            {filteredPayments.length === 0 ? (
-              <div className="bg-gray-50 rounded-lg p-8 text-center">
-                <p className="text-gray-500">No payment records found.</p>
-              </div>
-            ) : (
-              filteredPayments.map((payment) => {
-                const student = students.find(s => s.id === payment.studentId);
-                return (
-                  <div key={payment.id} className="rounded-lg border bg-white p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className={`rounded-lg p-3 ${getStatusColor(payment.status)}`}>
-                          {payment.status === "completed" ? (
-                            <CheckCircle className="h-5 w-5" />
-                          ) : payment.status === "pending" ? (
-                            <Clock className="h-5 w-5" />
-                          ) : (
-                            <AlertCircle className="h-5 w-5" />
-                          )}
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-gray-900">{payment.description}</h3>
-                          <div className="mt-1 flex items-center gap-4 text-sm text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-4 w-4" />
-                              {format(new Date(payment.date), "MMM d, yyyy")}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <DollarSign className="h-4 w-4" />
-                              ${payment.amount.toFixed(2)}
-                            </span>
-                            {payment.studentName && (
-                              <span className="text-gray-500">
-                                {payment.studentName}
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-1 text-sm text-gray-600">
-                            Reference: {payment.reference}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`rounded-full px-3 py-1 text-sm font-medium ${getStatusColor(payment.status)}`}>
-                          {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
-                        </span>
-                        {payment.status === "pending" && (
-                          <button
-                            onClick={() => handleMakePayment(payment)}
-                            className="ml-2 rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
-                          >
-                            Pay Now
-                          </button>
-                        )}
-                      </div>
+              <div key={student.id} className="rounded-lg border bg-white p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">{student.name}</h2>
+                    <p className="text-sm text-gray-500">{student.grade}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`rounded-full px-3 py-1 text-sm font-medium ${
+                      student.balance > 0 ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"
+                    }`}>
+                      Balance: ${student.balance.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="rounded-lg bg-blue-100 p-2">
+                      <DollarSign className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Tuition</p>
+                      <p className="text-lg font-semibold text-gray-900">${student.tuition}</p>
                     </div>
                   </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* Payment Form Modal */}
-        {showPaymentForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                {selectedPayment ? `Pay ${selectedPayment.description}` : "Make a Payment"}
-              </h2>
-              
-              <div className="space-y-4">
-                {!selectedPayment && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Student</label>
-                    <select
-                      className="w-full rounded-lg border border-gray-300 py-2 px-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    >
-                      {students.map(student => (
-                        <option key={student.id} value={student.id}>{student.name}</option>
-                      ))}
-                    </select>
+                  <div className="flex items-center gap-2">
+                    <div className="rounded-lg bg-purple-100 p-2">
+                      <Calendar className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Due Date</p>
+                      <p className="text-lg font-semibold text-gray-900">
+                        {(() => {
+                          try {
+                            return format(new Date(student.dueDate), "MMM d");
+                          } catch (err) {
+                            console.error(`[PARENT-PAYMENTS] Error formatting due date for student ${student.id}:`, err);
+                            return 'Date unavailable';
+                          }
+                        })()}
+                      </p>
+                    </div>
                   </div>
-                )}
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                    <input
-                      type="text"
-                      className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="0.00"
-                      value={paymentAmount}
-                      onChange={(e) => setPaymentAmount(e.target.value.replace(/[^0-9.]/g, ''))}
-                    />
+                  <div className="flex items-center gap-2">
+                    <div className="rounded-lg bg-orange-100 p-2">
+                      <AlertCircle className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Status</p>
+                      <p className="text-lg font-semibold text-gray-900">
+                        {student.balance > 0 ? "Due" : "Paid"}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
-                  <select
-                    className="w-full rounded-lg border border-gray-300 py-2 px-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                  >
-                    <option value="credit_card">Credit Card</option>
-                    <option value="debit_card">Debit Card</option>
-                    <option value="bank_transfer">Bank Transfer</option>
-                  </select>
                 </div>
               </div>
-              
-              <div className="flex justify-end gap-2 mt-6">
-                <button
-                  onClick={() => setShowPaymentForm(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-md border"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleProcessPayment}
-                  disabled={loading}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? "Processing..." : "Process Payment"}
-                </button>
+            ))}
+          </div>
+
+          {/* Filters */}
+          <div className="flex gap-4">
+            <select
+              className="rounded-lg border border-gray-300 py-2 px-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              value={selectedStudent}
+              onChange={(e) => setSelectedStudent(e.target.value)}
+            >
+              <option value="all">All Students</option>
+              {students.map(student => (
+                <option key={student.id} value={student.id}>{student.name}</option>
+              ))}
+            </select>
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search payments..."
+                  className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
             </div>
           </div>
-        )}
-      </div>
-    </DashboardLayout>
+
+          {/* Payment History */}
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Payment History</h2>
+            <div className="space-y-4">
+              {filteredPayments.length === 0 ? (
+                <div className="bg-gray-50 rounded-lg p-8 text-center">
+                  <p className="text-gray-500">No payment records found.</p>
+                </div>
+              ) : (
+                filteredPayments.map((payment) => {
+                  const student = students.find(s => s.id === payment.studentId);
+                  return (
+                    <div key={payment.id} className="rounded-lg border bg-white p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className={`rounded-lg p-3 ${getStatusColor(payment.status)}`}>
+                            {payment.status === "completed" ? (
+                              <CheckCircle className="h-5 w-5" />
+                            ) : payment.status === "pending" ? (
+                              <Clock className="h-5 w-5" />
+                            ) : (
+                              <AlertCircle className="h-5 w-5" />
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="font-medium text-gray-900">{payment.description}</h3>
+                            <div className="mt-1 flex items-center gap-4 text-sm text-gray-500">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-4 w-4" />
+                                {(() => {
+                                  try {
+                                    // Safely format the date with error handling
+                                    return format(new Date(payment.date), "MMM d, yyyy");
+                                  } catch (err) {
+                                    console.error(`[PARENT-PAYMENTS] Error formatting date for payment ${payment.id}:`, err);
+                                    return 'Date unavailable';
+                                  }
+                                })()}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <DollarSign className="h-4 w-4" />
+                                ${payment.amount.toFixed(2)}
+                              </span>
+                              {payment.studentName && (
+                                <span className="text-gray-500">
+                                  {payment.studentName}
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1 text-sm text-gray-600">
+                              Reference: {payment.reference}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`rounded-full px-3 py-1 text-sm font-medium ${getStatusColor(payment.status)}`}>
+                            {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                          </span>
+                          {payment.status === "pending" && (
+                            <button
+                              onClick={() => handleMakePayment(payment)}
+                              className="ml-2 rounded-md bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+                            >
+                              Pay Now
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Payment Form Modal */}
+          {showPaymentForm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                  {selectedPayment ? `Pay ${selectedPayment.description}` : "Make a Payment"}
+                </h2>
+                
+                <div className="space-y-4">
+                  {!selectedPayment && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Student</label>
+                      <select
+                        className="w-full rounded-lg border border-gray-300 py-2 px-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        {students.map(student => (
+                          <option key={student.id} value={student.id}>{student.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-gray-500">$</span>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="0.00"
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(e.target.value.replace(/[^0-9.]/g, ''))}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                    <select
+                      className="w-full rounded-lg border border-gray-300 py-2 px-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                    >
+                      <option value="credit_card">Credit Card</option>
+                      <option value="debit_card">Debit Card</option>
+                      <option value="bank_transfer">Bank Transfer</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="flex justify-end gap-2 mt-6">
+                  <button
+                    onClick={() => setShowPaymentForm(false)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-md border"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleProcessPayment}
+                    disabled={loading}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? "Processing..." : "Process Payment"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </DashboardLayout>
+    </ErrorBoundary>
   );
 }

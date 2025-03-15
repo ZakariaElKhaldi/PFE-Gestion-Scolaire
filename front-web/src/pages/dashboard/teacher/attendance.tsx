@@ -92,23 +92,23 @@ export default function TeacherAttendance({ user }: TeacherAttendanceProps) {
       try {
         // In a real implementation, this would fetch from the API
         setClasses([
-          {
-            id: 'math-101',
-            name: 'Mathematics 101',
-            students: [
-              { id: '1', name: 'Alice Johnson' },
-              { id: '2', name: 'Bob Smith' },
-              { id: '3', name: 'Charlie Brown' }
-            ]
-          },
-          {
-            id: 'physics-201',
-            name: 'Physics 201',
-            students: [
-              { id: '4', name: 'David Wilson' },
-              { id: '5', name: 'Eve Anderson' }
-            ]
-          }
+    {
+      id: 'math-101',
+      name: 'Mathematics 101',
+      students: [
+        { id: '1', name: 'Alice Johnson' },
+        { id: '2', name: 'Bob Smith' },
+        { id: '3', name: 'Charlie Brown' }
+      ]
+    },
+    {
+      id: 'physics-201',
+      name: 'Physics 201',
+      students: [
+        { id: '4', name: 'David Wilson' },
+        { id: '5', name: 'Eve Anderson' }
+      ]
+    }
         ]);
       } catch (error) {
         console.error('Failed to fetch classes:', error);
@@ -274,7 +274,7 @@ export default function TeacherAttendance({ user }: TeacherAttendanceProps) {
       setNotificationMessage('');
       
       if (result && result.notified) {
-        toastService.success(`Successfully sent notifications to ${result.notified} parents`);
+      toastService.success(`Successfully sent notifications to ${result.notified} parents`);
       } else {
         toastService.info('No notifications were sent');
       }
@@ -445,41 +445,41 @@ export default function TeacherAttendance({ user }: TeacherAttendanceProps) {
           </TabsList>
           
           <TabsContent value="attendance" className="space-y-6">
-            {/* Header and Actions */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Attendance Management</h1>
-                <p className="mt-1 text-sm text-gray-500">
-                  {format(new Date(selectedDate), 'MMMM d, yyyy')}
-                </p>
-              </div>
-              <div className="flex gap-2">
+        {/* Header and Actions */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Attendance Management</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              {format(new Date(selectedDate), 'MMMM d, yyyy')}
+            </p>
+          </div>
+          <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  onClick={() => setShowBulkActions(!showBulkActions)}
+              onClick={() => setShowBulkActions(!showBulkActions)}
                   className="flex items-center gap-2"
-                >
-                  <Sliders className="h-4 w-4" />
-                  Bulk Actions
+            >
+              <Sliders className="h-4 w-4" />
+              Bulk Actions
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => setShowNotifyModal(true)}
+              onClick={() => setShowNotifyModal(true)}
                   className="flex items-center gap-2"
-                >
-                  <Bell className="h-4 w-4" />
-                  Notify Parents
+            >
+              <Bell className="h-4 w-4" />
+              Notify Parents
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={handleGenerateReport}
+              onClick={handleGenerateReport}
                   className="flex items-center gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Generate Report
+            >
+              <Download className="h-4 w-4" />
+              Generate Report
                 </Button>
-              </div>
-            </div>
+          </div>
+        </div>
 
             {/* Class Selection and Date */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -537,27 +537,27 @@ export default function TeacherAttendance({ user }: TeacherAttendanceProps) {
                       <div className="bg-green-50 p-2 rounded-md text-center">
                         <div className="text-xs text-green-600 mb-1">Present</div>
                         <div className="text-xl font-bold text-green-700">{stats.presentCount}</div>
-                      </div>
+          </div>
                       <div className="bg-red-50 p-2 rounded-md text-center">
                         <div className="text-xs text-red-600 mb-1">Absent</div>
                         <div className="text-xl font-bold text-red-700">{stats.absentCount}</div>
-                      </div>
+          </div>
                       <div className="bg-yellow-50 p-2 rounded-md text-center">
                         <div className="text-xs text-yellow-600 mb-1">Late</div>
                         <div className="text-xl font-bold text-yellow-700">{stats.lateCount}</div>
-                      </div>
+          </div>
                       <div className="bg-blue-50 p-2 rounded-md text-center">
                         <div className="text-xs text-blue-600 mb-1">Excused</div>
                         <div className="text-xl font-bold text-blue-700">{stats.excusedCount}</div>
-                      </div>
-                    </div>
+          </div>
+          </div>
                   </div>
                 </CardContent>
               </Card>
-            </div>
+        </div>
 
-            {/* Bulk Actions Panel */}
-            {showBulkActions && (
+        {/* Bulk Actions Panel */}
+        {showBulkActions && (
               <Card className="bg-blue-50">
                 <CardContent className="pt-6">
                   <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -567,9 +567,9 @@ export default function TeacherAttendance({ user }: TeacherAttendanceProps) {
                         {selectedStudents.length} students selected
                       </p>
                     </div>
-                    <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4">
                       <Select
-                        value={bulkStatus}
+                value={bulkStatus}
                         onValueChange={(value: string) => setBulkStatus(value as AttendanceStudent['status'])}
                       >
                         <SelectTrigger className="w-[150px]">
@@ -588,8 +588,8 @@ export default function TeacherAttendance({ user }: TeacherAttendanceProps) {
                       <Button variant="outline" onClick={() => setShowBulkActions(false)}>
                         Cancel
                       </Button>
-                    </div>
-                  </div>
+            </div>
+          </div>
                 </CardContent>
               </Card>
             )}
@@ -666,7 +666,7 @@ export default function TeacherAttendance({ user }: TeacherAttendanceProps) {
                   )}
                 </CardContent>
               </Card>
-            </div>
+              </div>
             
             {/* Attendance rate progress component */}
             <Card className="mb-4">
@@ -693,7 +693,7 @@ export default function TeacherAttendance({ user }: TeacherAttendanceProps) {
               </CardHeader>
               <CardContent>
                 {dashboardStats?.classesByAttendance ? (
-                  <div className="space-y-4">
+              <div className="space-y-4">
                     {dashboardStats.classesByAttendance.map((cls: any) => (
                       <div key={cls.classId} className="space-y-1">
                         <div className="flex justify-between items-center">
@@ -735,8 +735,8 @@ export default function TeacherAttendance({ user }: TeacherAttendanceProps) {
               <Textarea
                 id="notification-message"
                 placeholder="Your child was marked absent today."
-                value={notificationMessage}
-                onChange={(e) => setNotificationMessage(e.target.value)}
+                  value={notificationMessage}
+                  onChange={(e) => setNotificationMessage(e.target.value)}
               />
             </div>
           </div>

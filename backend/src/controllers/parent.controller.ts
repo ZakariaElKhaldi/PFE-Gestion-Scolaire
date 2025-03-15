@@ -16,10 +16,13 @@ export const parentController = {
    * Get all children of a parent
    */
   async getChildren(req: Request, res: Response) {
+    console.log('[PARENT-CONTROLLER] getChildren - Processing request');
     try {
       const parentId = req.user?.id;
+      console.log('[PARENT-CONTROLLER] getChildren - Parent ID:', parentId);
       
       if (!parentId) {
+        console.log('[PARENT-CONTROLLER] getChildren - Authentication error: No parent ID');
         return res.status(401).json({
           error: true,
           message: 'Authentication required'
@@ -47,6 +50,7 @@ export const parentController = {
         }
       ];
       
+      console.log(`[PARENT-CONTROLLER] getChildren - Returning ${mockChildren.length} children`);
       return res.status(200).json({
         error: false,
         data: mockChildren.map(child => ({
@@ -378,95 +382,93 @@ export const parentController = {
    * Get payment information for all children of a parent
    */
   async getPayments(req: Request, res: Response) {
+    console.log('[PARENT-CONTROLLER] getPayments - Processing request');
     try {
       const parentId = req.user?.id;
-      const { startDate, endDate, status, childId } = req.query;
+      console.log('[PARENT-CONTROLLER] getPayments - Parent ID:', parentId);
+      
+      // Parse query parameters
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
+      const status = req.query.status as string;
+      const childId = req.query.childId as string;
+      
+      console.log('[PARENT-CONTROLLER] getPayments - Query parameters:', { 
+        startDate, endDate, status, childId 
+      });
       
       if (!parentId) {
+        console.log('[PARENT-CONTROLLER] getPayments - Authentication error: No parent ID');
         return res.status(401).json({
           error: true,
           message: 'Authentication required'
         });
       }
       
-      // In a real application, you would fetch children from the database
-      // and then fetch their payments
+      // In a real application, you would fetch payments from the database
+      // with filtering based on the query parameters
+      // const payments = await paymentModel.findByParentId(parentId, { startDate, endDate, status, childId });
+      
       // For now, we'll return mock data
-
       const mockPayments = [
         {
           id: "p1",
-          childId: "1",
-          childName: "Emma Johnson",
+          studentId: "1",
+          studentName: "Emma Johnson",
           description: "School Fees - Term 1",
           amount: 500,
           dueDate: "2023-03-15",
           status: "paid",
           transactionId: "tx-12345",
           paymentDate: "2023-03-10",
-          paymentMethod: "Credit Card",
-          invoiceUrl: "/documents/invoices/inv-12345.pdf"
+          paymentMethod: "credit_card",
+          invoiceUrl: "/invoices/p1.pdf"
         },
         {
           id: "p2",
-          childId: "1",
-          childName: "Emma Johnson",
-          description: "Field Trip - Science Museum",
-          amount: 45,
-          dueDate: "2023-04-05",
-          status: "pending"
+          studentId: "1",
+          studentName: "Emma Johnson",
+          description: "Field Trip Fee",
+          amount: 50,
+          dueDate: "2023-04-10",
+          status: "pending",
+          invoiceUrl: "/invoices/p2.pdf"
         },
         {
           id: "p3",
-          childId: "2",
-          childName: "Noah Johnson",
+          studentId: "2",
+          studentName: "Noah Johnson",
           description: "School Fees - Term 1",
-          amount: 500,
+          amount: 450,
           dueDate: "2023-03-15",
           status: "paid",
           transactionId: "tx-12346",
-          paymentDate: "2023-03-14",
-          paymentMethod: "Bank Transfer",
-          invoiceUrl: "/documents/invoices/inv-12346.pdf"
-        },
-        {
-          id: "p4",
-          childId: "2",
-          childName: "Noah Johnson",
-          description: "Art Supplies",
-          amount: 30,
-          dueDate: "2023-02-28",
-          status: "overdue"
+          paymentDate: "2023-03-12",
+          paymentMethod: "bank_transfer",
+          invoiceUrl: "/invoices/p3.pdf"
         }
       ];
       
-      // Filter payments based on query parameters
+      // Apply filters from query parameters
       let filteredPayments = [...mockPayments];
       
-      if (childId) {
-        filteredPayments = filteredPayments.filter(payment => 
-          payment.childId === childId
-        );
-      }
-      
-      if (status) {
-        filteredPayments = filteredPayments.filter(payment => 
-          payment.status === status
-        );
-      }
-      
       if (startDate) {
-        filteredPayments = filteredPayments.filter(payment => 
-          new Date(payment.dueDate) >= new Date(startDate as string)
-        );
+        filteredPayments = filteredPayments.filter(p => new Date(p.dueDate) >= new Date(startDate));
       }
       
       if (endDate) {
-        filteredPayments = filteredPayments.filter(payment => 
-          new Date(payment.dueDate) <= new Date(endDate as string)
-        );
+        filteredPayments = filteredPayments.filter(p => new Date(p.dueDate) <= new Date(endDate));
       }
       
+      if (status) {
+        filteredPayments = filteredPayments.filter(p => p.status === status);
+      }
+      
+      if (childId) {
+        filteredPayments = filteredPayments.filter(p => p.studentId === childId);
+      }
+      
+      console.log(`[PARENT-CONTROLLER] getPayments - Returning ${filteredPayments.length} payments`);
       return res.status(200).json({
         error: false,
         data: filteredPayments,
@@ -533,21 +535,34 @@ export const parentController = {
    * Get documents for a parent's children
    */
   async getDocuments(req: Request, res: Response) {
+    console.log('[PARENT-CONTROLLER] getDocuments - Processing request');
     try {
       const parentId = req.user?.id;
-      const { childId, type, startDate, endDate } = req.query;
+      console.log('[PARENT-CONTROLLER] getDocuments - Parent ID:', parentId);
+      
+      // Parse query parameters
+      const childId = req.query.childId as string;
+      const type = req.query.type as string;
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
+      
+      console.log('[PARENT-CONTROLLER] getDocuments - Query parameters:', { 
+        childId, type, startDate, endDate 
+      });
       
       if (!parentId) {
+        console.log('[PARENT-CONTROLLER] getDocuments - Authentication error: No parent ID');
         return res.status(401).json({
           error: true,
           message: 'Authentication required'
         });
       }
       
-      // In a real application, you would fetch children from the database
-      // and then fetch their documents
-      // For now, we'll return mock data
+      // In a real application, you would fetch documents from the database
+      // filtered by the query parameters
+      // const documents = await DocumentModel.findByParentId(parentId, { childId, type, startDate, endDate });
       
+      // For now, we'll return mock data
       const mockDocuments = [
         {
           id: "d1",
@@ -593,33 +608,30 @@ export const parentController = {
         }
       ];
       
-      // Filter documents based on query parameters
+      // Apply filters from query parameters
       let filteredDocuments = [...mockDocuments];
       
       if (childId) {
-        filteredDocuments = filteredDocuments.filter(doc => 
-          !doc.childId || doc.childId === childId
-        );
+        filteredDocuments = filteredDocuments.filter(doc => doc.childId === childId);
       }
       
       if (type) {
-        filteredDocuments = filteredDocuments.filter(doc => 
-          doc.type === type
-        );
+        filteredDocuments = filteredDocuments.filter(doc => doc.type === type);
       }
       
       if (startDate) {
         filteredDocuments = filteredDocuments.filter(doc => 
-          new Date(doc.uploadDate) >= new Date(startDate as string)
+          new Date(doc.uploadDate) >= new Date(startDate)
         );
       }
       
       if (endDate) {
         filteredDocuments = filteredDocuments.filter(doc => 
-          new Date(doc.uploadDate) <= new Date(endDate as string)
+          new Date(doc.uploadDate) <= new Date(endDate)
         );
       }
       
+      console.log(`[PARENT-CONTROLLER] getDocuments - Returning ${filteredDocuments.length} documents`);
       return res.status(200).json({
         error: false,
         data: filteredDocuments,
@@ -715,24 +727,38 @@ export const parentController = {
   },
   
   /**
-   * Get feedback messages for a parent's children
+   * Get feedback messages for children of the parent
    */
   async getFeedback(req: Request, res: Response) {
+    console.log('[PARENT-CONTROLLER] getFeedback - Processing request');
     try {
       const parentId = req.user?.id;
-      const { childId, startDate, endDate, isRead, category } = req.query;
+      console.log('[PARENT-CONTROLLER] getFeedback - Parent ID:', parentId);
+      
+      // Parse query parameters
+      const childId = req.query.childId as string;
+      const category = req.query.category as string;
+      const isRead = req.query.isRead as string;
+      const startDate = req.query.startDate as string;
+      const endDate = req.query.endDate as string;
+      
+      console.log('[PARENT-CONTROLLER] getFeedback - Query parameters:', { 
+        childId, category, isRead, startDate, endDate 
+      });
       
       if (!parentId) {
+        console.log('[PARENT-CONTROLLER] getFeedback - Authentication error: No parent ID');
         return res.status(401).json({
           error: true,
           message: 'Authentication required'
         });
       }
       
-      // In a real application, you would fetch children from the database
-      // and then fetch their feedback messages
-      // For now, we'll return mock data
+      // In a real application, you would fetch feedback from the database
+      // filtered by the query parameters
+      // const feedback = await feedbackModel.findByParentId(parentId, { childId, category, isRead, startDate, endDate });
       
+      // For now, we'll return mock data
       const mockFeedback = [
         {
           id: "f1",
@@ -790,39 +816,35 @@ export const parentController = {
         }
       ];
       
-      // Filter feedback based on query parameters
+      // Apply filters from query parameters
       let filteredFeedback = [...mockFeedback];
       
       if (childId) {
-        filteredFeedback = filteredFeedback.filter(feedback => 
-          feedback.childId === childId
-        );
-      }
-      
-      if (isRead !== undefined) {
-        filteredFeedback = filteredFeedback.filter(feedback => 
-          feedback.isRead === (isRead === 'true')
-        );
+        filteredFeedback = filteredFeedback.filter(f => f.childId === childId);
       }
       
       if (category) {
-        filteredFeedback = filteredFeedback.filter(feedback => 
-          feedback.category === category
-        );
+        filteredFeedback = filteredFeedback.filter(f => f.category === category);
+      }
+      
+      if (isRead !== undefined) {
+        const isReadBool = isRead === 'true';
+        filteredFeedback = filteredFeedback.filter(f => f.isRead === isReadBool);
       }
       
       if (startDate) {
-        filteredFeedback = filteredFeedback.filter(feedback => 
-          new Date(feedback.date) >= new Date(startDate as string)
+        filteredFeedback = filteredFeedback.filter(f => 
+          new Date(f.date) >= new Date(startDate)
         );
       }
       
       if (endDate) {
-        filteredFeedback = filteredFeedback.filter(feedback => 
-          new Date(feedback.date) <= new Date(endDate as string)
+        filteredFeedback = filteredFeedback.filter(f => 
+          new Date(f.date) <= new Date(endDate)
         );
       }
       
+      console.log(`[PARENT-CONTROLLER] getFeedback - Returning ${filteredFeedback.length} feedback items`);
       return res.status(200).json({
         error: false,
         data: filteredFeedback,
@@ -838,50 +860,72 @@ export const parentController = {
   },
   
   /**
-   * Get responses for a specific feedback message
+   * Get feedback responses for a specific feedback message
    */
   async getFeedbackResponses(req: Request, res: Response) {
+    console.log('[PARENT-CONTROLLER] getFeedbackResponses - Processing request');
     try {
       const parentId = req.user?.id;
-      const { feedbackId } = req.params;
+      const feedbackId = req.params.feedbackId;
+      
+      console.log('[PARENT-CONTROLLER] getFeedbackResponses - Parent ID:', parentId);
+      console.log('[PARENT-CONTROLLER] getFeedbackResponses - Feedback ID:', feedbackId);
       
       if (!parentId) {
+        console.log('[PARENT-CONTROLLER] getFeedbackResponses - Authentication error: No parent ID');
         return res.status(401).json({
           error: true,
           message: 'Authentication required'
         });
       }
       
-      // In a real application, you would verify the feedback exists and belongs to one of the parent's children
-      // Then fetch the responses
-      // For now, we'll return mock data
+      if (!feedbackId) {
+        console.log('[PARENT-CONTROLLER] getFeedbackResponses - Missing feedback ID');
+        return res.status(400).json({
+          error: true,
+          message: 'Feedback ID is required'
+        });
+      }
       
+      // In a real application, you would verify that the feedback belongs to the parent's child
+      // and then fetch the responses from the database
+      // const feedback = await feedbackModel.findById(feedbackId);
+      // if (feedback.childId not in parent's children) return 403
+      // const responses = await feedbackModel.getResponses(feedbackId);
+      
+      // For now, we'll return mock data
       const mockResponses = [
         {
           id: "r1",
-          feedbackId,
-          responderId: "p1",
-          responderName: "Mrs. Johnson",
-          responderRole: "parent",
-          message: "Thank you for letting me know. I'll make sure she arrives on time from now on.",
-          date: "2023-03-15T14:30:00Z",
+          feedbackId: "f2",
+          senderId: "p1",
+          senderType: "parent",
+          senderName: "Mrs. Johnson",
+          message: "Thank you for letting me know. We'll ensure Emma arrives on time going forward.",
+          date: "2023-03-15T14:30:00",
           isRead: true
         },
         {
           id: "r2",
-          feedbackId,
-          responderId: "t2",
-          responderName: "Ms. Thompson",
-          responderRole: "teacher",
-          message: "Thank you for your prompt response. I appreciate your cooperation.",
-          date: "2023-03-15T15:45:00Z",
+          feedbackId: "f2",
+          senderId: "t2",
+          senderType: "teacher",
+          senderName: "Ms. Thompson",
+          message: "Thank you for your prompt response. Please let me know if you need any assistance.",
+          date: "2023-03-15T15:45:00",
           isRead: false
         }
       ];
       
+      // Filter responses for the requested feedback
+      const filteredResponses = mockResponses.filter(
+        response => response.feedbackId === feedbackId
+      );
+      
+      console.log(`[PARENT-CONTROLLER] getFeedbackResponses - Returning ${filteredResponses.length} responses`);
       return res.status(200).json({
         error: false,
-        data: mockResponses,
+        data: filteredResponses,
         message: 'Feedback responses retrieved successfully'
       });
     } catch (error) {
@@ -897,44 +941,67 @@ export const parentController = {
    * Respond to a feedback message
    */
   async respondToFeedback(req: Request, res: Response) {
+    console.log('[PARENT-CONTROLLER] respondToFeedback - Processing request');
     try {
       const parentId = req.user?.id;
-      const { feedbackId } = req.params;
+      const feedbackId = req.params.feedbackId;
       const { message } = req.body;
       
+      console.log('[PARENT-CONTROLLER] respondToFeedback - Parent ID:', parentId);
+      console.log('[PARENT-CONTROLLER] respondToFeedback - Feedback ID:', feedbackId);
+      console.log('[PARENT-CONTROLLER] respondToFeedback - Message:', message);
+      
       if (!parentId) {
+        console.log('[PARENT-CONTROLLER] respondToFeedback - Authentication error: No parent ID');
         return res.status(401).json({
           error: true,
           message: 'Authentication required'
         });
       }
       
-      if (!feedbackId || !message) {
+      if (!feedbackId) {
+        console.log('[PARENT-CONTROLLER] respondToFeedback - Missing feedback ID');
         return res.status(400).json({
           error: true,
-          message: 'Missing required fields: feedbackId, message'
+          message: 'Feedback ID is required'
         });
       }
       
-      // In a real application, you would verify the feedback exists and belongs to one of the parent's children
-      // Then save the response
-      // For now, we'll simulate a successful response
-      const responseId = `r-${Math.floor(Math.random() * 100000)}`;
+      if (!message) {
+        console.log('[PARENT-CONTROLLER] respondToFeedback - Missing message');
+        return res.status(400).json({
+          error: true,
+          message: 'Response message is required'
+        });
+      }
       
+      // In a real application, you would verify that the feedback belongs to the parent's child
+      // and then save the response to the database
+      // const feedback = await feedbackModel.findById(feedbackId);
+      // if (feedback.childId not in parent's children) return 403
+      // await feedbackModel.addResponse(feedbackId, parentId, message);
+      
+      console.log('[PARENT-CONTROLLER] respondToFeedback - Response saved successfully');
       return res.status(200).json({
         error: false,
         data: {
-          success: true,
-          responseId,
-          message: 'Response sent successfully'
+          id: Math.random().toString(36).substring(2, 9),
+          feedbackId,
+          senderId: parentId,
+          senderType: 'parent',
+          senderName: 'Parent',
+          message,
+          date: new Date().toISOString(),
+          isRead: false
         },
         message: 'Response sent successfully'
       });
+      
     } catch (error) {
-      console.error('Error responding to feedback:', error);
+      console.error('[PARENT-CONTROLLER] respondToFeedback - Error:', error);
       return res.status(500).json({
         error: true,
-        message: 'Failed to send response'
+        message: 'Error responding to feedback'
       });
     }
   },
@@ -943,21 +1010,37 @@ export const parentController = {
    * Mark a feedback message as read
    */
   async markFeedbackAsRead(req: Request, res: Response) {
+    console.log('[PARENT-CONTROLLER] markFeedbackAsRead - Processing request');
     try {
       const parentId = req.user?.id;
-      const { feedbackId } = req.params;
+      const feedbackId = req.params.feedbackId;
+      
+      console.log('[PARENT-CONTROLLER] markFeedbackAsRead - Parent ID:', parentId);
+      console.log('[PARENT-CONTROLLER] markFeedbackAsRead - Feedback ID:', feedbackId);
       
       if (!parentId) {
+        console.log('[PARENT-CONTROLLER] markFeedbackAsRead - Authentication error: No parent ID');
         return res.status(401).json({
           error: true,
           message: 'Authentication required'
         });
       }
       
-      // In a real application, you would verify the feedback exists and belongs to one of the parent's children
-      // Then mark it as read
-      // For now, we'll simulate a successful update
+      if (!feedbackId) {
+        console.log('[PARENT-CONTROLLER] markFeedbackAsRead - Missing feedback ID');
+        return res.status(400).json({
+          error: true,
+          message: 'Feedback ID is required'
+        });
+      }
       
+      // In a real application, you would verify that the feedback belongs to the parent's child
+      // and then update the feedback status in the database
+      // const feedback = await feedbackModel.findById(feedbackId);
+      // if (feedback.childId not in parent's children) return 403
+      // await feedbackModel.markAsRead(feedbackId);
+      
+      console.log('[PARENT-CONTROLLER] markFeedbackAsRead - Feedback marked as read successfully');
       return res.status(200).json({
         error: false,
         data: {
