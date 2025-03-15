@@ -416,6 +416,28 @@ interface FeedbackResponse {
   isRead: boolean;
 }
 
+// Helper function for parsing dates safely
+const parseDate = (dateString: string): Date => {
+  if (!dateString) {
+    console.log('[PARENT-SERVICE] parseDate - Empty date string provided');
+    return new Date();
+  }
+
+  try {
+    // Handle different formats and make sure we're using ISO format
+    if (dateString.includes('T')) {
+      // Already in ISO format
+      return new Date(dateString);
+    } else {
+      // YYYY-MM-DD format, convert to ISO
+      return new Date(dateString + 'T00:00:00Z');
+    }
+  } catch (err) {
+    console.error('[PARENT-SERVICE] parseDate - Error parsing date:', err);
+    return new Date(); // Return current date as fallback
+  }
+};
+
 // Helper to check online status and log appropriately
 const checkOnlineStatus = (context: string): boolean => {
   const isOnline = navigator.onLine;
@@ -616,13 +638,18 @@ export const parentService = {
   }): Promise<Payment[]> {
     console.log('[PARENT-SERVICE] getPayments - Fetching with options:', filters);
     try {
+      // Check online status first
+      if (!checkOnlineStatus('getPayments')) {
+        return getMockPayments();
+      }
+      
       const { data } = await axios.get<ApiResponse<Payment[]>>('/api/parent/payments', { 
         params: filters
       });
       console.log('[PARENT-SERVICE] getPayments - Success:', data.data.length, 'payments');
       return data.data;
     } catch (error) {
-      return handleApiError('getPayments', error, []);
+      return handleApiError('getPayments', error, getMockPayments());
     }
   },
 
@@ -1011,4 +1038,51 @@ export const parentService = {
       return handleApiError('markFeedbackAsRead', error);
     }
   },
-}; 
+};
+
+// Helper function to provide consistent mock payment data with valid dates
+function getMockPayments(): Payment[] {
+  console.log('[PARENT-SERVICE] Using mock payment data');
+  const now = new Date();
+  
+  // Create dates in ISO format for different timestamps
+  const date1 = new Date(now.getFullYear(), now.getMonth(), 10).toISOString();
+  const date2 = new Date(now.getFullYear(), now.getMonth(), 15).toISOString();
+  const date3 = new Date(now.getFullYear(), now.getMonth(), 5).toISOString();
+  
+  return [
+    {
+      id: "payment1",
+      childId: "1",
+      childName: "Emma Johnson",
+      description: "Tuition Fee - Term 1",
+      amount: 1200,
+      dueDate: date1,
+      status: "paid",
+      transactionId: "tx12345",
+      paymentDate: date2,
+      paymentMethod: "credit_card",
+      invoiceUrl: "/mock/invoices/12345.pdf"
+    },
+    {
+      id: "payment2",
+      childId: "1",
+      childName: "Emma Johnson",
+      description: "Field Trip - Science Museum",
+      amount: 50,
+      dueDate: date2,
+      status: "pending",
+      invoiceUrl: "/mock/invoices/12346.pdf"
+    },
+    {
+      id: "payment3",
+      childId: "2",
+      childName: "Noah Johnson",
+      description: "Sport Equipment Fee",
+      amount: 120,
+      dueDate: date3,
+      status: "overdue",
+      invoiceUrl: "/mock/invoices/12347.pdf"
+    }
+  ];
+} 

@@ -30,6 +30,29 @@ interface Payment {
   reference: string;
 }
 
+// Add this utility function at the top of the file, after imports
+function parseDate(dateString: string): Date {
+  // Check if we have a valid date string format
+  if (!dateString) {
+    console.log('[PARENT-PAYMENTS] parseDate - Empty date string provided');
+    return new Date(); // Return current date as fallback
+  }
+
+  try {
+    // Handle different formats and make sure we're using ISO format
+    if (dateString.includes('T')) {
+      // Already in ISO format
+      return new Date(dateString);
+    } else {
+      // YYYY-MM-DD format, convert to ISO
+      return new Date(dateString + 'T00:00:00Z');
+    }
+  } catch (err) {
+    console.error('[PARENT-PAYMENTS] parseDate - Error parsing date:', err);
+    return new Date(); // Return current date as fallback
+  }
+}
+
 // Simple ErrorBoundary Component
 function ErrorBoundary({ children }: { children: React.ReactNode }) {
   const [hasError, setHasError] = useState(false);
@@ -139,6 +162,13 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
         
         // Fallback to mock data
         console.log('[PARENT-PAYMENTS] fetchData - Using mock student data');
+        const now = new Date();
+        
+        // Create dates in ISO format for different timestamps
+        const date1 = new Date(now.getFullYear(), now.getMonth(), 10).toISOString();
+        const date2 = new Date(now.getFullYear(), now.getMonth(), 15).toISOString();
+        const date3 = new Date(now.getFullYear(), now.getMonth(), 5).toISOString();
+        
         setStudents([
           {
             id: "s1",
@@ -146,7 +176,7 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
             grade: "10th Grade",
             balance: 1500,
             tuition: 5000,
-            dueDate: "2025-03-15"
+            dueDate: date1
           },
           {
             id: "s2",
@@ -154,7 +184,7 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
             grade: "8th Grade",
             balance: 750,
             tuition: 4500,
-            dueDate: "2025-03-15"
+            dueDate: date2
           }
         ]);
         
@@ -165,7 +195,7 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
             studentId: "s1",
             studentName: "John Smith",
             amount: 500,
-            date: "2025-03-01",
+            date: date1,
             status: "completed",
             type: "tuition",
             description: "March Tuition Payment",
@@ -176,7 +206,7 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
             studentId: "s2",
             studentName: "Emma Johnson",
             amount: 250,
-            date: "2025-03-02",
+            date: date2,
             status: "completed",
             type: "fees",
             description: "Lab Fees",
@@ -187,7 +217,7 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
             studentId: "s1",
             studentName: "John Smith",
             amount: 1000,
-            date: "2025-02-15",
+            date: date3,
             status: "completed",
             type: "tuition",
             description: "February Tuition Payment",
@@ -366,7 +396,7 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
                       <p className="text-lg font-semibold text-gray-900">
                         {(() => {
                           try {
-                            return format(new Date(student.dueDate), "MMM d");
+                            return format(parseDate(student.dueDate), "MMM d");
                           } catch (err) {
                             console.error(`[PARENT-PAYMENTS] Error formatting due date for student ${student.id}:`, err);
                             return 'Date unavailable';
@@ -448,8 +478,8 @@ export default function ParentPayments({ user }: ParentPaymentsProps) {
                                 <Calendar className="h-4 w-4" />
                                 {(() => {
                                   try {
-                                    // Safely format the date with error handling
-                                    return format(new Date(payment.date), "MMM d, yyyy");
+                                    // Use our robust date parsing function
+                                    return format(parseDate(payment.date), "MMM d, yyyy");
                                   } catch (err) {
                                     console.error(`[PARENT-PAYMENTS] Error formatting date for payment ${payment.id}:`, err);
                                     return 'Date unavailable';
