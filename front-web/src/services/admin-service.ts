@@ -97,6 +97,93 @@ const MOCK_DASHBOARD_DATA: AdminDashboardData = {
   ]
 };
 
+// Mock user stats data
+const MOCK_USER_STATS = {
+  students: {
+    total: MOCK_DASHBOARD_DATA.stats.totalStudents,
+    active: MOCK_DASHBOARD_DATA.stats.totalStudents - 45,
+    newThisMonth: 78,
+    byGrade: {
+      'Grade 6': 412,
+      'Grade 7': 389,
+      'Grade 8': 402,
+      'Grade 9': 421,
+      'Grade 10': 398,
+      'Grade 11': 232,
+      'Grade 12': 202
+    }
+  },
+  teachers: {
+    total: MOCK_DASHBOARD_DATA.stats.totalTeachers,
+    fullTime: 98,
+    partTime: 30,
+    byDepartment: {
+      'Mathematics': 24,
+      'Science': 22,
+      'English': 19,
+      'History': 16,
+      'Arts': 12,
+      'Physical Education': 8,
+      'Foreign Languages': 15,
+      'Computer Science': 12
+    }
+  },
+  parents: {
+    total: MOCK_DASHBOARD_DATA.stats.totalParents,
+    active: 3245,
+    withMultipleChildren: 1324
+  }
+};
+
+// Mock system stats data
+const MOCK_SYSTEM_STATS = {
+  uptime: '99.98%',
+  storage: {
+    total: '2TB',
+    used: '1.2TB',
+    available: '0.8TB'
+  },
+  performance: {
+    responseTime: '245ms',
+    activeUsers: 324,
+    peakHours: ['09:00-10:00', '13:00-14:00']
+  },
+  lastBackup: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
+  systemVersion: 'v2.5.1'
+};
+
+// Mock financial overview data
+const MOCK_FINANCIAL_OVERVIEW = {
+  totalRevenue: 1250000,
+  revenueByCategory: {
+    'Tuition': 850000,
+    'Fees': 150000,
+    'Donations': 120000,
+    'Other': 130000
+  },
+  revenueByMonth: {
+    '2023-01': 95000,
+    '2023-02': 98000,
+    '2023-03': 102000,
+    '2023-04': 105000,
+    '2023-05': 110000,
+    '2023-06': 115000,
+    '2023-07': 90000,
+    '2023-08': 85000,
+    '2023-09': 120000,
+    '2023-10': 125000,
+    '2023-11': 130000,
+    '2023-12': 75000
+  },
+  recentTransactions: [
+    { id: 'TX123456', date: '2023-12-01', description: 'Staff Salaries', category: 'Payroll', amount: 45000, status: 'completed' },
+    { id: 'TX123457', date: '2023-12-02', description: 'Laboratory Equipment', category: 'Equipment', amount: 12500, status: 'completed' },
+    { id: 'TX123458', date: '2023-12-03', description: 'Software Licenses', category: 'IT', amount: 7800, status: 'completed' },
+    { id: 'TX123459', date: '2023-12-04', description: 'Building Maintenance', category: 'Facilities', amount: 5600, status: 'pending' },
+    { id: 'TX123460', date: '2023-12-05', description: 'Library Books', category: 'Academic', amount: 3200, status: 'completed' }
+  ]
+};
+
 /**
  * Admin Service for managing admin-related operations
  */
@@ -114,10 +201,18 @@ export const adminService = {
 
       console.log('Fetching dashboard data from API');
       const response = await axios.get(`${API_URL}/admin/dashboard`);
-      return response.data.data;
+      
+      // Validate response data
+      if (response.data && response.data.data) {
+        return response.data.data;
+      } else {
+        console.warn('Invalid response format from API, using mock data');
+        return { ...MOCK_DASHBOARD_DATA };
+      }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      return handleApiError('getDashboardData', error, { ...MOCK_DASHBOARD_DATA });
+      // Always return mock data on error to prevent UI crashes
+      return { ...MOCK_DASHBOARD_DATA };
     }
   },
   
@@ -129,85 +224,23 @@ export const adminService = {
       // Check if online
       if (!checkOnlineStatus()) {
         console.log('Browser is offline, returning mock data');
-        return {
-          students: {
-            total: MOCK_DASHBOARD_DATA.stats.totalStudents,
-            active: MOCK_DASHBOARD_DATA.stats.totalStudents - 45,
-            newThisMonth: 78,
-            byGrade: {
-              'Grade 6': 412,
-              'Grade 7': 389,
-              'Grade 8': 402,
-              'Grade 9': 421,
-              'Grade 10': 398,
-              'Grade 11': 232,
-              'Grade 12': 202
-            }
-          },
-          teachers: {
-            total: MOCK_DASHBOARD_DATA.stats.totalTeachers,
-            fullTime: 98,
-            partTime: 30,
-            byDepartment: {
-              'Mathematics': 24,
-              'Science': 22,
-              'English': 19,
-              'History': 16,
-              'Arts': 12,
-              'Physical Education': 8,
-              'Foreign Languages': 15,
-              'Computer Science': 12
-            }
-          },
-          parents: {
-            total: MOCK_DASHBOARD_DATA.stats.totalParents,
-            active: 3245,
-            withMultipleChildren: 1324
-          }
-        };
+        return { ...MOCK_USER_STATS };
       }
 
       console.log('Fetching user statistics from API');
-      const response = await axios.get(`${API_URL}/admin/user-stats`);
-      return response.data.data;
+      const response = await axios.get(`${API_URL}/admin/users/stats`);
+      
+      // Validate response data
+      if (response.data && response.data.data) {
+        return response.data.data;
+      } else {
+        console.warn('Invalid response format from API, using mock data');
+        return { ...MOCK_USER_STATS };
+      }
     } catch (error) {
       console.error('Error fetching user statistics:', error);
-      return handleApiError('getUserStats', error, {
-        students: {
-          total: MOCK_DASHBOARD_DATA.stats.totalStudents,
-          active: MOCK_DASHBOARD_DATA.stats.totalStudents - 45,
-          newThisMonth: 78,
-          byGrade: {
-            'Grade 6': 412,
-            'Grade 7': 389,
-            'Grade 8': 402,
-            'Grade 9': 421,
-            'Grade 10': 398,
-            'Grade 11': 232,
-            'Grade 12': 202
-          }
-        },
-        teachers: {
-          total: MOCK_DASHBOARD_DATA.stats.totalTeachers,
-          fullTime: 98,
-          partTime: 30,
-          byDepartment: {
-            'Mathematics': 24,
-            'Science': 22,
-            'English': 19,
-            'History': 16,
-            'Arts': 12,
-            'Physical Education': 8,
-            'Foreign Languages': 15,
-            'Computer Science': 12
-          }
-        },
-        parents: {
-          total: MOCK_DASHBOARD_DATA.stats.totalParents,
-          active: 3245,
-          withMultipleChildren: 1324
-        }
-      });
+      // Always return mock data on error to prevent UI crashes
+      return { ...MOCK_USER_STATS };
     }
   },
 
@@ -219,43 +252,23 @@ export const adminService = {
       // Check if online
       if (!checkOnlineStatus()) {
         console.log('Browser is offline, returning mock data');
-        return {
-          uptime: '99.98%',
-          storage: {
-            total: '2TB',
-            used: '1.2TB',
-            available: '0.8TB'
-          },
-          performance: {
-            responseTime: '245ms',
-            activeUsers: 324,
-            peakHours: ['09:00-10:00', '13:00-14:00']
-          },
-          lastBackup: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-          systemVersion: 'v2.5.1'
-        };
+        return { ...MOCK_SYSTEM_STATS };
       }
 
       console.log('Fetching system statistics from API');
-      const response = await axios.get(`${API_URL}/admin/system-stats`);
-      return response.data.data;
+      const response = await axios.get(`${API_URL}/admin/system/stats`);
+      
+      // Validate response data
+      if (response.data && response.data.data) {
+        return response.data.data;
+      } else {
+        console.warn('Invalid response format from API, using mock data');
+        return { ...MOCK_SYSTEM_STATS };
+      }
     } catch (error) {
       console.error('Error fetching system statistics:', error);
-      return handleApiError('getSystemStats', error, {
-        uptime: '99.98%',
-        storage: {
-          total: '2TB',
-          used: '1.2TB',
-          available: '0.8TB'
-        },
-        performance: {
-          responseTime: '245ms',
-          activeUsers: 324,
-          peakHours: ['09:00-10:00', '13:00-14:00']
-        },
-        lastBackup: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-        systemVersion: 'v2.5.1'
-      });
+      // Always return mock data on error to prevent UI crashes
+      return { ...MOCK_SYSTEM_STATS };
     }
   },
 
@@ -267,73 +280,23 @@ export const adminService = {
       // Check if online
       if (!checkOnlineStatus()) {
         console.log('Browser is offline, returning mock data');
-        return {
-          totalRevenue: 1250000,
-          revenueByCategory: {
-            'Tuition': 850000,
-            'Fees': 150000,
-            'Donations': 120000,
-            'Other': 130000
-          },
-          revenueByMonth: {
-            '2023-01': 95000,
-            '2023-02': 98000,
-            '2023-03': 102000,
-            '2023-04': 105000,
-            '2023-05': 110000,
-            '2023-06': 115000,
-            '2023-07': 90000,
-            '2023-08': 85000,
-            '2023-09': 120000,
-            '2023-10': 125000,
-            '2023-11': 130000,
-            '2023-12': 75000
-          },
-          recentTransactions: [
-            { id: 'TX123456', date: '2023-12-01', description: 'Staff Salaries', category: 'Payroll', amount: 45000, status: 'completed' },
-            { id: 'TX123457', date: '2023-12-02', description: 'Laboratory Equipment', category: 'Equipment', amount: 12500, status: 'completed' },
-            { id: 'TX123458', date: '2023-12-03', description: 'Software Licenses', category: 'IT', amount: 7800, status: 'completed' },
-            { id: 'TX123459', date: '2023-12-04', description: 'Building Maintenance', category: 'Facilities', amount: 5600, status: 'pending' },
-            { id: 'TX123460', date: '2023-12-05', description: 'Library Books', category: 'Academic', amount: 3200, status: 'completed' }
-          ]
-        };
+        return { ...MOCK_FINANCIAL_OVERVIEW };
       }
 
       console.log('Fetching financial overview from API');
-      const response = await axios.get(`${API_URL}/admin/financial-overview`);
-      return response.data.data;
+      const response = await axios.get(`${API_URL}/admin/financial/overview`);
+      
+      // Validate response data
+      if (response.data && response.data.data) {
+        return response.data.data;
+      } else {
+        console.warn('Invalid response format from API, using mock data');
+        return { ...MOCK_FINANCIAL_OVERVIEW };
+      }
     } catch (error) {
       console.error('Error fetching financial overview:', error);
-      return handleApiError('getFinancialOverview', error, {
-        totalRevenue: 1250000,
-        revenueByCategory: {
-          'Tuition': 850000,
-          'Fees': 150000,
-          'Donations': 120000,
-          'Other': 130000
-        },
-        revenueByMonth: {
-          '2023-01': 95000,
-          '2023-02': 98000,
-          '2023-03': 102000,
-          '2023-04': 105000,
-          '2023-05': 110000,
-          '2023-06': 115000,
-          '2023-07': 90000,
-          '2023-08': 85000,
-          '2023-09': 120000,
-          '2023-10': 125000,
-          '2023-11': 130000,
-          '2023-12': 75000
-        },
-        recentTransactions: [
-          { id: 'TX123456', date: '2023-12-01', description: 'Staff Salaries', category: 'Payroll', amount: 45000, status: 'completed' },
-          { id: 'TX123457', date: '2023-12-02', description: 'Laboratory Equipment', category: 'Equipment', amount: 12500, status: 'completed' },
-          { id: 'TX123458', date: '2023-12-03', description: 'Software Licenses', category: 'IT', amount: 7800, status: 'completed' },
-          { id: 'TX123459', date: '2023-12-04', description: 'Building Maintenance', category: 'Facilities', amount: 5600, status: 'pending' },
-          { id: 'TX123460', date: '2023-12-05', description: 'Library Books', category: 'Academic', amount: 3200, status: 'completed' }
-        ]
-      });
+      // Always return mock data on error to prevent UI crashes
+      return { ...MOCK_FINANCIAL_OVERVIEW };
     }
   }
 }; 
