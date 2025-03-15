@@ -56,7 +56,7 @@ export class TeacherController {
       const schedule = await this.teacherService.getScheduleByDay(teacherId, day);
       
       return sendSuccess(res, {
-        schedule
+        schedule: schedule || []
       }, 'Teacher schedule retrieved successfully');
     } catch (error: any) {
       console.error('Error getting teacher schedule:', error);

@@ -30,6 +30,16 @@ interface Course {
   name: string;
 }
 
+interface ClassScheduleItem {
+  classId: string;
+  className: string;
+  courseName: string;
+  room: string;
+  startTime: string;
+  endTime: string;
+  studentCount: number;
+}
+
 interface FeedbackItem {
   id: string;
   courseId: string;
@@ -555,11 +565,11 @@ const calculateMockDashboardStats = (): TeacherDashboardStats => {
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Simple API configuration without using process.env
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://localhost:3001/api';
 
 // Add helper function to get auth token
 const getAuthToken = () => {
-  return localStorage.getItem('authToken');
+  return localStorage.getItem('auth_token');
 };
 
 // Create axios instance with auth header
@@ -611,10 +621,54 @@ export const teacherService = {
     try {
       // Try to fetch from API first
       const response = await api.get('/teachers/dashboard-stats');
-      return response.data.dashboardStats;
+      
+      // Make sure the response data has the expected structure
+      const stats = response.data.dashboardStats || {};
+      
+      // Create default stats to ensure complete structure
+      const defaultStats = calculateMockDashboardStats();
+      
+      // Create a complete stats object with default values for missing properties
+      const completeStats: TeacherDashboardStats = {
+        classes: {
+          total: stats.classes?.total || defaultStats.classes.total,
+          active: stats.classes?.active || defaultStats.classes.active,
+          upcoming: stats.classes?.upcoming || defaultStats.classes.upcoming,
+          completed: stats.classes?.completed || defaultStats.classes.completed
+        },
+        students: {
+          total: stats.students?.total || defaultStats.students.total,
+          averageAttendance: stats.students?.averageAttendance || defaultStats.students.averageAttendance,
+          averagePerformance: stats.students?.averagePerformance || defaultStats.students.averagePerformance
+        },
+        assignments: {
+          total: stats.assignments?.total || defaultStats.assignments.total,
+          pending: stats.assignments?.pending || defaultStats.assignments.pending,
+          graded: stats.assignments?.graded || defaultStats.assignments.graded,
+          upcoming: stats.assignments?.upcoming || defaultStats.assignments.upcoming
+        },
+        attendance: {
+          today: {
+            present: stats.attendance?.today?.present || defaultStats.attendance.today.present,
+            absent: stats.attendance?.today?.absent || defaultStats.attendance.today.absent,
+            late: stats.attendance?.today?.late || defaultStats.attendance.today.late,
+            total: stats.attendance?.today?.total || defaultStats.attendance.today.total
+          },
+          weekly: {
+            present: stats.attendance?.weekly?.present || defaultStats.attendance.weekly.present,
+            absent: stats.attendance?.weekly?.absent || defaultStats.attendance.weekly.absent,
+            late: stats.attendance?.weekly?.late || defaultStats.attendance.weekly.late,
+            total: stats.attendance?.weekly?.total || defaultStats.attendance.weekly.total
+          }
+        },
+        recentActivity: Array.isArray(stats.recentActivity) ? stats.recentActivity : defaultStats.recentActivity
+      };
+      
+      return completeStats;
     } catch (error) {
       // If API call fails, use mock data as fallback
       const mockStats = calculateMockDashboardStats();
+      console.error('Using fallback mock data due to API error');
       return handleApiError<TeacherDashboardStats>(error, mockStats);
     }
   },
@@ -622,38 +676,92 @@ export const teacherService = {
   /**
    * Get teacher's schedule for a specific day
    */
-  getScheduleByDay: async (day: string): Promise<Array<{
-    classId: string;
-    className: string;
-    courseName: string;
-    room: string;
-    startTime?: string;
-    endTime?: string;
-    studentCount: number;
-  }>> => {
+  getScheduleByDay: async (day: string): Promise<ClassScheduleItem[]> => {
     try {
-      // Try to fetch from API first
+      // Call the API to get schedule for the specified day
       const response = await api.get(`/teachers/schedule/${day}`);
-      return response.data.schedule;
-    } catch (error) {
-      // Simulate API delay
-      await delay(500);
       
-      // If API call fails, use mock data as fallback
-      // Filter classes by the given day
-      const scheduleItems = MOCK_CLASSES
-        .filter((cls) => cls.schedule.some((s) => s.day.toLowerCase() === day.toLowerCase()))
-        .map((cls) => {
-          const scheduleForDay = cls.schedule.find((s) => s.day.toLowerCase() === day.toLowerCase());
-          return {
-            classId: cls.id,
-            className: cls.name,
-            courseName: cls.courseName,
-            room: cls.room,
-            startTime: scheduleForDay?.startTime,
-            endTime: scheduleForDay?.endTime,
-            studentCount: cls.studentCount
-          };
+      // Log the exact response for debugging
+      console.log('Schedule API response:', JSON.stringify(response.data, null, 2));
+      
+      // The backend response structure from sendSuccess is:
+      // {
+      //   error: false,
+      //   data: { schedule: [...] },
+      //   message: "Teacher schedule retrieved successfully"
+      // }
+      
+      let scheduleData: any[] = [];
+      
+      if (response.data) {
+        // Check for standard API response format with data.schedule
+        if (response.data.data && response.data.data.schedule && Array.isArray(response.data.data.schedule)) {
+          scheduleData = response.data.data.schedule;
+        } 
+        // Fallback cases for other possible response formats
+        else if (response.data.schedule && Array.isArray(response.data.schedule)) {
+          scheduleData = response.data.schedule;
+        } else if (Array.isArray(response.data)) {
+          scheduleData = response.data;
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          scheduleData = response.data.data;
+        }
+      }
+      
+      if (scheduleData.length === 0) {
+        console.warn('Invalid schedule data format from API:', response.data);
+      }
+      
+      // Validate and transform each schedule item
+      return scheduleData
+        .filter((item: any) => item && typeof item === 'object')
+        .map((item: any) => ({
+          classId: item.classId || 'unknown',
+          className: item.className || 'Unknown Class',
+          courseName: item.courseName || 'Unknown Course',
+          room: item.room || 'TBD',
+          startTime: item.startTime || '',
+          endTime: item.endTime || '',
+          studentCount: item.studentCount || 0
+        }))
+        .sort((a: ClassScheduleItem, b: ClassScheduleItem) => {
+          // Sort by start time if available
+          if (a.startTime && b.startTime) {
+            const timeA = a.startTime.split(':').map(Number);
+            const timeB = b.startTime.split(':').map(Number);
+            return (timeA[0] * 60 + timeA[1]) - (timeB[0] * 60 + timeB[1]);
+          }
+          return 0;
+        });
+    } catch (error) {
+      console.error('Error fetching schedule:', error);
+      
+      // Simulate API delay
+      await delay(600);
+      
+      // Calculate the current day's mock schedule (filter the mock data by day)
+      const dayLower = day.toLowerCase();
+      const scheduleItems = Object.values(MOCK_CLASSES)
+        .flatMap(cls => {
+          // Get schedule items for this day
+          const daySchedules = cls.schedule
+            .filter(s => s.day.toLowerCase() === dayLower)
+            .map(s => ({
+              classId: cls.id,
+              className: cls.name,
+              courseName: cls.courseName || 'Course Name',
+              room: cls.room,
+              startTime: s.startTime,
+              endTime: s.endTime,
+              studentCount: cls.studentCount
+            }));
+          
+          return daySchedules;
+        })
+        .sort((a: ClassScheduleItem, b: ClassScheduleItem) => {
+          const timeA = a.startTime.split(':').map(Number);
+          const timeB = b.startTime.split(':').map(Number);
+          return (timeA[0] * 60 + timeA[1]) - (timeB[0] * 60 + timeB[1]);
         });
       
       return handleApiError(error, scheduleItems);

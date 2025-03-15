@@ -646,15 +646,21 @@ export function TeacherFeedbackPage({ user }: TeacherFeedbackPageProps) {
                         value={newFeedback.studentId} 
                         onValueChange={(value) => setNewFeedback({...newFeedback, studentId: value})}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select student" />
                         </SelectTrigger>
                         <SelectContent>
-                          {students.map((student) => (
-                            <SelectItem key={student.id} value={student.id}>
-                              {student.name}
+                          {students && students.length > 0 ? (
+                            students.map((student) => (
+                              <SelectItem key={student.id} value={student.id}>
+                                {student.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="loading" disabled>
+                              No students available
                             </SelectItem>
-                          ))}
+                          )}
                         </SelectContent>
                       </Select>
                   </div>
@@ -669,11 +675,17 @@ export function TeacherFeedbackPage({ user }: TeacherFeedbackPageProps) {
                           <SelectValue placeholder="Select course" />
                         </SelectTrigger>
                         <SelectContent>
-                          {courses.map((course) => (
-                            <SelectItem key={course.id} value={course.id}>
-                              {course.name}
+                          {courses && courses.length > 0 ? (
+                            courses.map((course) => (
+                              <SelectItem key={course.id} value={course.id}>
+                                {course.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="loading" disabled>
+                              No courses available
                             </SelectItem>
-                          ))}
+                          )}
                         </SelectContent>
                       </Select>
                   </div>

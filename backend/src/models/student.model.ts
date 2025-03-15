@@ -395,6 +395,81 @@ export class StudentModel {
       return mockStudentData.attendanceStats;
     }
   }
+
+  /**
+   * Find students by class IDs
+   */
+  static async findByClassIds(classIds: string[]): Promise<any[]> {
+    if (!checkDbAvailability() || !classIds.length) {
+      // Return mock data if database is not available or no class IDs
+      return [
+        {
+          id: 'mock-student-1',
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          classId: 'mock-class-1',
+          profileImage: null,
+          enrollmentDate: new Date(),
+          status: 'active'
+        },
+        {
+          id: 'mock-student-2',
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane.smith@example.com',
+          classId: 'mock-class-1',
+          profileImage: null,
+          enrollmentDate: new Date(),
+          status: 'active'
+        }
+      ];
+    }
+
+    try {
+      const placeholders = classIds.map(() => '?').join(',');
+      const query = `
+        SELECT DISTINCT s.id, u.firstName, u.lastName, u.email, ce.courseId as classId, u.profileImage
+        FROM students s
+        JOIN users u ON s.userId = u.id
+        JOIN course_enrollments ce ON s.id = ce.studentId
+        JOIN classes c ON ce.courseId = c.courseId
+        WHERE c.id IN (${placeholders})
+      `;
+
+      const [rows] = await pool.query(query, classIds);
+      
+      if (!rows.length) {
+        return [];
+      }
+
+      return rows.map((row: any) => ({
+        id: row.id,
+        firstName: row.firstName,
+        lastName: row.lastName,
+        email: row.email,
+        classId: row.classId,
+        profileImage: row.profileImage,
+        enrollmentDate: row.enrollmentDate ? new Date(row.enrollmentDate) : new Date(),
+        status: row.status || 'active'
+      }));
+    } catch (error) {
+      console.error('Error finding students by class IDs:', error);
+      // Return mock data on error
+      return [
+        {
+          id: 'mock-student-1',
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          classId: classIds[0] || 'unknown',
+          profileImage: null,
+          enrollmentDate: new Date(),
+          status: 'active'
+        }
+      ];
+    }
+  }
 }
 
 // SQL to create the students table
