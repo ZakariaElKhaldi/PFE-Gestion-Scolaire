@@ -1,35 +1,50 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Pencil, Trash, Search } from 'lucide-react'
-import { mockUsers } from '../../../data'
 import { UserResponse, UserRole } from '../../../types/auth'
 import { UserFormModal, UserFormData } from '../../../components/dashboard/users/user-form-modal'
 import { DashboardLayout } from '../../../components/dashboard/layout/dashboard-layout'
 import toast, { Toaster } from 'react-hot-toast'
+import { userService } from '../../../services/user.service'
 
 interface UsersPageProps {
   user: UserResponse
 }
 
 export const UsersPage = ({ user }: UsersPageProps) => {
-  const [users, setUsers] = useState<UserResponse[]>(mockUsers)
+  const [users, setUsers] = useState<UserResponse[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedRoles, setSelectedRoles] = useState<string[]>([])
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false)
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = 
-      user.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesRole = selectedRoles.length === 0 || selectedRoles.includes(user.role);
-    
-    return matchesSearch && matchesRole;
-  });
+  // Fetch users on component mount and when search/filters change
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setIsLoading(true);
+        const fetchedUsers = await userService.getUsers({
+          role: selectedRoles.length > 0 ? selectedRoles.join(',') : undefined,
+          search: searchQuery || undefined
+        });
+        setUsers(fetchedUsers);
+        setError(null);
+      } catch (err) {
+        console.error('Failed to fetch users:', err);
+        setError('Failed to load users. Please try again later.');
+        toast.error('Failed to load users');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, [searchQuery, selectedRoles]);
+
+  const filteredUsers = users;
 
   const handleRoleToggle = (role: string) => {
     setSelectedRoles(prev => 
@@ -42,24 +57,19 @@ export const UsersPage = ({ user }: UsersPageProps) => {
   const handleAddUser = async (data: UserFormData) => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Create a new user with a unique ID
-      const newUser: UserResponse = {
-        id: `user-${Date.now()}`,
+      const newUser = await userService.createUser({
         ...data,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+        password: data.password || 'defaultPassword123' // In a real app, you'd handle this differently
+      });
       
-      setUsers(prev => [...prev, newUser]);
-      setIsAddUserModalOpen(false);
-      toast.success('User added successfully');
-    } catch (error) {
+      if (newUser) {
+        setUsers(prev => [...prev, newUser]);
+        setIsAddUserModalOpen(false);
+        toast.success('User added successfully');
+      }
+    } catch (error: any) {
       console.error('Error adding user:', error);
-      toast.error('Failed to add user');
-      throw error;
+      toast.error(error.message || 'Failed to add user');
     } finally {
       setIsLoading(false);
     }
@@ -70,25 +80,28 @@ export const UsersPage = ({ user }: UsersPageProps) => {
     
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const updatedUser = await userService.updateUser(selectedUser.id, {
+        ...data,
+        // Only include password if it was provided
+        ...(data.password ? { password: data.password } : {})
+      });
       
-      // Update the user
-      setUsers(prev => 
-        prev.map(user => 
-          user.id === selectedUser.id 
-            ? { ...user, ...data } 
-            : user
-        )
-      );
-      
-      setIsEditUserModalOpen(false);
-      setSelectedUser(null);
-      toast.success('User updated successfully');
-    } catch (error) {
+      if (updatedUser) {
+        setUsers(prev => 
+          prev.map(user => 
+            user.id === selectedUser.id 
+              ? updatedUser 
+              : user
+          )
+        );
+        
+        setIsEditUserModalOpen(false);
+        setSelectedUser(null);
+        toast.success('User updated successfully');
+      }
+    } catch (error: any) {
       console.error('Error editing user:', error);
-      toast.error('Failed to update user');
-      throw error;
+      toast.error(error.message || 'Failed to update user');
     } finally {
       setIsLoading(false);
     }
@@ -99,18 +112,17 @@ export const UsersPage = ({ user }: UsersPageProps) => {
     
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const success = await userService.deleteUser(selectedUser.id);
       
-      // Delete the user
-      setUsers(prev => prev.filter(user => user.id !== selectedUser.id));
-      
-      setIsDeleteModalOpen(false);
-      setSelectedUser(null);
-      toast.success('User deleted successfully');
-    } catch (error) {
+      if (success) {
+        setUsers(prev => prev.filter(user => user.id !== selectedUser.id));
+        setIsDeleteModalOpen(false);
+        setSelectedUser(null);
+        toast.success('User deleted successfully');
+      }
+    } catch (error: any) {
       console.error('Error deleting user:', error);
-      toast.error('Failed to delete user');
+      toast.error(error.message || 'Failed to delete user');
     } finally {
       setIsLoading(false);
     }
@@ -125,6 +137,40 @@ export const UsersPage = ({ user }: UsersPageProps) => {
     setSelectedUser(user);
     setIsDeleteModalOpen(true);
   };
+
+  // Show loading state
+  if (isLoading && users.length === 0) {
+    return (
+      <DashboardLayout user={user}>
+        <div className="p-6 flex justify-center items-center min-h-[80vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Show error state
+  if (error && users.length === 0) {
+    return (
+      <DashboardLayout user={user}>
+        <div className="p-6 flex flex-col justify-center items-center min-h-[80vh]">
+          <div className="text-red-500 mb-4">
+            <svg className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-medium text-gray-900 mb-2">Error Loading Users</h3>
+          <p className="text-gray-500 mb-4">{error}</p>
+          <button 
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            onClick={() => window.location.reload()}
+          >
+            Try Again
+          </button>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout user={user}>

@@ -71,6 +71,8 @@ import paymentRoutes from './routes/payment.routes';
 import materialRoutes from './routes/material.routes';
 import feedbackRoutes from './routes/feedback.routes';
 import certificateRoutes from './routes/certificate.routes';
+import adminRoutes from './routes/admin.routes';
+
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/users', userRoutes);
@@ -81,6 +83,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/materials', materialRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/certificates', certificateRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Default route
 app.get('/', (req, res) => {
