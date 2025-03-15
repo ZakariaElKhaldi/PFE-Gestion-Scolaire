@@ -17,25 +17,28 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
   try {
     // Get the token from the Authorization header
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       res.status(401).json({ error: true, message: 'Authentication required' });
       return;
     }
-    
+
     const token = authHeader.split(' ')[1];
-    
+
     if (!token) {
       res.status(401).json({ error: true, message: 'Authentication required' });
       return;
     }
-    
+
     // Verify the token
     const decoded = jwt.verify(token, config.jwt.secret as Secret) as JwtPayload;
-    
+
     // Attach the user information to the request object
     req.user = decoded;
-    
+
+    // Debug log to verify the decoded token
+    console.log('Decoded Token:', decoded);
+
     next();
   } catch (error) {
     console.error('Authentication error:', error);

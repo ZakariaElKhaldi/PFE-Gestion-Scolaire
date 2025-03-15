@@ -10,6 +10,7 @@ import paymentRoutes from './payment.routes';
 import materialRoutes from './material.routes';
 import feedbackRoutes from './feedback.routes';
 import certificateRoutes from './certificate.routes';
+import parentRoutes from './parent.routes';
 
 const router = Router();
 
@@ -45,5 +46,8 @@ router.use('/feedback', feedbackRoutes);
 
 // Certificate routes
 router.use('/certificates', certificateRoutes);
+
+// Parent routes
+router.use('/parent', parentRoutes);
 
 export default router; 

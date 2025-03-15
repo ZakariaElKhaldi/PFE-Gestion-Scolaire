@@ -34,6 +34,7 @@ async function seed() {
     const adminId = uuidv4();
     const teacherId = uuidv4();
     const studentId = uuidv4();
+    const parentId = uuidv4(); // Parent ID
     const departmentId = uuidv4();
     const cs101Id = uuidv4();
     const cs201Id = uuidv4();
@@ -52,18 +53,52 @@ async function seed() {
     
     console.log('Department created');
 
-    // Create users (admin, teacher, student)
+    // Create users (admin, teacher, student, parent)
     await connection.query(`
       INSERT INTO users (id, email, password, firstName, lastName, role, departmentId)
       VALUES 
         (?, 'admin@example.com', ?, 'Admin', 'User', 'administrator', ?),
         (?, 'teacher@example.com', ?, 'John', 'Smith', 'teacher', ?),
-        (?, 'student@example.com', ?, 'Test', 'Student', 'student', ?);
-    `, [adminId, hashedPassword, departmentId, 
-        teacherId, hashedPassword, departmentId, 
-        studentId, hashedPassword, departmentId]);
+        (?, 'student@example.com', ?, 'Test', 'Student', 'student', ?),
+        (?, 'parent@example.com', ?, 'Parent', 'Johnson', 'parent', NULL);
+    `, [
+      adminId, hashedPassword, departmentId, 
+      teacherId, hashedPassword, departmentId, 
+      studentId, hashedPassword, departmentId, 
+      parentId, hashedPassword // Parent user does not belong to a department
+    ]);
     
     console.log('Users created');
+
+    // Verify parent and student exist
+    const [parentExists] = await connection.query(`
+      SELECT id FROM users WHERE id = ? AND role = 'parent';
+    `, [parentId]);
+
+    const [studentExists] = await connection.query(`
+      SELECT id FROM users WHERE id = ? AND role = 'student';
+    `, [studentId]);
+
+    if (!parentExists.length) {
+      throw new Error(`Parent with ID ${parentId} does not exist in the users table.`);
+    }
+
+    if (!studentExists.length) {
+      throw new Error(`Student with ID ${studentId} does not exist in the users table.`);
+    }
+
+    // Create parent-child relationship
+    await connection.query(`
+      INSERT INTO parent_child (id, parentId, studentId, relationship, isEmergencyContact, canPickup)
+      VALUES 
+        (?, ?, ?, 'parent', true, true);
+    `, [
+      uuidv4(), // Unique ID for the relationship
+      parentId, // Parent ID
+      studentId // Student ID
+    ]);
+
+    console.log('Parent-child relationship created');
 
     // Create courses
     await connection.query(`
@@ -170,4 +205,4 @@ async function seed() {
 }
 
 // Run the seed function
-seed().catch(console.error); 
+seed().catch(console.error);

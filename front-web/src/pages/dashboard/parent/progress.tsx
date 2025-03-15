@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User } from "../../../types/auth";
 import { DashboardLayout } from "../../../components/dashboard/layout/dashboard-layout";
 import { BarChart, TrendingUp, GraduationCap, BookOpen, Clock, Award, ChevronDown } from "lucide-react";
 import { Bar, Radar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, RadialLinearScale, PointElement, LineElement, Filler } from 'chart.js';
+import axios from "axios";
+import { API_URL } from "../../../config/constants";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, RadialLinearScale, PointElement, LineElement, Filler);
 
@@ -11,150 +13,228 @@ interface ParentProgressProps {
   user: User;
 }
 
-interface ChildData {
-  name: string;
-  performanceData: {
-    labels: string[];
-    datasets: {
-      label: string;
-      data: number[];
-      backgroundColor: string;
-    }[];
-  };
-  skillsData: {
-    labels: string[];
-    datasets: {
-      label: string;
-      data: number[];
-      backgroundColor: string;
-      borderColor: string;
-      borderWidth: number;
-    }[];
-  };
+interface ChildPerformanceData {
+  subject: string;
+  grade: number;
+  gradeType: string;
 }
 
-const childrenData: { [key: string]: ChildData } = {
-  child1: {
-    name: "John Doe",
-    performanceData: {
-      labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
-      datasets: [
-        {
-          label: 'Mathematics',
-          data: [85, 90, 78, 88, 92, 95, 89, 94, 91, 87, 93, 96],
-          backgroundColor: 'rgba(75, 192, 192, 0.5)',
-        },
-        {
-          label: 'Physics',
-          data: [80, 85, 82, 86, 88, 90, 85, 89, 87, 84, 90, 92],
-          backgroundColor: 'rgba(153, 102, 255, 0.5)',
-        },
-      ],
-    },
-    skillsData: {
-      labels: ['Communication', 'Problem Solving', 'Teamwork', 'Creativity', 'Leadership', 'Technical Skills'],
-      datasets: [
-        {
-          label: 'Skills',
-          data: [85, 90, 78, 88, 92, 95],
-          backgroundColor: 'rgba(255, 99, 132, 0.2)',
-          borderColor: 'rgba(255, 99, 132, 1)',
-          borderWidth: 1,
-        },
-      ],
-    },
-  },
-  child2: {
-    name: "Jane Doe",
-    performanceData: {
-      labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
-      datasets: [
-        {
-          label: 'Mathematics',
-          data: [78, 82, 85, 88, 90, 92, 94, 96, 89, 87, 85, 88],
-          backgroundColor: 'rgba(75, 192, 192, 0.5)',
-        },
-        {
-          label: 'Physics',
-          data: [75, 80, 85, 88, 90, 92, 94, 96, 89, 87, 85, 88],
-          backgroundColor: 'rgba(153, 102, 255, 0.5)',
-        },
-      ],
-    },
-    skillsData: {
-      labels: ['Communication', 'Problem Solving', 'Teamwork', 'Creativity', 'Leadership', 'Technical Skills'],
-      datasets: [
-        {
-          label: 'Skills',
-          data: [80, 85, 88, 90, 92, 94],
-          backgroundColor: 'rgba(255, 99, 132, 0.2)',
-          borderColor: 'rgba(255, 99, 132, 1)',
-          borderWidth: 1,
-        },
-      ],
-    },
-  },
-};
+interface ChildSkillData {
+  skill: string;
+  score: number;
+}
 
-const performanceOptions = {
-  responsive: true,
-  plugins: {
-    legend: {
-      position: 'top' as const,
-    },
-    title: {
-      display: true,
-      text: 'Academic Performance Over the Year',
-      font: {
-        size: 16,
-      },
-    },
-  },
-  scales: {
-    y: {
-      beginAtZero: true,
-      max: 100,
-      title: {
-        display: true,
-        text: 'Percentage',
-      },
-    },
-  },
-};
+interface Child {
+  childId: string;
+  name: string;
+  performanceData: ChildPerformanceData[];
+  skillsData: ChildSkillData[];
+}
 
-const skillsOptions = {
-  responsive: true,
-  plugins: {
-    legend: {
-      position: 'top' as const,
-    },
-    title: {
-      display: true,
-      text: 'Skills Assessment',
-      font: {
-        size: 16,
-      },
-    },
-  },
-  scales: {
-    r: {
-      angleLines: {
-        display: false,
-      },
-      suggestedMin: 0,
-      suggestedMax: 100,
-    },
-  },
-};
+interface ApiResponse {
+  children: Child[];
+}
 
 export default function ParentProgress({ user }: ParentProgressProps) {
-  const [selectedChild, setSelectedChild] = useState<string>("child1");
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [children, setChildren] = useState<Child[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState<string>("");
+
+  useEffect(() => {
+    const fetchChildrenData = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get<ApiResponse>(`${API_URL}/parent/progress`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        setChildren(response.data.children);
+        
+        // Set the first child as selected by default if available
+        if (response.data.children.length > 0) {
+          setSelectedChildId(response.data.children[0].childId);
+        }
+        
+        setLoading(false);
+      } catch (err) {
+        console.error("Error fetching children data:", err);
+        setError("Failed to load children data. Please try again later.");
+        setLoading(false);
+      }
+    };
+
+    fetchChildrenData();
+  }, []);
 
   const handleChildChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedChild(event.target.value);
+    setSelectedChildId(event.target.value);
   };
 
-  const { performanceData, skillsData } = childrenData[selectedChild];
+  // Find the selected child
+  const selectedChild = children.find(child => child.childId === selectedChildId);
+
+  // Prepare chart data for the selected child
+  const preparePerformanceData = (child?: Child) => {
+    if (!child) return {
+      labels: [],
+      datasets: []
+    };
+
+    // Group performance data by subject
+    const subjectGroups: Record<string, number[]> = {};
+    
+    child.performanceData.forEach(item => {
+      if (!subjectGroups[item.subject]) {
+        subjectGroups[item.subject] = [];
+      }
+      subjectGroups[item.subject].push(item.grade);
+    });
+
+    // Create datasets for each subject
+    const datasets = Object.entries(subjectGroups).map(([subject, grades], index) => {
+      const colors = [
+        'rgba(75, 192, 192, 0.5)',
+        'rgba(153, 102, 255, 0.5)',
+        'rgba(255, 99, 132, 0.5)',
+        'rgba(54, 162, 235, 0.5)',
+        'rgba(255, 206, 86, 0.5)'
+      ];
+      
+      return {
+        label: subject,
+        data: grades,
+        backgroundColor: colors[index % colors.length],
+      };
+    });
+
+    // Use grade types as labels
+    const labels = child.performanceData.map(item => item.gradeType);
+    
+    return {
+      labels: [...new Set(labels)], // Remove duplicates
+      datasets
+    };
+  };
+
+  const prepareSkillsData = (child?: Child) => {
+    if (!child) return {
+      labels: [],
+      datasets: []
+    };
+
+    return {
+      labels: child.skillsData.map(item => item.skill),
+      datasets: [
+        {
+          label: 'Skills',
+          data: child.skillsData.map(item => item.score),
+          backgroundColor: 'rgba(255, 99, 132, 0.2)',
+          borderColor: 'rgba(255, 99, 132, 1)',
+          borderWidth: 1,
+        },
+      ],
+    };
+  };
+
+  const performanceData = preparePerformanceData(selectedChild);
+  const skillsData = prepareSkillsData(selectedChild);
+
+  const performanceOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+      },
+      title: {
+        display: true,
+        text: 'Academic Performance',
+        font: {
+          size: 16,
+        },
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 100,
+        title: {
+          display: true,
+          text: 'Grade',
+        },
+      },
+    },
+  };
+
+  const skillsOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+      },
+      title: {
+        display: true,
+        text: 'Skills Assessment',
+        font: {
+          size: 16,
+        },
+      },
+    },
+    scales: {
+      r: {
+        angleLines: {
+          display: false,
+        },
+        suggestedMin: 0,
+        suggestedMax: 100,
+      },
+    },
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout user={user}>
+        <div className="p-6 flex justify-center items-center h-full">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading progress data...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout user={user}>
+        <div className="p-6 flex justify-center items-center h-full">
+          <div className="text-center text-red-500">
+            <p>{error}</p>
+            <button 
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              onClick={() => window.location.reload()}
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (children.length === 0) {
+    return (
+      <DashboardLayout user={user}>
+        <div className="p-6 flex justify-center items-center h-full">
+          <div className="text-center">
+            <p className="text-gray-600">No children data available.</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout user={user}>
@@ -171,12 +251,13 @@ export default function ParentProgress({ user }: ParentProgressProps) {
             <label htmlFor="childSelect" className="sr-only">Select Child</label>
             <select
               id="childSelect"
-              value={selectedChild}
+              value={selectedChildId}
               onChange={handleChildChange}
               className="appearance-none w-48 px-4 py-2 pr-8 rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 bg-white text-gray-700"
             >
-              <option value="child1">John Doe</option>
-              <option value="child2">Jane Doe</option>
+              {children.map(child => (
+                <option key={child.childId} value={child.childId}>{child.name}</option>
+              ))}
             </select>
             <ChevronDown className="absolute right-3 top-3 h-4 w-4 text-gray-500 pointer-events-none" />
           </div>
@@ -186,7 +267,12 @@ export default function ParentProgress({ user }: ParentProgressProps) {
         <div className="grid gap-6 md:grid-cols-4">
           <div className="rounded-lg border bg-white p-6 shadow-sm">
             <h3 className="text-sm font-medium text-gray-500">Overall GPA</h3>
-            <p className="mt-2 text-3xl font-semibold text-gray-900">3.8</p>
+            <p className="mt-2 text-3xl font-semibold text-gray-900">
+              {selectedChild ? (
+                (selectedChild.performanceData.reduce((sum, item) => sum + item.grade, 0) / 
+                (selectedChild.performanceData.length || 1) / 20).toFixed(1)
+              ) : "N/A"}
+            </p>
             <p className="mt-1 text-sm text-gray-500">Current semester</p>
           </div>
           <div className="rounded-lg border bg-white p-6 shadow-sm">
@@ -195,14 +281,18 @@ export default function ParentProgress({ user }: ParentProgressProps) {
             <p className="mt-1 text-sm text-gray-500">Academic year</p>
           </div>
           <div className="rounded-lg border bg-white p-6 shadow-sm">
-            <h3 className="text-sm font-medium text-gray-500">Completed Courses</h3>
-            <p className="mt-2 text-3xl font-semibold text-green-600">12</p>
-            <p className="mt-1 text-sm text-gray-500">Out of 15</p>
+            <h3 className="text-sm font-medium text-gray-500">Subjects</h3>
+            <p className="mt-2 text-3xl font-semibold text-green-600">
+              {selectedChild ? new Set(selectedChild.performanceData.map(item => item.subject)).size : 0}
+            </p>
+            <p className="mt-1 text-sm text-gray-500">Current semester</p>
           </div>
           <div className="rounded-lg border bg-white p-6 shadow-sm">
-            <h3 className="text-sm font-medium text-gray-500">Awards</h3>
-            <p className="mt-2 text-3xl font-semibold text-purple-600">3</p>
-            <p className="mt-1 text-sm text-gray-500">Academic achievements</p>
+            <h3 className="text-sm font-medium text-gray-500">Skills</h3>
+            <p className="mt-2 text-3xl font-semibold text-purple-600">
+              {selectedChild ? selectedChild.skillsData.length : 0}
+            </p>
+            <p className="mt-1 text-sm text-gray-500">Tracked skills</p>
           </div>
         </div>
 
@@ -240,64 +330,95 @@ export default function ParentProgress({ user }: ParentProgressProps) {
               <span className="text-sm text-gray-500">Current Semester</span>
             </div>
             <div className="mt-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                    <BookOpen className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-900">Mathematics</h3>
-                    <p className="text-sm text-gray-500">Advanced Calculus</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-lg font-semibold text-gray-900">A</span>
-                  <p className="text-sm text-gray-500">95%</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
-                    <BookOpen className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-gray-900">Physics</h3>
-                    <p className="text-sm text-gray-500">Classical Mechanics</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-lg font-semibold text-gray-900">A-</span>
-                  <p className="text-sm text-gray-500">92%</p>
-                </div>
-              </div>
+              {selectedChild && selectedChild.performanceData
+                .filter((item, index, self) => 
+                  index === self.findIndex(t => t.subject === item.subject)
+                )
+                .slice(0, 3)
+                .map((item, index) => {
+                  const subjectGrades = selectedChild.performanceData
+                    .filter(grade => grade.subject === item.subject)
+                    .map(grade => grade.grade);
+                  
+                  const averageGrade = subjectGrades.reduce((sum, grade) => sum + grade, 0) / 
+                    (subjectGrades.length || 1);
+                  
+                  const getLetterGrade = (score: number) => {
+                    if (score >= 90) return 'A';
+                    if (score >= 80) return 'B';
+                    if (score >= 70) return 'C';
+                    if (score >= 60) return 'D';
+                    return 'F';
+                  };
+
+                  const colors = ['blue', 'purple', 'green', 'yellow', 'red'];
+                  const color = colors[index % colors.length];
+                  
+                  return (
+                    <div key={item.subject} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`h-10 w-10 rounded-full bg-${color}-100 flex items-center justify-center`}>
+                          <BookOpen className={`h-5 w-5 text-${color}-600`} />
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-gray-900">{item.subject}</h3>
+                          <p className="text-sm text-gray-500">{item.gradeType}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-lg font-semibold text-gray-900">{getLetterGrade(averageGrade)}</span>
+                        <p className="text-sm text-gray-500">{averageGrade.toFixed(1)}%</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              
+              {(!selectedChild || selectedChild.performanceData.length === 0) && (
+                <p className="text-gray-500 text-center py-4">No subject data available</p>
+              )}
             </div>
           </div>
 
-          {/* Recent Achievements */}
+          {/* Skills Highlights */}
           <div className="rounded-lg border bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Recent Achievements</h2>
-              <span className="text-sm text-gray-500">Last 30 days</span>
+              <h2 className="text-lg font-semibold text-gray-900">Skills Highlights</h2>
+              <span className="text-sm text-gray-500">Top Skills</span>
             </div>
             <div className="mt-4 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
-                  <Award className="h-5 w-5 text-yellow-600" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-900">Perfect Attendance</h3>
-                  <p className="text-sm text-gray-500">Achieved 100% attendance this month</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-900">Top Performance</h3>
-                  <p className="text-sm text-gray-500">Ranked 1st in Mathematics</p>
-                </div>
-              </div>
+              {selectedChild && selectedChild.skillsData
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 3)
+                .map((skill, index) => {
+                  const icons = [Award, TrendingUp, GraduationCap];
+                  const colors = ['yellow', 'green', 'blue'];
+                  const Icon = icons[index % icons.length];
+                  const color = colors[index % colors.length];
+                  
+                  return (
+                    <div key={skill.skill} className="flex items-center gap-3">
+                      <div className={`h-10 w-10 rounded-full bg-${color}-100 flex items-center justify-center`}>
+                        <Icon className={`h-5 w-5 text-${color}-600`} />
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-gray-900">{skill.skill}</h3>
+                        <div className="w-full bg-gray-200 rounded-full h-2.5 mt-1">
+                          <div 
+                            className={`bg-${color}-600 h-2.5 rounded-full`} 
+                            style={{ width: `${skill.score}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                      <div className="ml-auto">
+                        <span className="font-semibold">{skill.score}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              
+              {(!selectedChild || selectedChild.skillsData.length === 0) && (
+                <p className="text-gray-500 text-center py-4">No skills data available</p>
+              )}
             </div>
           </div>
         </div>
