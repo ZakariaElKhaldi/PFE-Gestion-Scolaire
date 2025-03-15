@@ -30,7 +30,9 @@ import {
   RefreshCw,
   WifiOff,
   Loader2,
-  Save
+  Save,
+  Star,
+  StarHalf
 } from 'lucide-react';
 import {
   Table,
@@ -44,7 +46,7 @@ import { Badge } from '../../../components/ui/badge';
 import { Avatar, AvatarFallback } from '../../../components/ui/avatar';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'react-hot-toast';
-import { teacherService } from '../../../services/teacher-service';
+import { teacherService, ReceivedFeedbackItem } from '../../../services/teacher-service';
 import { Alert, AlertDescription, AlertTitle } from '../../../components/ui/alert';
 
 interface TeacherFeedbackPageProps {
@@ -101,6 +103,13 @@ interface NewFeedback {
   isPrivate: boolean;
 }
 
+interface CourseStatistics {
+  courseId: string;
+  courseName: string;
+  averageRating: number;
+  totalFeedback: number;
+}
+
 export function TeacherFeedbackPage({ user }: TeacherFeedbackPageProps) {
   const [activeTab, setActiveTab] = useState<string>('list');
   const [students, setStudents] = useState<Student[]>([]);
@@ -121,6 +130,13 @@ export function TeacherFeedbackPage({ user }: TeacherFeedbackPageProps) {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  
+  // New state for received feedback
+  const [receivedFeedback, setReceivedFeedback] = useState<ReceivedFeedbackItem[]>([]);
+  const [courseStats, setCourseStats] = useState<CourseStatistics[]>([]);
+  const [receivedSearchQuery, setReceivedSearchQuery] = useState<string>('');
+  const [filterCourse, setFilterCourse] = useState<string>('all');
+  const [filterRating, setFilterRating] = useState<string>('all');
   
   // Check API connection
   const checkConnection = async () => {
@@ -143,17 +159,45 @@ export function TeacherFeedbackPage({ user }: TeacherFeedbackPageProps) {
         await checkConnection();
         
         // Fetch all required data
-        const [studentsData, coursesData, feedbackData, statsData] = await Promise.all([
+        const [studentsData, coursesData, feedbackData, statsData, receivedFeedbackData] = await Promise.all([
           teacherService.getStudents(),
           teacherService.getCourses(),
           teacherService.getFeedback(),
-          teacherService.getFeedbackStats()
+          teacherService.getFeedbackStats(),
+          teacherService.getReceivedFeedback()
         ]);
         
         setStudents(studentsData);
         setCourses(coursesData);
         setFeedback(feedbackData);
         setStats(statsData);
+        setReceivedFeedback(receivedFeedbackData);
+        
+        // Recalculate course statistics for received feedback
+        const courseMap = new Map<string, { sum: number; count: number; name: string }>();
+        
+        receivedFeedbackData.forEach((item: ReceivedFeedbackItem) => {
+          if (!courseMap.has(item.courseId)) {
+            courseMap.set(item.courseId, {
+              sum: 0,
+              count: 0,
+              name: item.courseName
+            });
+          }
+          
+          const courseData = courseMap.get(item.courseId)!;
+          courseData.sum += item.rating;
+          courseData.count += 1;
+        });
+        
+        const calculatedStats: CourseStatistics[] = Array.from(courseMap.entries()).map(([courseId, data]) => ({
+          courseId,
+          courseName: data.name,
+          averageRating: data.sum / data.count,
+          totalFeedback: data.count
+        }));
+        
+        setCourseStats(calculatedStats);
       } catch (err: Error | unknown) {
         console.error('Failed to load data:', err);
         setError(err instanceof Error ? err.message : 'Failed to load feedback data. Please try again.');
@@ -279,17 +323,45 @@ export function TeacherFeedbackPage({ user }: TeacherFeedbackPageProps) {
       await checkConnection();
       
       // Fetch all required data
-      const [studentsData, coursesData, feedbackData, statsData] = await Promise.all([
+      const [studentsData, coursesData, feedbackData, statsData, receivedFeedbackData] = await Promise.all([
         teacherService.getStudents(),
         teacherService.getCourses(),
         teacherService.getFeedback(),
-        teacherService.getFeedbackStats()
+        teacherService.getFeedbackStats(),
+        teacherService.getReceivedFeedback()
       ]);
       
       setStudents(studentsData);
       setCourses(coursesData);
       setFeedback(feedbackData);
       setStats(statsData);
+      setReceivedFeedback(receivedFeedbackData);
+      
+      // Recalculate course statistics for received feedback
+      const courseMap = new Map<string, { sum: number; count: number; name: string }>();
+      
+      receivedFeedbackData.forEach((item: ReceivedFeedbackItem) => {
+        if (!courseMap.has(item.courseId)) {
+          courseMap.set(item.courseId, {
+            sum: 0,
+            count: 0,
+            name: item.courseName
+          });
+        }
+        
+        const courseData = courseMap.get(item.courseId)!;
+        courseData.sum += item.rating;
+        courseData.count += 1;
+      });
+      
+      const calculatedStats: CourseStatistics[] = Array.from(courseMap.entries()).map(([courseId, data]) => ({
+        courseId,
+        courseName: data.name,
+        averageRating: data.sum / data.count,
+        totalFeedback: data.count
+      }));
+      
+      setCourseStats(calculatedStats);
       
       toast.success('Data refreshed successfully');
     } catch (err: Error | unknown) {
@@ -299,6 +371,26 @@ export function TeacherFeedbackPage({ user }: TeacherFeedbackPageProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Render star rating for received feedback
+  const renderStarRating = (rating: number) => {
+    const fullStars = Math.floor(rating);
+    const halfStar = rating % 1 >= 0.5;
+    const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
+    
+    return (
+      <div className="flex">
+        {[...Array(fullStars)].map((_, i) => (
+          <Star key={`full-${i}`} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+        ))}
+        {halfStar && <StarHalf className="w-4 h-4 text-yellow-400 fill-yellow-400" />}
+        {[...Array(emptyStars)].map((_, i) => (
+          <Star key={`empty-${i}`} className="w-4 h-4 text-gray-300" />
+        ))}
+        <span className="ml-2 text-sm font-medium">{rating.toFixed(1)}</span>
+      </div>
+    );
   };
 
   // Filter feedback based on search query and filters
@@ -353,6 +445,37 @@ export function TeacherFeedbackPage({ user }: TeacherFeedbackPageProps) {
     }
   };
 
+  // Get available course options from the data for received feedback
+  const courseOptions = [
+    { id: 'all', name: 'All Courses' },
+    ...courseStats.map(stat => ({ id: stat.courseId, name: stat.courseName }))
+  ];
+
+  // Filter received feedback based on search query and filters
+  const filteredReceivedFeedback = receivedFeedback.filter(item => {
+    // Apply search query filter
+    if (receivedSearchQuery && !item.content.toLowerCase().includes(receivedSearchQuery.toLowerCase()) &&
+        !item.courseName.toLowerCase().includes(receivedSearchQuery.toLowerCase()) &&
+        (item.studentName && !item.studentName.toLowerCase().includes(receivedSearchQuery.toLowerCase()))) {
+      return false;
+    }
+    
+    // Apply course filter
+    if (filterCourse !== 'all' && item.courseId !== filterCourse) {
+      return false;
+    }
+    
+    // Apply rating filter
+    if (filterRating !== 'all') {
+      const ratingValue = parseInt(filterRating);
+      if (Math.floor(item.rating) !== ratingValue) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+
   // Show loading state
   if (loading) {
   return (
@@ -392,11 +515,11 @@ export function TeacherFeedbackPage({ user }: TeacherFeedbackPageProps) {
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Student Feedback</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Feedback System</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Manage feedback for your students
-                    </p>
-                  </div>
+              Manage feedback for your students and view feedback from your students
+            </p>
+          </div>
           
           <div className="flex items-center space-x-4">
             {/* Connection status indicator */}
@@ -417,11 +540,11 @@ export function TeacherFeedbackPage({ user }: TeacherFeedbackPageProps) {
                   <span>Checking connection</span>
                 </Badge>
               )}
-                    </div>
+            </div>
             
             {/* Refresh button */}
-                    <Button 
-                      variant="outline" 
+            <Button 
+              variant="outline" 
               size="sm" 
               onClick={handleRefresh} 
               disabled={loading}
@@ -431,64 +554,93 @@ export function TeacherFeedbackPage({ user }: TeacherFeedbackPageProps) {
               <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
             </Button>
             
-            {/* Create button */}
-            <Button 
-              onClick={() => setActiveTab('create')}
-              className="flex items-center gap-1"
-            >
-              <MessageSquare className="h-4 w-4" />
-              <span>New Feedback</span>
-                    </Button>
-                  </div>
+            {/* Create button - only shown when not on the create tab */}
+            {activeTab !== 'create' && (
+              <Button 
+                onClick={() => setActiveTab('create')}
+                className="flex items-center gap-1"
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span>New Feedback</span>
+              </Button>
+            )}
+          </div>
         </div>
         
-        {/* Stats cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium">Total Feedback</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats?.total || 0}</div>
-              <p className="text-sm text-gray-500">Feedback entries submitted</p>
-                </CardContent>
-              </Card>
+        {/* Stats cards - show appropriate stats based on active tab */}
+        {activeTab === 'list' || activeTab === 'stats' || activeTab === 'create' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium">Total Feedback</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats?.total || 0}</div>
+                <p className="text-sm text-gray-500">Feedback entries submitted</p>
+              </CardContent>
+            </Card>
               
-              <Card>
-                <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium">Pending</CardTitle>
-                </CardHeader>
-                <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">{stats?.pending || 0}</div>
-              <p className="text-sm text-gray-500">Awaiting action</p>
-                </CardContent>
-              </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium">Pending</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-yellow-600">{stats?.pending || 0}</div>
+                <p className="text-sm text-gray-500">Awaiting action</p>
+              </CardContent>
+            </Card>
             
-              <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium">Reviewed</CardTitle>
-                </CardHeader>
-                <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{stats?.reviewed || 0}</div>
-              <p className="text-sm text-gray-500">Assessed feedback</p>
-                </CardContent>
-              </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium">Reviewed</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">{stats?.reviewed || 0}</div>
+                <p className="text-sm text-gray-500">Assessed feedback</p>
+              </CardContent>
+            </Card>
               
-              <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium">Addressed</CardTitle>
-                </CardHeader>
-                <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats?.addressed || 0}</div>
-              <p className="text-sm text-gray-500">Fully resolved</p>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium">Addressed</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">{stats?.addressed || 0}</div>
+                <p className="text-sm text-gray-500">Fully resolved</p>
+              </CardContent>
+            </Card>
+          </div>
+        ) : activeTab === 'received' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {courseStats.length > 0 ? (
+              courseStats.map((stat) => (
+                <Card key={stat.courseId}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base font-medium">{stat.courseName}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center space-x-2">
+                      {renderStarRating(stat.averageRating)}
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">{stat.totalFeedback} feedback submissions</p>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card className="col-span-4">
+                <CardContent className="p-6 text-center">
+                  <p className="text-gray-500">No feedback data available</p>
                 </CardContent>
               </Card>
-            </div>
-            
+            )}
+          </div>
+        ) : null}
+        
         {/* Main content tabs */}
         <Tabs defaultValue="list" value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
-            <TabsTrigger value="list">Feedback List</TabsTrigger>
+            <TabsTrigger value="list">Feedback Given</TabsTrigger>
+            <TabsTrigger value="received">Received Feedback</TabsTrigger>
             <TabsTrigger value="create">Create Feedback</TabsTrigger>
             <TabsTrigger value="stats">Statistics</TabsTrigger>
           </TabsList>
@@ -609,6 +761,115 @@ export function TeacherFeedbackPage({ user }: TeacherFeedbackPageProps) {
                         setSearchQuery('');
                         setFilterType('all');
                         setFilterStatus('all');
+                      }}>
+                        Clear Filters
+                                </Button>
+                              )}
+                              </div>
+                            )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="received">
+            <Card>
+              <CardHeader>
+                <CardTitle>Received Feedback</CardTitle>
+                <CardDescription>
+                  Browse feedback received from students
+                </CardDescription>
+                
+                {/* Search and filter */}
+                <div className="flex flex-col md:flex-row gap-4 mt-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                    <Input
+                      placeholder="Search by student, course or content..."
+                      className="pl-10"
+                      value={receivedSearchQuery}
+                      onChange={(e) => setReceivedSearchQuery(e.target.value)}
+                    />
+                              </div>
+                  
+                  <div className="flex gap-4">
+                    <Select value={filterCourse} onValueChange={setFilterCourse}>
+                      <SelectTrigger className="w-[160px]">
+                        <Filter className="mr-2" size={16} />
+                        <SelectValue placeholder="Filter by course" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {courseOptions.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <Select value={filterRating} onValueChange={setFilterRating}>
+                      <SelectTrigger className="w-[160px]">
+                        <Filter className="mr-2" size={16} />
+                        <SelectValue placeholder="Filter by rating" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Ratings</SelectItem>
+                        <SelectItem value="1">1 Star</SelectItem>
+                        <SelectItem value="2">2 Stars</SelectItem>
+                        <SelectItem value="3">3 Stars</SelectItem>
+                        <SelectItem value="4">4 Stars</SelectItem>
+                        <SelectItem value="5">5 Stars</SelectItem>
+                      </SelectContent>
+                    </Select>
+                            </div>
+                            </div>
+              </CardHeader>
+              
+              <CardContent>
+                {filteredReceivedFeedback.length ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Student</TableHead>
+                        <TableHead>Course</TableHead>
+                        <TableHead>Rating</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Content</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredReceivedFeedback.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>
+                            {item.isAnonymous ? (
+                              <span className="text-gray-500 italic">Anonymous</span>
+                            ) : (
+                              item.studentName || 'Unknown'
+                            )}
+                          </TableCell>
+                          <TableCell>{item.courseName}</TableCell>
+                          <TableCell>{renderStarRating(item.rating)}</TableCell>
+                          <TableCell>{format(parseISO(item.createdAt), 'MMM d, yyyy')}</TableCell>
+                          <TableCell>
+                            <p className="max-w-lg truncate">{item.content}</p>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-8">
+                    <FileText className="mx-auto h-12 w-12 text-gray-300 mb-2" />
+                    <h3 className="text-lg font-medium text-gray-900">No feedback found</h3>
+                    <p className="text-gray-500 mt-1">
+                      {receivedSearchQuery || filterCourse !== 'all' || filterRating !== 'all'
+                        ? 'Try adjusting your search or filters'
+                        : 'Start by receiving some feedback from your students'}
+                    </p>
+                    {(receivedSearchQuery || filterCourse !== 'all' || filterRating !== 'all') && (
+                      <Button variant="outline" className="mt-4" onClick={() => {
+                        setReceivedSearchQuery('');
+                        setFilterCourse('all');
+                        setFilterRating('all');
                       }}>
                         Clear Filters
                                 </Button>
@@ -797,8 +1058,8 @@ export function TeacherFeedbackPage({ user }: TeacherFeedbackPageProps) {
                             className="bg-purple-500 h-full"
                             style={{ width: stats ? `${(stats.byType.academic / stats.total) * 100}%` : '0%' }}
                           ></div>
+                        </div>
                       </div>
-                    </div>
                       
                       <div>
                         <div className="flex justify-between mb-1">

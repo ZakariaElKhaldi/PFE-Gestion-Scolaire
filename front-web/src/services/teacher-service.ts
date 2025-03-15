@@ -561,6 +561,74 @@ const calculateMockDashboardStats = (): TeacherDashboardStats => {
   };
 };
 
+// Interface for feedback received by the teacher from students
+export interface ReceivedFeedbackItem {
+  id: string;
+  courseId: string;
+  courseName: string;
+  studentId?: string; // Optional as feedback might be anonymous
+  studentName?: string;
+  content: string;
+  rating: number;
+  createdAt: string;
+  isAnonymous: boolean;
+}
+
+// Mock data for feedback received by teachers (student-to-teacher feedback)
+const MOCK_RECEIVED_FEEDBACK: ReceivedFeedbackItem[] = [
+  {
+    id: 'rf-001',
+    courseId: '1',
+    courseName: 'Mathematics',
+    studentId: '1',
+    studentName: 'John Doe',
+    content: 'The teacher explains complex concepts clearly and is always available for questions after class. I have learned a lot in this course.',
+    rating: 5,
+    createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    isAnonymous: false
+  },
+  {
+    id: 'rf-002',
+    courseId: '1',
+    courseName: 'Mathematics',
+    studentId: '2',
+    studentName: 'Jane Smith',
+    content: 'Good teaching style, but sometimes goes too fast through difficult topics. Would appreciate more practice problems.',
+    rating: 4,
+    createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+    isAnonymous: false
+  },
+  {
+    id: 'rf-003',
+    courseId: '2',
+    courseName: 'Physics',
+    content: 'Excellent lab demonstrations that help understand theoretical concepts. Very engaging teaching style.',
+    rating: 5,
+    createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+    isAnonymous: true
+  },
+  {
+    id: 'rf-004',
+    courseId: '3',
+    courseName: 'Chemistry',
+    studentId: '3',
+    studentName: 'Alice Johnson',
+    content: 'The course materials are well-organized, but I would like more interactive elements in the lessons.',
+    rating: 3.5,
+    createdAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
+    isAnonymous: false
+  },
+  {
+    id: 'rf-005',
+    courseId: '5',
+    courseName: 'History',
+    content: 'The assignments are relevant and challenging. I appreciate the detailed feedback on my work.',
+    rating: 4.5,
+    createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    isAnonymous: true
+  }
+];
+
 // Helper to simulate API delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -1048,6 +1116,32 @@ export const teacherService = {
     } catch (error) {
       console.warn('API connection failed:', error);
       return false;
+    }
+  },
+
+  /**
+   * Get feedback that has been received by the teacher
+   */
+  getReceivedFeedback: async (): Promise<ReceivedFeedbackItem[]> => {
+    try {
+      // Try to fetch from API first
+      const response = await api.get('/teachers/received-feedback');
+      
+      // Check if the response has the expected format
+      if (response.data && response.data.data && Array.isArray(response.data.data.feedback)) {
+        return response.data.data.feedback;
+      } else if (response.data && Array.isArray(response.data.feedback)) {
+        return response.data.feedback;
+      } else if (response.data && Array.isArray(response.data)) {
+        return response.data;
+      }
+      
+      console.warn('Invalid feedback data format from API');
+      throw new Error('Invalid feedback data format');
+    } catch (error) {
+      // If API call fails, use mock data as fallback
+      await delay(800);
+      return handleApiError<ReceivedFeedbackItem[]>(error, [...MOCK_RECEIVED_FEEDBACK]);
     }
   }
 }; 

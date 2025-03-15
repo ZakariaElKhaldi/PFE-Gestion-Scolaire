@@ -127,11 +127,11 @@ node db/seed.js
 
 ### Option 2: Automated Reset and Setup (Recommended)
 ```bash
-# On Windows, use the batch file
+# On Windows PowerShell
 cd backend
-db\reset-db.bat
+node db/reset-db.js
 
-# On Linux/Mac or PowerShell with semicolons
+# On Linux/Mac
 cd backend
 node db/reset-db.js
 ```
@@ -146,6 +146,21 @@ This will:
 
 1. Start the backend server
 ```bash
+cd backend
+npm run dev
+```
+
+**Note for Windows PowerShell Users:**
+If you encounter the error `The token '&&' is not a valid statement separator in this version` when using commands with `&&`, use separate commands or use PowerShell's `;` separator instead:
+
+```powershell
+# Instead of this (which won't work in PowerShell)
+cd backend && npm run dev
+
+# Use this instead
+cd backend; npm run dev
+
+# Or run each command separately
 cd backend
 npm run dev
 ```
@@ -246,6 +261,9 @@ After running the seed script, you can use the following users to login:
 - **API Authentication**: Fixed authentication issues in the feedback component
 - **Table Creation**: Automated feedback table creation to avoid missing table errors
 - **Feedback Routes**: Fixed missing API routes registration in Express app
+- **Teacher Dashboard API**: Improved response handling for schedule and dashboard data
+- **API Response Format**: Enhanced frontend services to handle various API response formats
+- **Null/Undefined Handling**: Added robust checks for missing or undefined values in API responses
 
 ## Troubleshooting
 
@@ -272,12 +290,25 @@ After running the seed script, you can use the following users to login:
 2. Verify the file size is within limits
 3. Ensure you're authenticated before attempting uploads
 
+### "Invalid schedule data format from API" Error
+1. Check the browser console for the exact API response structure
+2. Verify the backend controller is returning data in the expected format
+3. Ensure the frontend service correctly handles the API response structure
+4. Try refreshing the page or restarting the backend server
+5. Check that the TeacherController.getScheduleByDay method is returning properly formatted data
+
 ### Feedback Submission Issues
 1. Make sure all feedback fields (course, rating, comment) are filled out
 2. Check that the API client is properly configured to use the correct base URL
 3. Verify that you have the necessary permissions (student role) to submit feedback
 4. **Auto-enrollment now activated**: Students will now be automatically enrolled in courses when submitting feedback
 5. If you see a "You have already submitted feedback for this course" error, you can only submit one feedback per course
+
+## Windows PowerShell Users
+If you're using Windows PowerShell, note that it uses different command separators than bash:
+1. The `&&` operator is not supported for command chaining
+2. Use the semicolon (`;`) instead: `cd backend; npm run dev`
+3. Or run each command separately
 
 ## Contributing
 
