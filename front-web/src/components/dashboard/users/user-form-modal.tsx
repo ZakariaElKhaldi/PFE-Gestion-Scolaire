@@ -3,6 +3,21 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import type { User, UserRole } from '../../../types/auth'
+import { Button } from '../../../components/ui/button'
+import { Input } from '../../../components/ui/input'
+import { Label } from '../../../components/ui/label'
+import { Textarea } from '../../../components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../../components/ui/select'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../../components/ui/dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs'
+import { AlertCircle, User as UserIcon, Key, Mail, Phone, Building, Info } from 'lucide-react'
+import { Alert, AlertDescription } from '../../../components/ui/alert'
 
 interface UserFormModalProps {
   isOpen: boolean
@@ -12,6 +27,7 @@ interface UserFormModalProps {
   title: string
 }
 
+// Enhanced schema with optional bio field
 const userSchema = z.object({
   email: z.string().email('Invalid email address'),
   firstName: z.string().min(2, 'First name is required'),
@@ -19,22 +35,59 @@ const userSchema = z.object({
   role: z.enum(['administrator', 'teacher', 'student', 'parent'] as const),
   phoneNumber: z.string().optional(),
   password: z.string().optional(),
+  bio: z.string().optional(),
+  department: z.string().optional(),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zipCode: z.string().optional(),
+  country: z.string().optional(),
+  dateOfBirth: z.string().optional(),
 })
 
 export type UserFormData = z.infer<typeof userSchema>
 
-const roles: { value: UserRole; label: string }[] = [
-  { value: 'administrator', label: 'Administrator' },
-  { value: 'teacher', label: 'Teacher' },
-  { value: 'student', label: 'Student' },
-  { value: 'parent', label: 'Parent' },
+const roles: { value: UserRole; label: string; description: string }[] = [
+  { 
+    value: 'administrator', 
+    label: 'Administrator',
+    description: 'Full access to all system settings and user management'
+  },
+  { 
+    value: 'teacher', 
+    label: 'Teacher',
+    description: 'Access to classes, grading, and student information'
+  },
+  { 
+    value: 'student', 
+    label: 'Student',
+    description: 'Access to courses, assignments, and grades'
+  },
+  { 
+    value: 'parent', 
+    label: 'Parent',
+    description: 'Monitor student progress and communicate with teachers'
+  },
+]
+
+// Mock departments for demonstration
+const departments = [
+  'Administration',
+  'Mathematics',
+  'Science',
+  'History',
+  'Languages',
+  'Arts',
+  'Physical Education',
+  'Computer Science',
 ]
 
 export const UserFormModal = ({ isOpen, onClose, onSubmit, user, title }: UserFormModalProps) => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState('basic')
   
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<UserFormData>({
+  const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
     defaultValues: user ? {
       email: user.email,
@@ -43,6 +96,14 @@ export const UserFormModal = ({ isOpen, onClose, onSubmit, user, title }: UserFo
       role: user.role,
       phoneNumber: user.phoneNumber || '',
       password: '',
+      bio: user.bio || '',
+      department: user.department || '',
+      address: user.address || '',
+      city: user.city || '',
+      state: user.state || '',
+      zipCode: user.zipCode || '',
+      country: user.country || '',
+      dateOfBirth: user.dateOfBirth || '',
     } : {
       email: '',
       firstName: '',
@@ -50,8 +111,18 @@ export const UserFormModal = ({ isOpen, onClose, onSubmit, user, title }: UserFo
       role: 'student',
       phoneNumber: '',
       password: '',
+      bio: '',
+      department: '',
+      address: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: '',
+      dateOfBirth: '',
     }
   })
+
+  const selectedRole = watch('role')
 
   const handleFormSubmit = async (data: UserFormData) => {
     setIsLoading(true)
@@ -72,169 +143,264 @@ export const UserFormModal = ({ isOpen, onClose, onSubmit, user, title }: UserFo
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-          <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-        </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            {user ? 'Update user information and permissions.' : 'Add a new user to the system.'}
+          </DialogDescription>
+        </DialogHeader>
+        
+        {error && (
+          <Alert variant="destructive" className="my-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
+        <form onSubmit={handleSubmit(handleFormSubmit)}>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid grid-cols-3 mb-4">
+              <TabsTrigger value="basic" className="flex items-center gap-2">
+                <UserIcon className="h-4 w-4" />
+                <span>Basic Info</span>
+              </TabsTrigger>
+              <TabsTrigger value="details" className="flex items-center gap-2">
+                <Info className="h-4 w-4" />
+                <span>Details</span>
+              </TabsTrigger>
+              <TabsTrigger value="address" className="flex items-center gap-2">
+                <Building className="h-4 w-4" />
+                <span>Address</span>
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="basic" className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First name</Label>
+                  <Input
+                    id="firstName"
+                    {...register('firstName')}
+                    placeholder="John"
+                  />
+                  {errors.firstName && (
+                    <p className="text-sm text-red-500">{errors.firstName.message}</p>
+                  )}
+                </div>
 
-        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-            <div className="sm:flex sm:items-start">
-              <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">{title}</h3>
-                
-                {error && (
-                  <div className="mt-2 mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
-                    <span className="block sm:inline">{error}</span>
-                  </div>
-                )}
-                
-                <div className="mt-4">
-                  <form onSubmit={handleSubmit(handleFormSubmit)}>
-                    <div className="space-y-4">
-                      <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                          Email address
-                        </label>
-                        <div className="mt-1">
-                          <input
-                            id="email"
-                            type="email"
-                            autoComplete="email"
-                            {...register('email')}
-                            className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                          />
-                          {errors.email && (
-                            <p className="mt-2 text-sm text-red-600">{errors.email.message}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
-                            First name
-                          </label>
-                          <div className="mt-1">
-                            <input
-                              id="firstName"
-                              type="text"
-                              autoComplete="given-name"
-                              {...register('firstName')}
-                              className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                            />
-                            {errors.firstName && (
-                              <p className="mt-2 text-sm text-red-600">{errors.firstName.message}</p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div>
-                          <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
-                            Last name
-                          </label>
-                          <div className="mt-1">
-                            <input
-                              id="lastName"
-                              type="text"
-                              autoComplete="family-name"
-                              {...register('lastName')}
-                              className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                            />
-                            {errors.lastName && (
-                              <p className="mt-2 text-sm text-red-600">{errors.lastName.message}</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                          Role
-                        </label>
-                        <div className="mt-1">
-                          <select
-                            id="role"
-                            {...register('role')}
-                            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                          >
-                            {roles.map((role) => (
-                              <option key={role.value} value={role.value}>
-                                {role.label}
-                              </option>
-                            ))}
-                          </select>
-                          {errors.role && (
-                            <p className="mt-2 text-sm text-red-600">{errors.role.message}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700">
-                          Phone number (optional)
-                        </label>
-                        <div className="mt-1">
-                          <input
-                            id="phoneNumber"
-                            type="tel"
-                            autoComplete="tel"
-                            {...register('phoneNumber')}
-                            className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                            placeholder="+1 (555) 123-4567"
-                          />
-                          {errors.phoneNumber && (
-                            <p className="mt-2 text-sm text-red-600">{errors.phoneNumber.message}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                          {user ? 'Password (leave blank to keep current)' : 'Password'}
-                        </label>
-                        <div className="mt-1">
-                          <input
-                            id="password"
-                            type="password"
-                            autoComplete={user ? 'new-password' : 'current-password'}
-                            {...register('password')}
-                            className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                          />
-                          {errors.password && (
-                            <p className="mt-2 text-sm text-red-600">{errors.password.message}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </form>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last name</Label>
+                  <Input
+                    id="lastName"
+                    {...register('lastName')}
+                    placeholder="Doe"
+                  />
+                  {errors.lastName && (
+                    <p className="text-sm text-red-500">{errors.lastName.message}</p>
+                  )}
                 </div>
               </div>
-            </div>
-          </div>
-          <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-            <button
-              type="button"
-              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary text-base font-medium text-white hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-70 disabled:cursor-not-allowed"
-              onClick={handleSubmit(handleFormSubmit)}
-              disabled={isLoading}
-            >
-              {isLoading ? 'Saving...' : 'Save'}
-            </button>
-            <button
-              type="button"
-              className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-              onClick={onClose}
-              disabled={isLoading}
-            >
+
+              <div className="space-y-2">
+                <Label htmlFor="email">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    <span>Email address</span>
+                  </div>
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  {...register('email')}
+                  placeholder="john.doe@example.com"
+                />
+                {errors.email && (
+                  <p className="text-sm text-red-500">{errors.email.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">
+                  <div className="flex items-center gap-2">
+                    <Key className="h-4 w-4" />
+                    <span>{user ? 'New password (leave blank to keep current)' : 'Password'}</span>
+                  </div>
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  {...register('password')}
+                  placeholder={user ? '••••••••' : 'Create a secure password'}
+                />
+                {errors.password && (
+                  <p className="text-sm text-red-500">{errors.password.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phoneNumber">
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    <span>Phone number (optional)</span>
+                  </div>
+                </Label>
+                <Input
+                  id="phoneNumber"
+                  type="tel"
+                  {...register('phoneNumber')}
+                  placeholder="+1 (555) 123-4567"
+                />
+                {errors.phoneNumber && (
+                  <p className="text-sm text-red-500">{errors.phoneNumber.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Select
+                  value={selectedRole}
+                  onValueChange={(value: UserRole) => setValue('role', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select user role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map((role) => (
+                      <SelectItem key={role.value} value={role.value}>
+                        <div>
+                          <div>{role.label}</div>
+                          <div className="text-xs text-gray-500">{role.description}</div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.role && (
+                  <p className="text-sm text-red-500">{errors.role.message}</p>
+                )}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="details" className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="bio">Bio / About</Label>
+                <Textarea
+                  id="bio"
+                  {...register('bio')}
+                  placeholder="Brief description about the user..."
+                  rows={4}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="department">Department</Label>
+                <Select
+                  value={watch('department') || ''}
+                  onValueChange={(value) => setValue('department', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept} value={dept}>
+                        {dept}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                <Input
+                  id="dateOfBirth"
+                  type="date"
+                  {...register('dateOfBirth')}
+                />
+              </div>
+              
+              {selectedRole === 'student' && (
+                <div className="mt-4 p-4 bg-blue-50 rounded-md">
+                  <p className="text-sm text-blue-700">
+                    Student ID will be automatically generated after user creation.
+                  </p>
+                </div>
+              )}
+              
+              {selectedRole === 'teacher' && (
+                <div className="mt-4 p-4 bg-blue-50 rounded-md">
+                  <p className="text-sm text-blue-700">
+                    Teacher ID will be automatically generated after user creation.
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="address" className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="address">Street Address</Label>
+                <Input
+                  id="address"
+                  {...register('address')}
+                  placeholder="123 Main Street"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    {...register('city')}
+                    placeholder="New York"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="state">State / Province</Label>
+                  <Input
+                    id="state"
+                    {...register('state')}
+                    placeholder="NY"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="zipCode">Zip / Postal Code</Label>
+                  <Input
+                    id="zipCode"
+                    {...register('zipCode')}
+                    placeholder="10001"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="country">Country</Label>
+                  <Input
+                    id="country"
+                    {...register('country')}
+                    placeholder="United States"
+                  />
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+          
+          <DialogFooter className="mt-6">
+            <Button variant="outline" type="button" onClick={onClose} disabled={isLoading}>
               Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'Saving...' : user ? 'Update User' : 'Create User'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
