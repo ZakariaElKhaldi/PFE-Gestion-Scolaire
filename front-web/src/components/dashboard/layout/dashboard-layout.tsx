@@ -51,10 +51,7 @@ export const DashboardLayout = ({ children, user: propUser }: DashboardLayoutPro
         return
       }
       
-      if (!authService.isAuthenticated()) {
-        console.log('Authentication invalid, redirecting to login')
-        navigate('/auth/sign-in')
-      }
+      // Additional validation if needed
     }
     
     validateAuth()

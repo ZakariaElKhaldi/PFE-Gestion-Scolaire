@@ -2,16 +2,31 @@ export interface Department {
   id: string;
   name: string;
   code: string;
-  head: string;
-  headId: string;
-  description: string;
-  facultyCount: number;
-  studentCount: number;
-  courses: number;
-  established: string;
+  description?: string;
+  headId?: string;
+  headName?: string;
   status: 'active' | 'inactive';
-  createdAt: string;
-  updatedAt: string;
+  facultyCount?: number;
+  studentCount?: number;
+  courseCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DepartmentListResponse {
+  departments: Department[];
+  totalPages: number;
+  currentPage: number;
+  totalCount: number;
+}
+
+export interface DepartmentFilterParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface CreateDepartmentData {

@@ -172,13 +172,15 @@ function App() {
     return storedUser ? JSON.parse(storedUser) : null;
   });
 
+  // This effect should only run once on mount
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
-  }, []);
+  }, []);  // Empty dependency array is correct here as we want this to run only once on mount
 
+  // Storage event listener
   useEffect(() => {
     const handleStorageChange = () => {
       const storedUser = localStorage.getItem('user');
@@ -187,13 +189,13 @@ function App() {
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+  }, []);  // Empty dependency array is correct here as we're just setting up and cleaning up listeners
 
+  // Initialize authentication on app startup
   useEffect(() => {
-    // Initialize authentication on app startup
     initializeAuth();
     console.log('Authentication initialized');
-  }, []);
+  }, []);  // Empty dependency array is correct here as we want this to run only once on mount
 
   return (
     <Router>

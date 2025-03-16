@@ -1,309 +1,411 @@
-import { useState, useEffect } from 'react';
-import { DashboardLayout } from '../../../components/dashboard/layout/dashboard-layout';
-import { UserResponse } from '../../../types/auth';
-import { Department } from '../../../types/department';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Badge } from '../../../components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../../components/ui/dialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../../../components/ui/table';
-import {
-  Search,
-  Plus,
-  Pencil,
-  Trash,
-  Filter,
-  Users,
-  BookOpen,
-  Calendar,
-  Building,
-} from 'lucide-react';
-import { DepartmentModal } from '../../../components/dashboard/departments/department-modal';
-import { getAllDepartments, deleteDepartment } from '../../../services/department.service';
-import { displayErrorToast, displaySuccessToast } from '../../../utils/error-handler';
+import { useState, useEffect, useCallback } from 'react'
+import { useToast } from '../../../hooks/use-toast'
+import { Button } from '../../../components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../../components/ui/alert-dialog'
+import { Building, Grid, List, Plus } from 'lucide-react'
+import { DashboardLayout } from '../../../components/dashboard/layout/dashboard-layout'
+import { DepartmentsHeader } from '../../../components/dashboard/departments/departments-header'
+import { DepartmentsFilters } from '../../../components/dashboard/departments/departments-filters'
+import { DepartmentsTable } from '../../../components/dashboard/departments/departments-table'
+import { DepartmentCard } from '../../../components/dashboard/departments/department-card'
+import { DepartmentFormModal } from '../../../components/dashboard/departments/department-form-modal'
+import { DepartmentFormValues } from '../../../components/dashboard/departments/department-form'
+import { Department } from '../../../types/department'
+import { departmentService } from '../../../services/department-service'
+import { userService } from '../../../services/user-service'
+import { UserRole } from '../../../types/auth'
 
-interface DepartmentsPageProps {
-  user: UserResponse;
-}
-
-export const DepartmentsPage = ({ user }: DepartmentsPageProps) => {
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [filteredDepartments, setFilteredDepartments] = useState<Department[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
-  const [teachers, setTeachers] = useState<UserResponse[]>([]);
-
-  // Fetch departments and teachers on component mount
-  useEffect(() => {
-    fetchDepartments();
-    // In a real app, you would fetch teachers from the API
-    // For now, we'll use mock data
-    setTeachers([
-      {
-        id: '1',
-        email: 'john.smith@example.com',
-        firstName: 'John',
-        lastName: 'Smith',
-        role: 'teacher',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        id: '2',
-        email: 'sarah.johnson@example.com',
-        firstName: 'Sarah',
-        lastName: 'Johnson',
-        role: 'teacher',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+export function DepartmentsPage() {
+  // State management
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [teachers, setTeachers] = useState<Array<{ id: string; name: string }>>([])
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
+  const [isLoading, setIsLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [currentDepartment, setCurrentDepartment] = useState<Department | undefined>(undefined)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [departmentToDelete, setDepartmentToDelete] = useState<Department | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [stats, setStats] = useState({
+    total: 0,
+    active: 0,
+    inactive: 0
+  })
+  
+  const { toast } = useToast()
+  
+  // Fetch departments data
+  const fetchDepartments = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      // Use mock service for development
+      const response = await departmentService.getMockDepartments({
+        page,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        search: searchQuery || undefined
+      })
+      
+      setDepartments(response.departments)
+      setTotalPages(response.totalPages)
+      
+      // Calculate stats from all departments (would normally come from API)
+      const allDepts = await departmentService.getMockDepartments({
+        limit: 1000 // Get all departments for stats
+      })
+      
+      setStats({
+        total: allDepts.totalCount,
+        active: allDepts.departments.filter(d => d.status === 'active').length,
+        inactive: allDepts.departments.filter(d => d.status === 'inactive').length
+      })
+    } catch (error) {
+      console.error('Error fetching departments:', error)
+      if (error instanceof Error) {
+        // Use a local variable to avoid toast dependency
+        toast({
+          title: 'Error',
+          description: 'Failed to load departments. Please try again.',
+          variant: 'destructive',
+        })
       }
-    ]);
-  }, []);
-
-  // Filter departments when search query or status filter changes
-  useEffect(() => {
-    let filtered = [...departments];
-    
-    // Apply status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(dept => dept.status === statusFilter);
-    }
-    
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(dept => 
-        dept.name.toLowerCase().includes(query) || 
-        dept.code.toLowerCase().includes(query) ||
-        dept.head.toLowerCase().includes(query)
-      );
-    }
-    
-    setFilteredDepartments(filtered);
-  }, [departments, searchQuery, statusFilter]);
-
-  // Fetch departments from API
-  const fetchDepartments = async () => {
-    setIsLoading(true);
-    try {
-      const data = await getAllDepartments();
-      setDepartments(data);
-      setFilteredDepartments(data);
-    } catch (error) {
-      displayErrorToast(error, 'Failed to fetch departments');
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }, [page, statusFilter, searchQuery])
+  
+  // Mock teachers data
+  const fetchTeachers = useCallback(async () => {
+    try {
+      // Mock teachers data
+      setTeachers([
+        { id: '1', name: 'Dr. John Smith' },
+        { id: '2', name: 'Dr. Sarah Johnson' },
+        { id: '3', name: 'Dr. Michael Brown' },
+        { id: '4', name: 'Dr. Emily Davis' },
+        { id: '5', name: 'Dr. Robert Wilson' },
+        { id: '6', name: 'Dr. Jennifer Lee' }
+      ])
+    } catch (error) {
+      console.error('Error fetching teachers:', error)
+      if (error instanceof Error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to load teachers. Some features may be limited.',
+          variant: 'destructive',
+        })
+      }
+    }
+  }, [])
+  
+  // Initial data loading
+  useEffect(() => {
+    const loadInitialData = async () => {
+      await fetchDepartments();
+      await fetchTeachers();
+    };
+    
+    loadInitialData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Intentionally empty to only run once on mount
 
+  // Set up listeners for changes to filters
+  useEffect(() => {
+    if (page > 1 || statusFilter !== 'all' || searchQuery) {
+      fetchDepartments();
+    }
+  }, [page, statusFilter, searchQuery, fetchDepartments]);
+  
+  // Handle department creation/update
+  const handleDepartmentSubmit = async (values: DepartmentFormValues) => {
+    try {
+      setIsSaving(true)
+      
+      if (currentDepartment) {
+        // Update existing department
+        await new Promise(resolve => setTimeout(resolve, 500)) // Simulate API delay
+        toast({
+          title: 'Success',
+          description: 'Department updated successfully',
+        })
+      } else {
+        // Create new department
+        await new Promise(resolve => setTimeout(resolve, 500)) // Simulate API delay
+        toast({
+          title: 'Success',
+          description: 'Department created successfully',
+        })
+      }
+      
+      // Refresh the departments list
+      fetchDepartments()
+      // Close the modal
+      setIsModalOpen(false)
+      setCurrentDepartment(undefined)
+    } catch (error) {
+      console.error('Error saving department:', error)
+      throw new Error('Failed to save department')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+  
   // Handle department deletion
-  const handleDeleteDepartment = async () => {
-    if (!selectedDepartment) return;
+  const handleDelete = async () => {
+    if (!departmentToDelete) return
     
     try {
-      await deleteDepartment(selectedDepartment.id);
-      displaySuccessToast('Department deleted successfully');
-      fetchDepartments();
-      setIsDeleteDialogOpen(false);
+      setIsDeleting(true)
+      await new Promise(resolve => setTimeout(resolve, 500)) // Simulate API delay
+      
+      toast({
+        title: 'Success',
+        description: 'Department deleted successfully',
+      })
+      
+      // Refresh the departments list
+      fetchDepartments()
     } catch (error) {
-      displayErrorToast(error, 'Failed to delete department');
+      console.error('Error deleting department:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to delete department. Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsDeleting(false)
+      setIsDeleteDialogOpen(false)
+      setDepartmentToDelete(null)
     }
-  };
-
-  // Open edit modal with selected department
-  const openEditDialog = (department: Department) => {
-    setSelectedDepartment(department);
-    setIsEditModalOpen(true);
-  };
-
+  }
+  
+  // Open edit modal
+  const handleEdit = (department: Department) => {
+    setCurrentDepartment(department)
+    setIsModalOpen(true)
+  }
+  
   // Open delete confirmation dialog
-  const openDeleteDialog = (department: Department) => {
-    setSelectedDepartment(department);
-    setIsDeleteDialogOpen(true);
-  };
-
-  // Reset form and selected department
-  const resetForm = () => {
-    setSelectedDepartment(null);
-  };
-
+  const handleDeleteClick = (department: Department) => {
+    setDepartmentToDelete(department)
+    setIsDeleteDialogOpen(true)
+  }
+  
+  // Handle search and filter changes
+  const handleSearch = (query: string) => {
+    setSearchQuery(query)
+    setPage(1) // Reset to first page when search changes
+  }
+  
+  const handleStatusChange = (status: string) => {
+    setStatusFilter(status as 'all' | 'active' | 'inactive')
+    setPage(1) // Reset to first page when filter changes
+  }
+  
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage)
+  }
+  
+  // Mock user for DashboardLayout
+  const mockUser = {
+    id: '1',
+    email: 'admin@example.com',
+    firstName: 'Admin',
+    lastName: 'User',
+    role: 'administrator' as UserRole,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+  
   return (
-    <DashboardLayout user={user}>
-      <div className="container mx-auto p-4 space-y-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Department Management</h1>
-          <Button onClick={() => setIsAddModalOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" /> Add Department
+    <DashboardLayout user={mockUser}>
+      <div className="flex flex-col space-y-6">
+        <DepartmentsHeader 
+          onAdd={() => {
+            setCurrentDepartment(undefined)
+            setIsModalOpen(true)
+          }}
+          totalDepartments={stats.total}
+          activeDepartments={stats.active}
+          inactiveDepartments={stats.inactive}
+          onRefresh={fetchDepartments}
+        />
+        
+        <DepartmentsFilters
+          searchQuery={searchQuery}
+          statusFilter={statusFilter}
+          onSearchChange={handleSearch}
+          onStatusChange={handleStatusChange}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onRefresh={fetchDepartments}
+        />
+        
+        <div className="flex justify-end space-x-2 mb-4">
+          <Button
+            variant={viewMode === 'list' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('list')}
+            className="w-10 h-10 p-0"
+          >
+            <List className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === 'grid' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('grid')}
+            className="w-10 h-10 p-0"
+          >
+            <Grid className="h-4 w-4" />
           </Button>
         </div>
-
-        <div className="flex items-center space-x-2 mb-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-            <Input
-              placeholder="Search departments..."
-              className="pl-8"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <Button
-            variant={statusFilter === 'all' ? 'default' : 'outline'}
-            onClick={() => setStatusFilter('all')}
-          >
-            All
-          </Button>
-          <Button
-            variant={statusFilter === 'active' ? 'default' : 'outline'}
-            onClick={() => setStatusFilter('active')}
-          >
-            Active
-          </Button>
-          <Button
-            variant={statusFilter === 'inactive' ? 'default' : 'outline'}
-            onClick={() => setStatusFilter('inactive')}
-          >
-            Inactive
-          </Button>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Departments</CardTitle>
-          </CardHeader>
-          <CardContent>
+        
+        {viewMode === 'list' ? (
+          <DepartmentsTable
+            departments={departments}
+            isLoading={isLoading}
+            onEdit={handleEdit}
+            onDelete={handleDeleteClick}
+            onAdd={() => {
+              setCurrentDepartment(undefined)
+              setIsModalOpen(true)
+            }}
+            searchQuery={searchQuery}
+            statusFilter={statusFilter}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {isLoading ? (
-              <div className="flex justify-center items-center h-64">
-                <p>Loading departments...</p>
-              </div>
-            ) : filteredDepartments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64">
+              Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-64 rounded-lg border border-border bg-card animate-pulse"
+                />
+              ))
+            ) : departments.length === 0 ? (
+              <div className="col-span-3 flex flex-col items-center justify-center py-12">
                 <Building className="h-12 w-12 text-gray-400 mb-4" />
                 <p className="text-lg font-medium">No departments found</p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 mb-4">
                   {searchQuery || statusFilter !== 'all'
                     ? 'Try adjusting your search or filters'
                     : 'Create your first department to get started'}
                 </p>
+                {searchQuery || statusFilter !== 'all' ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchQuery('')
+                      setStatusFilter('all')
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      setCurrentDepartment(undefined)
+                      setIsModalOpen(true)
+                    }}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Department
+                  </Button>
+                )}
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Head</TableHead>
-                    <TableHead>Faculty</TableHead>
-                    <TableHead>Students</TableHead>
-                    <TableHead>Courses</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredDepartments.map((department) => (
-                    <TableRow key={department.id}>
-                      <TableCell className="font-medium">{department.name}</TableCell>
-                      <TableCell>{department.code}</TableCell>
-                      <TableCell>{department.head}</TableCell>
-                      <TableCell>{department.facultyCount}</TableCell>
-                      <TableCell>{department.studentCount}</TableCell>
-                      <TableCell>{department.courses}</TableCell>
-                      <TableCell>
-                        <Badge variant={department.status === 'active' ? 'default' : 'secondary'}>
-                          {department.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditDialog(department)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openDeleteDialog(department)}
-                          >
-                            <Trash className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              departments.map((department) => (
+                <DepartmentCard
+                  key={department.id}
+                  department={department}
+                  onEdit={handleEdit}
+                  onDelete={handleDeleteClick}
+                  onViewDetails={handleEdit}
+                />
+              ))
             )}
-          </CardContent>
-        </Card>
-
-        {/* Add Department Modal */}
-        <DepartmentModal
-          isOpen={isAddModalOpen}
-          onClose={() => {
-            setIsAddModalOpen(false);
-            resetForm();
-          }}
-          teachers={teachers}
-          onSuccess={fetchDepartments}
-        />
-
-        {/* Edit Department Modal */}
-        {selectedDepartment && (
-          <DepartmentModal
-            isOpen={isEditModalOpen}
-            onClose={() => {
-              setIsEditModalOpen(false);
-              resetForm();
-            }}
-            department={selectedDepartment}
-            teachers={teachers}
-            onSuccess={fetchDepartments}
-          />
+          </div>
         )}
-
-        {/* Delete Confirmation Dialog */}
-        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Confirm Deletion</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to delete the department "{selectedDepartment?.name}"? This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
+        
+        {/* Pagination controls */}
+        {!isLoading && departments.length > 0 && (
+          <div className="flex justify-between items-center mt-4">
+            <div className="text-sm text-muted-foreground">
+              Showing page {page} of {totalPages}
+            </div>
+            <div className="flex space-x-2">
               <Button
                 variant="outline"
-                onClick={() => setIsDeleteDialogOpen(false)}
+                size="sm"
+                onClick={() => handlePageChange(page - 1)}
+                disabled={page === 1}
               >
-                Cancel
+                Previous
               </Button>
               <Button
-                variant="destructive"
-                onClick={handleDeleteDepartment}
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(page + 1)}
+                disabled={page === totalPages}
               >
-                Delete
+                Next
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </div>
+          </div>
+        )}
       </div>
+      
+      {/* Department Form Modal */}
+      <DepartmentFormModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false)
+          setCurrentDepartment(undefined)
+        }}
+        onSubmit={handleDepartmentSubmit}
+        department={currentDepartment}
+        teachers={teachers}
+        isLoading={isSaving}
+      />
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog 
+        open={isDeleteDialogOpen} 
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the department 
+              <span className="font-semibold"> {departmentToDelete?.name}</span>.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
-  );
-};
+  )
+}
+
+export default DepartmentsPage;
