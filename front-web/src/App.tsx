@@ -18,7 +18,6 @@ import { AdminHomePage } from '@/pages/dashboard/admin/home';
 import { UsersPage } from '@/pages/dashboard/admin/users';
 import { ClassesPage } from '@/pages/dashboard/admin/classes';
 import { CoursesPage } from '@/pages/dashboard/admin/courses';
-import { CourseContentPage } from '@/pages/dashboard/admin/course-content';
 import { AnalyticsPage } from '@/pages/dashboard/admin/analytics';
 import EventsPage from '@/pages/dashboard/admin/events';
 import { NotificationsPage } from '@/pages/dashboard/admin/notifications';
@@ -26,7 +25,6 @@ import { SettingsPage as AdminSettingsPage } from '@/pages/dashboard/admin/setti
 import { DepartmentsPage } from '@/pages/dashboard/admin/departments';
 import { ReportsPage } from '@/pages/dashboard/admin/reports';
 import { FinancePage } from '@/pages/dashboard/admin/finance';
-import { SystemSettingsPage } from '@/pages/dashboard/admin/system-settings';
 
 // Student Pages
 import StudentDashboard from './pages/dashboard/student';
@@ -215,7 +213,6 @@ function App() {
         <Route path="/dashboard/admin/users" element={<PrivateRoute allowedRoles={['administrator']}><UsersPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/admin/classes" element={<PrivateRoute allowedRoles={['administrator']}><ClassesPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/admin/courses" element={<PrivateRoute allowedRoles={['administrator']}><CoursesPage user={user as UserResponse} /></PrivateRoute>} />
-        <Route path="/dashboard/admin/course-content" element={<PrivateRoute allowedRoles={['administrator']}><CourseContentPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/admin/analytics" element={<PrivateRoute allowedRoles={['administrator']}><AnalyticsPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/admin/events" element={<PrivateRoute allowedRoles={['administrator']}><EventsPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/admin/notifications" element={<PrivateRoute allowedRoles={['administrator']}><NotificationsPage user={user as UserResponse} /></PrivateRoute>} />
@@ -223,7 +220,6 @@ function App() {
         <Route path="/dashboard/admin/departments" element={<PrivateRoute allowedRoles={['administrator']}><DepartmentsPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/admin/reports" element={<PrivateRoute allowedRoles={['administrator']}><ReportsPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/admin/finance" element={<PrivateRoute allowedRoles={['administrator']}><FinancePage user={user as UserResponse} /></PrivateRoute>} />
-        <Route path="/dashboard/admin/system-settings" element={<PrivateRoute allowedRoles={['administrator']}><SystemSettingsPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/admin/profile" element={<PrivateRoute allowedRoles={['administrator']}><ProfilePage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/admin/contact" element={<PrivateRoute allowedRoles={['administrator']}><ContactPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/admin/forum" element={<PrivateRoute allowedRoles={['administrator']}><ForumPage user={user as UserResponse} /></PrivateRoute>} />

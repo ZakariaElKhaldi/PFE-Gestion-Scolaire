@@ -46,11 +46,6 @@ const adminNavigation: NavigationItem[] = [
     href: "/dashboard/admin/courses",
   },
   {
-    title: "Course Content",
-    icon: FileText,
-    href: "/dashboard/admin/course-content",
-  },
-  {
     title: "Departments",
     icon: BookOpen,
     href: "/dashboard/admin/departments",
@@ -95,11 +90,6 @@ const adminNavigation: NavigationItem[] = [
     title: "Settings",
     icon: Settings,
     href: "/dashboard/admin/settings",
-  },
-  {
-    title: "System Settings",
-    icon: Settings,
-    href: "/dashboard/admin/system-settings",
   },
   {
     title: "Contact & Support",
