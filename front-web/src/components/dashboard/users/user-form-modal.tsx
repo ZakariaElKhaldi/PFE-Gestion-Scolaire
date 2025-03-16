@@ -18,6 +18,7 @@ const userSchema = z.object({
   lastName: z.string().min(2, 'Last name is required'),
   role: z.enum(['administrator', 'teacher', 'student', 'parent'] as const),
   phoneNumber: z.string().optional(),
+  password: z.string().optional(),
 })
 
 export type UserFormData = z.infer<typeof userSchema>
@@ -41,12 +42,14 @@ export const UserFormModal = ({ isOpen, onClose, onSubmit, user, title }: UserFo
       lastName: user.lastName,
       role: user.role,
       phoneNumber: user.phoneNumber || '',
+      password: '',
     } : {
       email: '',
       firstName: '',
       lastName: '',
       role: 'student',
       phoneNumber: '',
+      password: '',
     }
   })
 
@@ -185,6 +188,24 @@ export const UserFormModal = ({ isOpen, onClose, onSubmit, user, title }: UserFo
                           />
                           {errors.phoneNumber && (
                             <p className="mt-2 text-sm text-red-600">{errors.phoneNumber.message}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                          {user ? 'Password (leave blank to keep current)' : 'Password'}
+                        </label>
+                        <div className="mt-1">
+                          <input
+                            id="password"
+                            type="password"
+                            autoComplete={user ? 'new-password' : 'current-password'}
+                            {...register('password')}
+                            className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                          />
+                          {errors.password && (
+                            <p className="mt-2 text-sm text-red-600">{errors.password.message}</p>
                           )}
                         </div>
                       </div>

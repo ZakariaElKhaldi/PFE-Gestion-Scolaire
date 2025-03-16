@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Pencil, Trash, Search } from 'lucide-react'
+import { Plus, Pencil, Trash, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 import { UserResponse, UserRole } from '../../../types/auth'
 import { UserFormModal, UserFormData } from '../../../components/dashboard/users/user-form-modal'
 import { DashboardLayout } from '../../../components/dashboard/layout/dashboard-layout'
@@ -20,17 +20,34 @@ export const UsersPage = ({ user }: UsersPageProps) => {
   const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [totalUsers, setTotalUsers] = useState(0)
 
-  // Fetch users on component mount and when search/filters change
+  // Fetch users on component mount and when search/filters/pagination change
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setIsLoading(true);
         const fetchedUsers = await userService.getUsers({
           role: selectedRoles.length > 0 ? selectedRoles.join(',') : undefined,
-          search: searchQuery || undefined
+          search: searchQuery || undefined,
+          page: currentPage,
+          limit: itemsPerPage
         });
+        
         setUsers(fetchedUsers);
+        
+        // In a real app with a proper API, we would get total count from the API
+        // For now, we'll estimate based on the returned users
+        setTotalUsers(fetchedUsers.length < itemsPerPage ? 
+          (currentPage - 1) * itemsPerPage + fetchedUsers.length : 
+          currentPage * itemsPerPage + 1);
+        
+        setTotalPages(Math.max(1, Math.ceil(totalUsers / itemsPerPage)));
         setError(null);
       } catch (err) {
         console.error('Failed to fetch users:', err);
@@ -42,9 +59,7 @@ export const UsersPage = ({ user }: UsersPageProps) => {
     };
 
     fetchUsers();
-  }, [searchQuery, selectedRoles]);
-
-  const filteredUsers = users;
+  }, [searchQuery, selectedRoles, currentPage, itemsPerPage]);
 
   const handleRoleToggle = (role: string) => {
     setSelectedRoles(prev => 
@@ -52,6 +67,23 @@ export const UsersPage = ({ user }: UsersPageProps) => {
         ? prev.filter(r => r !== role) 
         : [...prev, role]
     );
+    // Reset to first page when filters change
+    setCurrentPage(1);
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    // Reset to first page when search changes
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setItemsPerPage(Number(e.target.value));
+    setCurrentPage(1); // Reset to first page when items per page changes
   };
 
   const handleAddUser = async (data: UserFormData) => {
@@ -63,7 +95,15 @@ export const UsersPage = ({ user }: UsersPageProps) => {
       });
       
       if (newUser) {
-        setUsers(prev => [...prev, newUser]);
+        // Refresh the user list
+        const updatedUsers = await userService.getUsers({
+          role: selectedRoles.length > 0 ? selectedRoles.join(',') : undefined,
+          search: searchQuery || undefined,
+          page: currentPage,
+          limit: itemsPerPage
+        });
+        setUsers(updatedUsers);
+        
         setIsAddUserModalOpen(false);
         toast.success('User added successfully');
       }
@@ -87,6 +127,7 @@ export const UsersPage = ({ user }: UsersPageProps) => {
       });
       
       if (updatedUser) {
+        // Update the user in the current list
         setUsers(prev => 
           prev.map(user => 
             user.id === selectedUser.id 
@@ -115,7 +156,14 @@ export const UsersPage = ({ user }: UsersPageProps) => {
       const success = await userService.deleteUser(selectedUser.id);
       
       if (success) {
+        // Remove the user from the current list
         setUsers(prev => prev.filter(user => user.id !== selectedUser.id));
+        
+        // If this was the last user on the page and not the first page, go to previous page
+        if (users.length === 1 && currentPage > 1) {
+          setCurrentPage(currentPage - 1);
+        }
+        
         setIsDeleteModalOpen(false);
         setSelectedUser(null);
         toast.success('User deleted successfully');
@@ -138,46 +186,19 @@ export const UsersPage = ({ user }: UsersPageProps) => {
     setIsDeleteModalOpen(true);
   };
 
-  // Show loading state
-  if (isLoading && users.length === 0) {
-    return (
-      <DashboardLayout user={user}>
-        <div className="p-6 flex justify-center items-center min-h-[80vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  // Show error state
-  if (error && users.length === 0) {
-    return (
-      <DashboardLayout user={user}>
-        <div className="p-6 flex flex-col justify-center items-center min-h-[80vh]">
-          <div className="text-red-500 mb-4">
-            <svg className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </div>
-          <h3 className="text-xl font-medium text-gray-900 mb-2">Error Loading Users</h3>
-          <p className="text-gray-500 mb-4">{error}</p>
-          <button 
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            onClick={() => window.location.reload()}
-          >
-            Try Again
-          </button>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  // Calculate pagination info
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalUsers);
 
   return (
     <DashboardLayout user={user}>
       <Toaster />
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Users</h1>
+          <div>
+            <h1 className="text-2xl font-bold">Users</h1>
+            <p className="text-gray-500 mt-1">Manage all users in the system</p>
+          </div>
           <button
             onClick={() => setIsAddUserModalOpen(true)}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
@@ -198,7 +219,7 @@ export const UsersPage = ({ user }: UsersPageProps) => {
                 className="focus:ring-primary focus:border-primary block w-full pl-10 sm:text-sm border-gray-300 rounded-md"
                 placeholder="Search users..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={handleSearchChange}
               />
             </div>
 
@@ -242,9 +263,9 @@ export const UsersPage = ({ user }: UsersPageProps) => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.length > 0 ? (
-                  filteredUsers.map((user) => (
-                    <tr key={user.id}>
+                {users.length > 0 ? (
+                  users.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center">
@@ -256,6 +277,15 @@ export const UsersPage = ({ user }: UsersPageProps) => {
                             <div className="text-sm font-medium text-gray-900">
                               {user.firstName} {user.lastName}
                             </div>
+                            {user.studentId && (
+                              <div className="text-xs text-gray-500">ID: {user.studentId}</div>
+                            )}
+                            {user.teacherId && (
+                              <div className="text-xs text-gray-500">ID: {user.teacherId}</div>
+                            )}
+                            {user.parentId && (
+                              <div className="text-xs text-gray-500">ID: {user.parentId}</div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -302,6 +332,99 @@ export const UsersPage = ({ user }: UsersPageProps) => {
                 )}
               </tbody>
             </table>
+          </div>
+          
+          {/* Pagination */}
+          <div className="px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Showing <span className="font-medium">{users.length > 0 ? startItem : 0}</span> to{' '}
+                  <span className="font-medium">{users.length > 0 ? startItem + users.length - 1 : 0}</span> of{' '}
+                  <span className="font-medium">{totalUsers}</span> results
+                </p>
+              </div>
+              <div className="flex items-center">
+                <div className="mr-4">
+                  <label htmlFor="itemsPerPage" className="mr-2 text-sm text-gray-700">Show:</label>
+                  <select
+                    id="itemsPerPage"
+                    value={itemsPerPage}
+                    onChange={handleItemsPerPageChange}
+                    className="border-gray-300 rounded-md text-sm focus:ring-primary focus:border-primary"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  <button
+                    onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">Previous</span>
+                    <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                  
+                  {/* Page numbers */}
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    // Show pages around current page
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                          currentPage === pageNum
+                            ? 'z-10 bg-primary border-primary text-white'
+                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                  
+                  <button
+                    onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="sr-only">Next</span>
+                    <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                </nav>
+              </div>
+            </div>
           </div>
         </div>
 
