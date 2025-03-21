@@ -5,6 +5,7 @@ import { FeaturesSection } from '../components/landing/features-section'
 import { PricingSection } from '../components/landing/pricing-section'
 import { ContactSection } from '../components/landing/contact-section'
 import { Footer } from '../components/layout/footer'
+import { StatsSection } from '../components/landing/stats-section'
 
 // Testimonial component
 const TestimonialsSection = () => {
@@ -59,42 +60,6 @@ const TestimonialsSection = () => {
               </div>
             </div>
           ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-// Stats section component
-const StatsSection = () => {
-  return (
-    <section className="bg-primary py-12 sm:py-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl font-extrabold text-white sm:text-4xl">
-            Trusted by schools across the globe
-          </h2>
-          <p className="mt-3 text-xl text-primary-100">
-            Our platform is helping educational institutions modernize their operations
-          </p>
-        </div>
-        <div className="mt-10 grid grid-cols-2 gap-8 md:grid-cols-4">
-          <div className="flex flex-col items-center">
-            <p className="text-4xl font-extrabold text-white">500+</p>
-            <p className="mt-2 text-lg font-medium text-primary-100">Schools</p>
-          </div>
-          <div className="flex flex-col items-center">
-            <p className="text-4xl font-extrabold text-white">25K+</p>
-            <p className="mt-2 text-lg font-medium text-primary-100">Teachers</p>
-          </div>
-          <div className="flex flex-col items-center">
-            <p className="text-4xl font-extrabold text-white">250K+</p>
-            <p className="mt-2 text-lg font-medium text-primary-100">Students</p>
-          </div>
-          <div className="flex flex-col items-center">
-            <p className="text-4xl font-extrabold text-white">15+</p>
-            <p className="mt-2 text-lg font-medium text-primary-100">Countries</p>
-          </div>
         </div>
       </div>
     </section>
