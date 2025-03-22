@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { SignInData, SignUpData, UserResponse } from '@/types/auth';
+import { saveAuthToken, removeAuthToken } from '@/lib/api-client';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -148,10 +149,28 @@ class AuthService {
         throw new Error('Invalid response format from server');
       }
       
+      // Validate user data has required fields
+      const userData = data.data.user;
+      if (!userData.id || !userData.email || !userData.role) {
+        console.error('Received invalid user data from server:', userData);
+        throw new Error('Invalid user data received from server');
+      }
+      
       // Store token and user data
       if (data.data.token) {
-        localStorage.setItem('auth_token', data.data.token);
+        // Use saveAuthToken utility to set token in localStorage and API client
+        saveAuthToken(data.data.token);
+        
+        // Set the token for the current axios instance
+        axios.defaults.headers.common['Authorization'] = `Bearer ${data.data.token}`;
+        
+        // Store user data
         localStorage.setItem('user', JSON.stringify(data.data.user));
+        
+        // Dispatch custom event to notify the app of authentication state change
+        this.dispatchAuthEvent({ user: data.data.user, action: 'login' });
+        
+        console.log('Auth token and user data saved, authentication event dispatched');
       }
       
       return data.data;
@@ -214,14 +233,20 @@ class AuthService {
   }
 
   logout(): void {
-    // Clear all auth data
-    localStorage.removeItem('auth_token');
+    // Clear all auth data using removeAuthToken utility
+    removeAuthToken();
+    
+    // Remove user data
     localStorage.removeItem('user');
-    sessionStorage.removeItem('auth_token');
     sessionStorage.removeItem('user');
     
     // Clear auth headers
     delete axios.defaults.headers.common['Authorization'];
+    
+    // Dispatch custom event to notify the app of logout
+    this.dispatchAuthEvent({ action: 'logout' });
+    
+    console.log('Logout completed, all auth data cleared');
   }
 
   getCurrentUser(): UserResponse | null {
@@ -255,6 +280,22 @@ class AuthService {
     const user = this.getCurrentUser();
     
     return !!token && !!user;
+  }
+  
+  // Helper method to dispatch auth events
+  private dispatchAuthEvent(detail: { user?: UserResponse, action: 'login' | 'logout' | 'update' }): void {
+    try {
+      const event = new CustomEvent('auth-state-changed', { 
+        detail,
+        bubbles: true,
+        cancelable: true
+      });
+      
+      console.log(`Dispatching auth event: ${detail.action}`, detail.user?.email || '');
+      window.dispatchEvent(event);
+    } catch (error) {
+      console.error('Error dispatching auth event:', error);
+    }
   }
 }
 

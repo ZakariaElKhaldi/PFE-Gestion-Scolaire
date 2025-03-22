@@ -133,18 +133,44 @@ export default apiClient;
 export const initializeAuth = () => {
   const token = localStorage.getItem('auth_token');
   if (token) {
+    console.log('Initializing API client with auth token from localStorage');
     apiClient.setAuthToken(token);
+    
+    // Add a custom event listener for auth state changes
+    window.addEventListener('auth-state-changed', ((event: CustomEvent) => {
+      console.log('Auth state changed event received in api-client');
+      if (event.detail?.action === 'login' && event.detail?.user) {
+        // Ensure token is set after login
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          console.log('Setting auth token after login event');
+          apiClient.setAuthToken(token);
+        }
+      } else if (event.detail?.action === 'logout') {
+        console.log('Removing auth token after logout event');
+        apiClient.removeAuthToken();
+      }
+    }) as EventListener);
+  } else {
+    console.log('No auth token found during API client initialization');
   }
+  
+  // Return function to remove event listener (for cleanup)
+  return () => {
+    window.removeEventListener('auth-state-changed', (() => {}) as EventListener);
+  };
 };
 
 // Save token to localStorage
 export const saveAuthToken = (token: string) => {
+  console.log('Saving auth token to localStorage and API client');
   localStorage.setItem('auth_token', token);
   apiClient.setAuthToken(token);
 };
 
 // Remove token from localStorage
 export const removeAuthToken = () => {
+  console.log('Removing auth token from localStorage and API client');
   localStorage.removeItem('auth_token');
   apiClient.removeAuthToken();
 };

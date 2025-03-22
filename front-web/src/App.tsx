@@ -169,34 +169,110 @@ const KeyboardShortcuts = () => {
 
 function App() {
   const [user, setUser] = useState<UserResponse | null>(() => {
-    const storedUser = localStorage.getItem('user');
-    return storedUser ? JSON.parse(storedUser) : null;
+    try {
+      const storedUser = localStorage.getItem('user');
+      const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+      
+      // Validate the user object has expected properties
+      if (parsedUser && parsedUser.id && parsedUser.email && parsedUser.role) {
+        console.log('User data loaded from localStorage on app initialization:', parsedUser.email);
+        return parsedUser;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error parsing user data from localStorage:', error);
+      // Clear potentially corrupted data
+      localStorage.removeItem('user');
+      return null;
+    }
   });
 
-  // This effect should only run once on mount
+  // This effect should only run once on mount to initialize user data
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-  }, []);  // Empty dependency array is correct here as we want this to run only once on mount
+    const initializeUserData = () => {
+      try {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          
+          // Validate the user object has expected properties
+          if (parsedUser && parsedUser.id && parsedUser.email && parsedUser.role) {
+            console.log('User state updated during app initialization');
+            setUser(parsedUser);
+          } else {
+            console.warn('Invalid user data in localStorage:', parsedUser);
+            localStorage.removeItem('user');
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing user data:', error);
+        localStorage.removeItem('user');
+      }
+    };
+    
+    initializeUserData();
+  }, []);  // Empty dependency array is correct here
 
-  // Storage event listener
+  // Storage event listener to sync user state with localStorage changes
   useEffect(() => {
-    const handleStorageChange = () => {
-      const storedUser = localStorage.getItem('user');
-      setUser(storedUser ? JSON.parse(storedUser) : null);
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'user') {
+        try {
+          const userData = event.newValue ? JSON.parse(event.newValue) : null;
+          console.log('User data changed in storage:', userData?.email || 'null');
+          setUser(userData);
+        } catch (error) {
+          console.error('Error handling storage change event:', error);
+        }
+      } else if (event.key === 'auth_token' && !event.newValue) {
+        // Token was removed, clear user data
+        setUser(null);
+      }
     };
 
+    // Handle changes in other tabs/windows
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);  // Empty dependency array is correct here as we're just setting up and cleaning up listeners
+    
+    // Custom event for same-tab updates
+    const handleAuthEvent = (e: CustomEvent) => {
+      if (e.detail?.user) {
+        console.log('Auth event received with user data:', e.detail.user.email);
+        setUser(e.detail.user);
+      } else if (e.detail?.action === 'logout') {
+        console.log('Logout event received');
+        setUser(null);
+      }
+    };
+    
+    window.addEventListener('auth-state-changed' as any, handleAuthEvent as EventListener);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('auth-state-changed' as any, handleAuthEvent as EventListener);
+    };
+  }, []);  
 
   // Initialize authentication on app startup
   useEffect(() => {
-    initializeAuth();
+    // Initialize auth and store the cleanup function
+    const cleanupAuth = initializeAuth();
     console.log('Authentication initialized');
-  }, []);  // Empty dependency array is correct here as we want this to run only once on mount
+    
+    // Return cleanup function to be called on component unmount
+    return () => {
+      console.log('Cleaning up authentication initialization');
+      cleanupAuth();
+    };
+  }, []);  // Empty dependency array is correct here
+
+  // Add additional effect to detect and handle corrupted user data
+  useEffect(() => {
+    if (user && (!user.id || !user.email || !user.role)) {
+      console.warn('Detected invalid user object in state, clearing user state');
+      setUser(null);
+      localStorage.removeItem('user');
+    }
+  }, [user]);
 
   return (
     <Router>

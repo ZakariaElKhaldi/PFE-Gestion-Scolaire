@@ -11,7 +11,7 @@ export const api = axios.create({
 // Add a request interceptor to include auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('auth_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -30,10 +30,11 @@ api.interceptors.response.use(
   (error) => {
     // Handle 401 Unauthorized errors (token expired)
     if (error.response && error.response.status === 401) {
+      console.log('401 Unauthorized response, redirecting to login')
       // Clear local storage and redirect to login
-      localStorage.removeItem('token')
+      localStorage.removeItem('auth_token')
       localStorage.removeItem('user')
-      window.location.href = '/login'
+      window.location.href = '/auth/sign-in'
     }
     return Promise.reject(error)
   }
