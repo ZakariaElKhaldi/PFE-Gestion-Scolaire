@@ -10,6 +10,7 @@ export interface Document {
   description: string;
   type: string;
   url: string;
+  path?: string;
   size: number;
   uploadedAt: Date;
   status: 'pending' | 'approved' | 'rejected';
@@ -24,6 +25,7 @@ export interface CreateDocumentDTO {
   description: string;
   type: string;
   url: string;
+  path?: string;
   size: number;
   status?: 'pending' | 'approved' | 'rejected';
   tags?: string[];

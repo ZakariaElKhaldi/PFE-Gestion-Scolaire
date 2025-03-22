@@ -1,5 +1,5 @@
 import { assignmentModel, Assignment } from '../models/assignment.model';
-import { submissionModel, Submission } from '../models/submission.model';
+import { submissionModel, Submission, CreateSubmissionDTO as ModelCreateSubmissionDTO } from '../models/submission.model';
 import { courseModel } from '../models/course.model';
 import { userModel } from '../models/user.model';
 import { courseEnrollmentModel } from '../models/course-enrollment.model';
@@ -18,24 +18,30 @@ export interface CreateAssignmentData {
   courseId: string;
   title: string;
   description: string;
-  dueDate: string;
-  points: number;
+  dueDate: Date;
+  totalPoints: number;
   status: 'draft' | 'published' | 'closed';
 }
 
 // Interface for updating an assignment
-export interface UpdateAssignmentData extends Partial<CreateAssignmentData> {}
+export interface UpdateAssignmentData extends Partial<Omit<CreateAssignmentData, 'status'>> {
+  status?: 'draft' | 'published' | 'closed';
+}
 
 // Interface for creating a submission
 export interface CreateSubmissionData {
   assignmentId: string;
   studentId: string;
+  content?: string;
   submissionUrl?: string;
   fileName?: string;
   fileType?: string;
   fileSize?: number;
   status?: 'submitted' | 'graded' | 'late';
 }
+
+// Define CreateSubmissionDTO to match what's being used in the model
+export type CreateSubmissionDTO = ModelCreateSubmissionDTO;
 
 // Interface for grading a submission
 export interface GradeSubmissionData {
@@ -67,8 +73,8 @@ export interface SubmissionWithDetails extends Submission {
   };
   assignment?: {
     title: string;
-    dueDate: string;
-    points: number;
+    dueDate: Date;
+    totalPoints: number;
     courseId: string;
     courseName?: string;
   };
@@ -299,58 +305,74 @@ class AssignmentService {
    * Submit an assignment
    */
   async submitAssignment(submissionData: CreateSubmissionData): Promise<Submission> {
-    // Check if assignment exists
+    const now = new Date();
+    
+    // Create submission object
+    const createData: ModelCreateSubmissionDTO = {
+      assignmentId: submissionData.assignmentId,
+      studentId: submissionData.studentId,
+      submissionUrl: submissionData.submissionUrl,
+      fileName: submissionData.fileName,
+      fileType: submissionData.fileType,
+      fileSize: submissionData.fileSize,
+      status: 'submitted'
+    };
+    
+    // Get assignment to check due date
     const assignment = await assignmentModel.findById(submissionData.assignmentId);
     if (!assignment) {
       throw new Error('Assignment not found');
     }
     
-    // Check if student exists
-    const student = await userModel.findById(submissionData.studentId);
-    if (!student) {
-      throw new Error('Student not found');
+    // Check if submission is late
+    if (now > assignment.dueDate) {
+      createData.status = 'late';
     }
-    
-    // Check if student role is correct
-    if (student.role !== 'student') {
-      throw new Error('User must be a student to submit assignments');
-    }
-    
-    // Check if student is enrolled in the course
-    const isEnrolled = await courseEnrollmentModel.findByCourseAndStudent(
-      assignment.courseId,
-      submissionData.studentId
-    );
-    
-    if (!isEnrolled) {
-      throw new Error('Student is not enrolled in this course');
-    }
-    
-    // Check if assignment is still open
-    if (assignment.status === 'closed') {
-      throw new Error('This assignment is closed and no longer accepting submissions');
-    }
-    
-    // Determine if submission is late
-    const now = new Date();
-    const dueDate = new Date(assignment.dueDate);
-    const status = now > dueDate ? 'late' : 'submitted';
     
     // Create submission
-    const submissionId = await submissionModel.create({
-      ...submissionData,
-      submittedAt: now.toISOString(),
-      status
-    });
+    const submission = await submissionModel.create(createData);
     
-    // Get created submission
+    return submission;
+  }
+
+  /**
+   * Get submission with details (student and assignment info)
+   */
+  async getSubmissionWithDetails(submissionId: string): Promise<SubmissionWithDetails | null> {
     const submission = await submissionModel.findById(submissionId);
     
     if (!submission) {
-      throw new Error('Failed to create submission');
+      return null;
     }
     
-    return submission;
+    // Get student details
+    const student = await userModel.findById(submission.studentId);
+    
+    // Get assignment details
+    const assignment = await assignmentModel.findById(submission.assignmentId);
+    if (!assignment) {
+      return null;
+    }
+    
+    // Get course details
+    const course = await courseModel.findById(assignment.courseId);
+    
+    return {
+      ...submission,
+      student: student ? {
+        id: student.id,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        email: student.email
+      } : undefined,
+      assignment: {
+        title: assignment.title,
+        dueDate: assignment.dueDate,
+        totalPoints: assignment.totalPoints,
+        courseId: assignment.courseId,
+        courseName: course ? course.name : 'Unknown Course'
+      }
+    };
   }
 
   /**
@@ -361,120 +383,106 @@ class AssignmentService {
     gradeData: GradeSubmissionData, 
     teacherId: string
   ): Promise<SubmissionWithDetails | null> {
-    // Check if submission exists
+    // Find submission
     const submission = await submissionModel.findById(submissionId);
     if (!submission) {
       throw new Error('Submission not found');
     }
     
-    // Get assignment to check permissions
+    // Find assignment to check points
     const assignment = await assignmentModel.findById(submission.assignmentId);
     if (!assignment) {
       throw new Error('Assignment not found');
     }
     
-    // Get course to check permissions
-    const course = await courseModel.findById(assignment.courseId);
-    if (!course) {
-      throw new Error('Course not found');
+    // Validate grade is within range
+    if (gradeData.grade < 0 || gradeData.grade > assignment.totalPoints) {
+      throw new Error(`Grade must be between 0 and ${assignment.totalPoints} points`);
     }
     
-    // Verify that the teacher is associated with the course
-    if (course.teacherId !== teacherId) {
-      const user = await userModel.findById(teacherId);
-      // Allow administrators to grade assignments for any course
-      if (!user || (user.role !== 'administrator' && user.id !== course.teacherId)) {
-        throw new Error('You are not authorized to grade assignments for this course');
-      }
-    }
-    
-    // Validate grade
-    if (gradeData.grade < 0 || gradeData.grade > assignment.points) {
-      throw new Error(`Grade must be between 0 and ${assignment.points} points`);
-    }
-    
-    // Grade submission
-    const graded = await submissionModel.grade(
-      submissionId, 
-      gradeData.grade, 
-      gradeData.feedback
-    );
-    
-    if (!graded) {
-      return null;
-    }
+    // Update submission with grade
+    await submissionModel.update(submissionId, {
+      grade: gradeData.grade,
+      feedback: gradeData.feedback || '',
+      status: 'graded'
+    });
     
     // Get updated submission with details
-    const updatedSubmission = await submissionModel.findById(submissionId);
-    if (!updatedSubmission) {
-      return null;
-    }
-    
-    // Get student details
-    const student = await userModel.findById(updatedSubmission.studentId);
-    
-    return {
-      ...updatedSubmission,
-      student: student ? {
-        id: student.id,
-        firstName: student.firstName,
-        lastName: student.lastName,
-        email: student.email
-      } : undefined,
-      assignment: {
-        title: assignment.title,
-        dueDate: assignment.dueDate,
-        points: assignment.points,
-        courseId: assignment.courseId,
-        courseName: course.name
-      }
-    };
+    const updatedSubmission = await this.getSubmissionWithDetails(submissionId);
+    return updatedSubmission;
   }
 
   /**
    * Get submissions for an assignment
    */
   async getSubmissionsForAssignment(assignmentId: string): Promise<SubmissionWithDetails[]> {
-    // Check if assignment exists
+    // Use getByAssignment method from the model
+    const submissions = await submissionModel.getByAssignment(assignmentId);
+    
     const assignment = await assignmentModel.findById(assignmentId);
+    
     if (!assignment) {
-      throw new Error('Assignment not found');
+      return [];
     }
     
-    // Get course
+    // Get course info
     const course = await courseModel.findById(assignment.courseId);
-    if (!course) {
-      throw new Error('Course not found');
-    }
     
-    // Get submissions with student details
-    const submissions = await submissionModel.getSubmissionsWithStudentDetails(assignmentId);
-    
-    // Transform to SubmissionWithDetails objects
-    return submissions.map(submission => ({
-      ...submission,
-      assignment: {
-        title: assignment.title,
-        dueDate: assignment.dueDate,
-        points: assignment.points,
-        courseId: assignment.courseId,
-        courseName: course.name
-      }
+    // Add student and assignment info to submissions
+    const detailedSubmissions = await Promise.all(submissions.map(async (submission: Submission) => {
+      const student = await userModel.findById(submission.studentId);
+      
+      return {
+        ...submission,
+        student: student ? {
+          id: student.id,
+          firstName: student.firstName,
+          lastName: student.lastName,
+          email: student.email
+        } : undefined,
+        assignment: {
+          title: assignment.title,
+          dueDate: assignment.dueDate,
+          totalPoints: assignment.totalPoints,
+          courseId: assignment.courseId,
+          courseName: course ? course.name : 'Unknown Course'
+        }
+      };
     }));
+    
+    return detailedSubmissions;
   }
 
   /**
    * Get submissions for a student
    */
   async getSubmissionsForStudent(studentId: string): Promise<SubmissionWithDetails[]> {
-    // Check if student exists
-    const student = await userModel.findById(studentId);
-    if (!student) {
-      throw new Error('Student not found');
-    }
+    // Use getByStudent method from the model
+    const submissions = await submissionModel.getByStudent(studentId);
     
-    // Get submissions with assignment details
-    return submissionModel.getSubmissionsWithAssignmentDetails(studentId);
+    // Add assignment and course info to submissions
+    const detailedSubmissions = await Promise.all(submissions.map(async (submission: Submission) => {
+      const assignment = await assignmentModel.findById(submission.assignmentId);
+      if (!assignment) {
+        return null;
+      }
+      
+      const course = await courseModel.findById(assignment.courseId);
+      
+      return {
+        ...submission,
+        assignment: {
+          title: assignment.title,
+          dueDate: assignment.dueDate,
+          totalPoints: assignment.totalPoints,
+          courseId: assignment.courseId,
+          courseName: course ? course.name : 'Unknown Course'
+        }
+      };
+    }));
+    
+    // Filter out null submissions (where assignment was not found)
+    return detailedSubmissions.filter((s: SubmissionWithDetails | null) => s !== null) as SubmissionWithDetails[];
   }
 }
 

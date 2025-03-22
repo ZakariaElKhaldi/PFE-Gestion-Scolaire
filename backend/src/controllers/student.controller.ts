@@ -5,6 +5,7 @@ import { StudentModel } from '../models/student.model';
 import { assignmentModel } from '../models/assignment.model';
 import { AssignmentSubmissionModel, CreateAssignmentSubmissionDTO } from '../models/assignment-submission.model';
 import { DocumentModel, CreateDocumentDTO } from '../models/document.model';
+import { Document } from '../types/documents';
 import * as fs from 'fs';
 import { 
   getFileUrl, 

@@ -6,6 +6,7 @@ import { SignUpPage } from './pages/auth/sign-up';
 import { ForgotPasswordPage } from './pages/auth/forgot-password';
 import { ResetPasswordPage } from './pages/auth/reset-password';
 import { VerifyEmailPage } from '@/pages/auth/verify-email';
+import ParentVerificationPage from './pages/parent-verification';
 import DebugNav from "@/pages/debug-nav";
 import { Toaster } from 'sonner';
 import './index.css';
@@ -208,6 +209,7 @@ function App() {
         <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
         <Route path="/auth/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/parent-verification" element={<ParentVerificationPage />} />
         <Route path="/debug" element={<DebugNav />} />
 
         {/* Admin Routes */}

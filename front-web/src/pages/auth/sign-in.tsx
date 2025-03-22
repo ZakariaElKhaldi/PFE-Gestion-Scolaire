@@ -6,6 +6,7 @@ import { signInSchema } from '@/validations/auth';
 import type { SignInFormData } from '@/types/auth';
 import { authService } from '@/services/auth.service';
 import { motion } from 'framer-motion';
+import { getDashboardUrl } from '@/lib/auth-utils';
 
 export const SignInPage = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -38,63 +39,63 @@ export const SignInPage = () => {
   };
 
   const onSubmit = async (data: SignInFormData) => {
-    setIsLoading(true);
-    setError(null);
-    
     try {
-      console.log('Attempting login with:', { email: data.email });
+      console.log('💡 Sign-in attempt with email:', data.email);
+      setIsLoading(true);
+      setError(null);
+      
+      // Test API connection first
+      try {
+        console.log('🔍 Testing API connectivity before login...');
+        const testUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+        const healthCheck = await fetch(`${testUrl}/health`, { 
+          method: 'GET',
+          cache: 'no-cache'
+        });
+        
+        if (healthCheck.ok) {
+          console.log('✅ API server is reachable - continuing with login');
+        } else {
+          console.error('❌ API health check failed with status:', healthCheck.status);
+          throw new Error(`API server health check failed with status: ${healthCheck.status}`);
+        }
+      } catch (err) {
+        console.error('❌ API connectivity test failed:', err);
+        setError('Cannot connect to the server. Please check if the backend is running.');
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log('📡 Sending login request to auth service');
       const response = await authService.login(data);
-      console.log('Login response:', response);
+      console.log('✅ Login successful, response:', response);
       
-      // Validate response from server
-      if (!response || !response.token || !response.user) {
-        throw new Error('Invalid response from server');
+      // Redirect based on role using the dashboard URL helper
+      const dashboardUrl = getDashboardUrl(response.user.role);
+      console.log(`Redirecting user to ${dashboardUrl}`);
+      navigate(dashboardUrl);
+    } catch (error: any) {
+      console.error('❌ Login failed:', error);
+      console.error('Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        response: error.response ? {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data
+        } : 'No response object'
+      });
+      
+      if (error.message?.includes('Network Error')) {
+        setError('Network error: Unable to connect to the server. Please check your internet connection and verify the backend server is running.');
+      } else if (error.response?.status === 401) {
+        setError('Invalid email or password. If you recently registered, please check your email to verify your account first.');
+      } else if (error.response?.status === 403) {
+        setError('Your account is not verified. Please check your email for the verification link.');
+      } else {
+        setError(error.response?.data?.message || error.message || 'Login failed. Please try again.');
       }
-      
-      // Validate user object has required fields
-      if (!response.user.id || !response.user.email || !response.user.role) {
-        throw new Error('Invalid user data received');
-      }
-
-      // Clear any existing auth data first to avoid conflicts
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-      sessionStorage.removeItem('auth_token');
-      sessionStorage.removeItem('user');
-
-      // Store auth data based on rememberMe preference
-      // Always store in localStorage for consistent app-wide access
-      localStorage.setItem('auth_token', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
-      
-      // If rememberMe is false, we don't need to do anything special
-      // since localStorage will be cleared when the browser is closed
-      
-      console.log('User role:', response.user.role);
-      // Redirect based on user role
-      switch (response.user.role) {
-        case 'administrator':
-          navigate('/dashboard/admin');
-          break;
-        case 'teacher':
-          navigate('/dashboard/teacher');
-          break;
-        case 'student':
-          navigate('/dashboard/student');
-          break;
-        case 'parent':
-          navigate('/dashboard/parent');
-          break;
-        default:
-          console.error('Unknown role:', response.user.role);
-          setError(`Invalid role: ${response.user.role}`);
-          // Clear auth data for invalid role
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('user');
-      }
-    } catch (err: any) {
-      console.error('Login error:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to sign in. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
@@ -153,10 +154,43 @@ export const SignInPage = () => {
             </div>
           </div>
 
-          <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+          <form 
+            className="space-y-6" 
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (currentStep === 2) {
+                const formData = watch();
+                onSubmit(formData);
+              }
+              return false;
+            }}
+          >
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative">
-                {error}
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-red-800">{error}</p>
+                  </div>
+                  <div className="ml-auto pl-3">
+                    <div className="-mx-1.5 -my-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setError(null)}
+                        className="inline-flex rounded-md p-1.5 text-red-500 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500"
+                      >
+                        <span className="sr-only">Dismiss</span>
+                        <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
             
@@ -267,11 +301,16 @@ export const SignInPage = () => {
                     Back
                   </button>
                   <button
-                    type="submit"
+                    type="button"
                     disabled={isLoading}
                     className={`flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
                       isLoading ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
+                    onClick={() => {
+                      console.log("Sign in button clicked directly");
+                      const formData = watch();
+                      onSubmit(formData);
+                    }}
                   >
                     {isLoading ? 'Signing in...' : 'Sign in'}
                   </button>

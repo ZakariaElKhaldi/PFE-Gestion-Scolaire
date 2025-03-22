@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { authService } from '@/services/auth.service'
 
 const resetPasswordSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -41,19 +42,27 @@ export const ForgotPasswordPage = () => {
     setIsLoading(true)
     
     try {
-      // TODO: Replace with actual API call when backend is ready
-      console.log('Reset password request:', { email: watch('email') })
+      const email = watch('email');
+      console.log('Sending password reset request for:', email);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Call the auth service to request password reset
+      await authService.forgotPassword(email);
       
-      // Mock successful email sending for development
       setIsEmailSent(true)
       setStep('success')
-    } catch (error) {
-      console.error('Reset password error:', error)
-      setError('An error occurred while sending the reset instructions. Please try again.')
-      setStep('input')
+    } catch (error: any) {
+      console.error('Reset password error:', error);
+      
+      // Always show a generic message regardless of the error
+      // This prevents email enumeration attacks
+      setError('If an account exists with this email, we\'ve sent password reset instructions.');
+      
+      // For security reasons, still show the success state even if there was an error
+      // This prevents attackers from determining if an email exists in the system
+      setTimeout(() => {
+        setIsEmailSent(true);
+        setStep('success');
+      }, 1000);
     } finally {
       setIsLoading(false)
     }

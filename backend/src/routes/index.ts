@@ -12,8 +12,19 @@ import feedbackRoutes from './feedback.routes';
 import certificateRoutes from './certificate.routes';
 import teacherRoutes from './teacher.routes';
 import parentRoutes from './parent.routes';
+import parentVerificationRoutes from './parent-verification.routes';
+import express from 'express';
 
 const router = Router();
+
+// Add a simple health check endpoint
+router.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'Server is running',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Authentication routes
 router.use('/auth', authRoutes);
@@ -53,5 +64,8 @@ router.use('/teachers', teacherRoutes);
 
 // Parent routes
 router.use('/parent', parentRoutes);
+
+// Parent verification routes
+router.use('/parent-verification', parentVerificationRoutes);
 
 export default router; 

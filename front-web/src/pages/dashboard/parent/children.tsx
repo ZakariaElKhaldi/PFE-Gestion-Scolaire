@@ -1,12 +1,62 @@
+import { useState } from "react";
 import { User } from "../../../types/auth"
 import { DashboardLayout } from "../../../components/dashboard/layout/dashboard-layout"
-import { Search, GraduationCap, BookOpen, Calendar, Clock, UserPlus2 } from "lucide-react"
+import { Search, GraduationCap, BookOpen, Calendar, Clock, UserPlus2, X } from "lucide-react"
+import { api } from "@/lib/axios";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 interface ParentChildrenProps {
   user: User
 }
 
 export default function ParentChildren({ user }: ParentChildrenProps) {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [studentEmail, setStudentEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const { toast } = useToast();
+
+  // Function to send invitation to a student
+  const sendInvitation = async () => {
+    if (!studentEmail) return;
+
+    setIsLoading(true);
+    try {
+      await api.post('/parent-verification/request', {
+        parentEmail: user.email,
+        studentEmail: studentEmail
+      });
+
+      toast({
+        title: "Invitation Sent",
+        description: `A verification request has been sent to ${studentEmail}.`,
+      });
+
+      // Close dialog and reset state
+      setIsDialogOpen(false);
+      setStudentEmail("");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to send invitation.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <DashboardLayout user={user}>
       <div className="p-6 space-y-6">
@@ -17,10 +67,10 @@ export default function ParentChildren({ user }: ParentChildrenProps) {
               View and manage your children's profiles
             </p>
           </div>
-          <button className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+          <Button onClick={() => setIsDialogOpen(true)} className="flex items-center gap-2">
             <UserPlus2 className="h-4 w-4" />
             Add Child
-          </button>
+          </Button>
         </div>
 
         {/* Search Bar */}
@@ -29,6 +79,8 @@ export default function ParentChildren({ user }: ParentChildrenProps) {
           <input
             type="text"
             placeholder="Search children..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
@@ -152,6 +204,39 @@ export default function ParentChildren({ user }: ParentChildrenProps) {
           </div>
         </div>
       </div>
+
+      {/* Add Child Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add a Child</DialogTitle>
+            <DialogDescription>
+              Enter your child's email address to send them a verification request.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="studentEmail">Student Email</Label>
+              <Input
+                id="studentEmail"
+                placeholder="student@school.edu"
+                value={studentEmail}
+                onChange={(e) => setStudentEmail(e.target.value)}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isLoading}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={sendInvitation} disabled={isLoading || !studentEmail}>
+              {isLoading ? "Sending..." : "Send Invitation"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   )
 } 

@@ -158,7 +158,7 @@ export class TeacherController {
         description,
         courseId,
         dueDate,
-        points: points || 100,
+        totalPoints: points || 100,
         status: status || 'draft'
       }, teacherId);
       

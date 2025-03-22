@@ -15,34 +15,78 @@ import teacherRoutes from './routes/teacher.routes';
 import { attendanceRoutes } from './routes/attendance.routes';
 import { ensureUploadDirectories } from './services/file-upload.service';
 import dotenv from 'dotenv';
+import { Server } from 'socket.io';
+import { getHealthStatus } from './utils/health-check';
+import swaggerUi from 'swagger-ui-express';
+import swaggerSpec from './config/swagger';
 
 // Import error handling middleware
-import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
+import { errorHandler, notFoundHandler, asyncHandler } from './middlewares/error.middleware';
 
 // Load environment variables
 dotenv.config();
 
 // Initialize Express app
 const app: Express = express();
-const server = http.createServer(app);
-
-// Set up Socket.IO
-setupSocketIO(server);
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:5173',  // Vite development server
+    'http://localhost:3000',  // Alternate development port
+    'http://127.0.0.1:5173',  // Using IP instead of localhost
+    'http://127.0.0.1:3000'   // Alternate with IP
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(helmet());
 app.use(morgan('dev'));
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Swagger API Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 // Health check endpoint
-app.get('/health', (_req: Request, res: Response) => {
-  res.status(200).json({ status: 'OK', message: 'Server is running' });
-});
+app.get('/health', asyncHandler(async (req, res) => {
+  const healthStatus = await getHealthStatus();
+  const statusCode = healthStatus.status === 'healthy' ? 200 : 
+                    healthStatus.status === 'degraded' ? 200 : 503;
+  
+  res.status(statusCode).json(healthStatus);
+}));
+
+// Detailed health check endpoint (with auth in production)
+app.get('/health/detailed', asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const healthStatus = await getHealthStatus();
+    const statusCode = healthStatus.status === 'healthy' ? 200 : 
+                      healthStatus.status === 'degraded' ? 200 : 503;
+    
+    // Get detailed system information
+    const detailedHealth = {
+      health: healthStatus,
+      process: {
+        pid: process.pid,
+        nodeVersion: process.version,
+        memoryUsage: process.memoryUsage(),
+        uptime: process.uptime(),
+      },
+      environment: process.env.NODE_ENV,
+      activeConnections: 0, // This would be populated by your connection tracking
+    };
+    
+    res.status(statusCode).json(detailedHealth);
+  } catch (error) {
+    console.error('Health check error', error);
+    res.status(500).json({ status: 'error', message: 'Failed to get health information' });
+  }
+}));
 
 // Version check endpoint
 app.get('/version', (_req: Request, res: Response) => {
@@ -96,46 +140,19 @@ app.use(notFoundHandler);
 // Register error handling middleware (should be the last middleware)
 app.use(errorHandler);
 
-// Start the server
-const startServer = async () => {
-  try {
-    // Test database connection but don't exit if it fails
-    await testConnection();
-    
-    // Initialize database tables (don't exit on failure)
-    try {
-      await initializeDatabase();
-    } catch (error) {
-      console.error('Error initializing database tables, but server will continue running:', error);
-    }
-    
-    // Ensure upload directories exist
-    await ensureUploadDirectories();
-    console.log('Upload directories initialized');
-    
-    // Start the server
-    const PORT = config.server.port;
-    server.listen(PORT, () => {
-      console.log(`Server is ready at ${config.server.baseUrl}`);
-      console.log(`Socket.IO server is running on port ${PORT}`);
-    });
-  } catch (error) {
-    console.error('Server startup error:', error);
-    console.log('Server will continue running with limited functionality');
-    
-    // Ensure upload directories exist anyway
-    await ensureUploadDirectories();
-    console.log('Upload directories initialized');
-    
-    // Start the server even if database connection fails
-    const PORT = config.server.port;
-    server.listen(PORT, () => {
-      console.log(`Server is ready at ${config.server.baseUrl} (limited functionality)`);
-      console.log(`Socket.IO server is running on port ${PORT}`);
-    });
+// Initialize socket.io (but don't start listening)
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: config.frontendUrl,
+    methods: ["GET", "POST"],
+    credentials: true
   }
-};
+});
 
-startServer();
+// WebSocket setup
+setupSocketIO(server);
 
+// Don't start the server here, let server.ts handle it
+export { server, io };
 export default app; 

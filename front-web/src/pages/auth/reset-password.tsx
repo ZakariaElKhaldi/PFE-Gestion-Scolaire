@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { authService } from '@/services/auth.service'
 
 const resetPasswordSchema = z.object({
   newPassword: z.string()
@@ -68,7 +69,7 @@ export const ResetPasswordPage = () => {
 
   const onSubmit = async (data: UpdatePasswordData) => {
     if (!token) {
-      setError('No reset token provided')
+      setError('No reset token provided. Please use the link from your email or request a new reset link.')
       return
     }
 
@@ -76,22 +77,30 @@ export const ResetPasswordPage = () => {
     setError(null)
     
     try {
-      // TODO: Replace with actual API call when backend is ready
-      console.log('Reset password data:', { ...data, token })
+      console.log('Resetting password with token:', token.substring(0, 10) + '...');
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Call the auth service to reset the password
+      await authService.resetPassword(token, data.newPassword);
       
-      // Mock successful password reset for development
       setIsSuccess(true)
       
       // Redirect to sign in after 3 seconds
       setTimeout(() => {
         navigate('/auth/sign-in')
       }, 3000)
-    } catch (error) {
-      console.error('Reset password error:', error)
-      setError('An error occurred while resetting your password. Please try again.')
+    } catch (error: any) {
+      console.error('Reset password error:', error);
+      
+      // Provide more helpful error messages based on the error
+      if (error.message?.includes('expired')) {
+        setError('Your password reset link has expired. Please request a new one.');
+      } else if (error.message?.includes('invalid')) {
+        setError('This password reset link is invalid. Please request a new one.');
+      } else {
+        setError(error instanceof Error 
+          ? error.message 
+          : 'An error occurred while resetting your password. Please try again.');
+      }
     } finally {
       setIsLoading(false)
     }
