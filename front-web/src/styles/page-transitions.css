@@ -1,0 +1,142 @@
+/* Page Transitions */
+
+/* Base transition for page content */
+.page-transition-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.page-transition-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms ease-in-out, transform 300ms ease-out;
+}
+
+.page-transition-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.page-transition-exit-active {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 250ms ease-in, transform 250ms ease-in;
+}
+
+/* Route transition container */
+.route-transition-container {
+  position: relative;
+  min-height: calc(100vh - 3.5rem);
+  transition: all 300ms ease-in-out;
+}
+
+/* Fade animations for page transitions */
+.fade-enter {
+  opacity: 0;
+}
+
+.fade-enter-active {
+  opacity: 1;
+  transition: opacity 300ms ease-in-out;
+}
+
+.fade-exit {
+  opacity: 1;
+}
+
+.fade-exit-active {
+  opacity: 0;
+  transition: opacity 250ms ease-in-out;
+}
+
+/* Slide animations for transitions between adjacent pages */
+.slide-rtl-enter {
+  transform: translateX(100%);
+}
+
+.slide-rtl-enter-active {
+  transform: translateX(0);
+  transition: transform 300ms ease-out;
+}
+
+.slide-rtl-exit {
+  transform: translateX(0);
+}
+
+.slide-rtl-exit-active {
+  transform: translateX(-100%);
+  transition: transform 300ms ease-in;
+}
+
+.slide-ltr-enter {
+  transform: translateX(-100%);
+}
+
+.slide-ltr-enter-active {
+  transform: translateX(0);
+  transition: transform 300ms ease-out;
+}
+
+.slide-ltr-exit {
+  transform: translateX(0);
+}
+
+.slide-ltr-exit-active {
+  transform: translateX(100%);
+  transition: transform 300ms ease-in;
+}
+
+/* Keep the sidebar persistent during transitions */
+.preserve-sidebar {
+  position: fixed;
+  z-index: 50;
+  height: 100vh;
+  transition: transform 300ms ease;
+}
+
+/* Add smooth transitions for layout changes */
+.main-content {
+  transition: margin-left 300ms ease-in-out, margin-right 300ms ease-in-out;
+}
+
+/* Smooth transition for background and container changes */
+body {
+  transition: background-color 300ms ease-in-out;
+}
+
+/* Optimized for RTL/LTR translations */
+html[dir="rtl"] .slide-rtl-enter {
+  transform: translateX(-100%);
+}
+
+html[dir="rtl"] .slide-rtl-enter-active {
+  transform: translateX(0);
+}
+
+html[dir="rtl"] .slide-rtl-exit-active {
+  transform: translateX(100%);
+}
+
+html[dir="rtl"] .slide-ltr-enter {
+  transform: translateX(100%);
+}
+
+html[dir="rtl"] .slide-ltr-enter-active {
+  transform: translateX(0);
+}
+
+html[dir="rtl"] .slide-ltr-exit-active {
+  transform: translateX(-100%);
+}
+
+/* Performance optimizations */
+.page-transition-enter-active,
+.page-transition-exit-active,
+.fade-enter-active,
+.fade-exit-active,
+.slide-rtl-enter-active,
+.slide-rtl-exit-active,
+.slide-ltr-enter-active,
+.slide-ltr-exit-active {
+  will-change: transform, opacity;
+} 

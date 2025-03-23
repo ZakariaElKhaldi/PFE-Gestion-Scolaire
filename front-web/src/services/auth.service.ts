@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { SignInData, SignUpData, UserResponse } from '@/types/auth';
 import { saveAuthToken, removeAuthToken } from '@/lib/api-client';
+import { checkStudentId } from '@/lib/auth-utils';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -156,6 +157,9 @@ class AuthService {
         throw new Error('Invalid user data received from server');
       }
       
+      // Check and ensure student users have studentId
+      const enhancedUserData = checkStudentId(userData);
+      
       // Store token and user data
       if (data.data.token) {
         // Use saveAuthToken utility to set token in localStorage and API client
@@ -164,16 +168,20 @@ class AuthService {
         // Set the token for the current axios instance
         axios.defaults.headers.common['Authorization'] = `Bearer ${data.data.token}`;
         
-        // Store user data
-        localStorage.setItem('user', JSON.stringify(data.data.user));
+        // Store user data with enhanced user data that includes studentId if needed
+        localStorage.setItem('user', JSON.stringify(enhancedUserData));
         
         // Dispatch custom event to notify the app of authentication state change
-        this.dispatchAuthEvent({ user: data.data.user, action: 'login' });
+        this.dispatchAuthEvent({ user: enhancedUserData, action: 'login' });
         
         console.log('Auth token and user data saved, authentication event dispatched');
       }
       
-      return data.data;
+      // Return the enhanced user data
+      return {
+        user: enhancedUserData,
+        token: data.data.token
+      };
     } catch (error: any) {
       console.error('Login error in service:', error);
       
@@ -275,11 +283,31 @@ class AuthService {
   }
 
   isAuthenticated(): boolean {
-    // Check if user and token exist
     const token = this.getToken();
-    const user = this.getCurrentUser();
-    
-    return !!token && !!user;
+    return !!token && !this.isTokenExpired(token);
+  }
+  
+  isTokenExpired(token: string): boolean {
+    try {
+      // Extract the payload from the JWT token
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const payload = JSON.parse(window.atob(base64));
+      
+      // Check if token has an expiration time
+      if (!payload.exp) {
+        return false; // If no expiration, consider token valid
+      }
+      
+      // Check if token is expired
+      const expirationTime = payload.exp * 1000; // Convert from seconds to milliseconds
+      const currentTime = Date.now();
+      
+      return expirationTime < currentTime;
+    } catch (error) {
+      console.error('Error checking token expiration:', error);
+      return true; // If we can't verify, consider it expired for safety
+    }
   }
   
   // Helper method to dispatch auth events

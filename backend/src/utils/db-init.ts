@@ -15,6 +15,10 @@ import { paymentModel } from '../models/payment.model';
 import { materialModel } from '../models/material.model';
 import { feedbackModel, FeedbackModel } from '../models/feedback.model';
 import { certificateModel } from '../models/certificate.model';
+import { userSettingsModel } from '../models/user-settings.model';
+import { systemSettingsModel } from '../models/system-settings.model';
+import { securitySettingsModel } from '../models/security-settings.model';
+import { SettingsService } from '../services/settings.service';
 
 /**
  * Initialize database tables
@@ -118,6 +122,11 @@ async function createTablesDirectly(): Promise<void> {
     
     await certificateModel.createTable();
     logger.db('Certificates table created or verified');
+    
+    // Initialize settings tables
+    const settingsService = new SettingsService();
+    await settingsService.initializeTables();
+    logger.db('Settings tables created or verified');
     
     logger.info('All tables created successfully');
   } catch (error) {

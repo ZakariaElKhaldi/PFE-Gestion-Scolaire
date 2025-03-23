@@ -13,6 +13,7 @@ import certificateRoutes from './certificate.routes';
 import teacherRoutes from './teacher.routes';
 import parentRoutes from './parent.routes';
 import parentVerificationRoutes from './parent-verification.routes';
+import settingsRoutes from './settings.routes';
 import express from 'express';
 
 const router = Router();
@@ -67,5 +68,8 @@ router.use('/parent', parentRoutes);
 
 // Parent verification routes
 router.use('/parent-verification', parentVerificationRoutes);
+
+// Settings routes
+router.use('/settings', settingsRoutes);
 
 export default router; 

@@ -8,10 +8,11 @@ import { ResetPasswordPage } from './pages/auth/reset-password';
 import { VerifyEmailPage } from '@/pages/auth/verify-email';
 import ParentVerificationPage from './pages/parent-verification';
 import DebugNav from "@/pages/debug-nav";
+import LanguageDemo from './pages/demo/language-demo';
 import { Toaster } from 'sonner';
 import './index.css';
 import { authService } from './services/auth.service';
-import { isValidUser, getDashboardUrl, isTokenExpired } from './lib/auth-utils';
+import { isValidUser, getDashboardUrl, isTokenExpired, checkStudentId } from './lib/auth-utils';
 import { initializeAuth } from './lib/api-client';
 
 // Admin Pages
@@ -21,7 +22,7 @@ import { ClassesPage } from '@/pages/dashboard/admin/classes';
 import { CoursesPage } from '@/pages/dashboard/admin/courses';
 import { AnalyticsPage } from '@/pages/dashboard/admin/analytics';
 import EventsPage from '@/pages/dashboard/admin/events';
-import { NotificationsPage } from '@/pages/dashboard/admin/notifications';
+import { NotificationsPage as AdminNotificationsPage } from '@/pages/dashboard/admin/notifications';
 import { SettingsPage as AdminSettingsPage } from '@/pages/dashboard/admin/settings';
 import { DepartmentsPage } from '@/pages/dashboard/admin/departments';
 import { ReportsPage } from '@/pages/dashboard/admin/reports';
@@ -41,6 +42,7 @@ import StudentSupport from './pages/dashboard/student/support';
 import StudentFeedback from './pages/dashboard/student/feedback';
 import StudentSchedule from './pages/dashboard/student/schedule';
 import StudentGrades from './pages/dashboard/student/grades';
+import { NotificationsPage as StudentNotificationsPage } from './pages/dashboard/student/notifications';
 
 // Teacher Pages
 import TeacherDashboard from './pages/dashboard/teacher';
@@ -59,6 +61,7 @@ import TeacherCurriculum from './pages/dashboard/teacher/curriculum';
 import { TeacherSchedule } from './pages/dashboard/teacher/schedule';
 import { TeacherFeedbackPage } from './pages/dashboard/teacher/feedback';
 import { TeacherReports } from './pages/dashboard/teacher/reports';
+import { NotificationsPage as TeacherNotificationsPage } from './pages/dashboard/teacher/notifications';
 
 // Parent Pages
 import ParentDashboard from './pages/dashboard/parent';
@@ -72,6 +75,7 @@ import ParentAttendance from './pages/dashboard/parent/attendance';
 import ParentGrades from './pages/dashboard/parent/grades';
 import ParentSchedule from './pages/dashboard/parent/schedule';
 import ParentFeedback from './pages/dashboard/parent/feedback';
+import { NotificationsPage as ParentNotificationsPage } from './pages/dashboard/parent/notifications';
 
 // Shared Pages
 import { SharedNotificationsPage } from './pages/dashboard/shared/notifications';
@@ -87,8 +91,18 @@ import { UserResponse, UserRole } from '@/types/auth';
 // Auth Guard Component
 const PrivateRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: UserRole[] }) => {
   const storedUser = localStorage.getItem('user');
-  const user = storedUser ? JSON.parse(storedUser) : null;
+  let user = storedUser ? JSON.parse(storedUser) : null;
   const token = localStorage.getItem('auth_token');
+  
+  // Apply studentId check for student users
+  if (user && user.role === 'student') {
+    user = checkStudentId(user);
+    // Update localStorage if user was modified
+    if (storedUser && user.studentId && JSON.parse(storedUser).studentId !== user.studentId) {
+      localStorage.setItem('user', JSON.stringify(user));
+      console.log('Updated stored user with studentId in localStorage');
+    }
+  }
   
   // Verify token is not expired
   const isExpired = token ? isTokenExpired(token) : true;
@@ -287,6 +301,7 @@ function App() {
         <Route path="/auth/verify-email" element={<VerifyEmailPage />} />
         <Route path="/parent-verification" element={<ParentVerificationPage />} />
         <Route path="/debug" element={<DebugNav />} />
+        <Route path="/demo/language" element={<LanguageDemo />} />
 
         {/* Admin Routes */}
         <Route path="/dashboard/admin" element={<PrivateRoute allowedRoles={['administrator']}><AdminHomePage user={user as UserResponse} /></PrivateRoute>} />
@@ -295,7 +310,7 @@ function App() {
         <Route path="/dashboard/admin/courses" element={<PrivateRoute allowedRoles={['administrator']}><CoursesPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/admin/analytics" element={<PrivateRoute allowedRoles={['administrator']}><AnalyticsPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/admin/events" element={<PrivateRoute allowedRoles={['administrator']}><EventsPage user={user as UserResponse} /></PrivateRoute>} />
-        <Route path="/dashboard/admin/notifications" element={<PrivateRoute allowedRoles={['administrator']}><NotificationsPage user={user as UserResponse} /></PrivateRoute>} />
+        <Route path="/dashboard/admin/notifications" element={<PrivateRoute allowedRoles={['administrator']}><AdminNotificationsPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/admin/settings" element={<PrivateRoute allowedRoles={['administrator']}><AdminSettingsPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/admin/departments" element={<PrivateRoute allowedRoles={['administrator']}><DepartmentsPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/admin/reports" element={<PrivateRoute allowedRoles={['administrator']}><ReportsPage user={user as UserResponse} /></PrivateRoute>} />
@@ -320,10 +335,9 @@ function App() {
         <Route path="/dashboard/student/feedback" element={<PrivateRoute allowedRoles={['student']}><StudentFeedback user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/student/schedule" element={<PrivateRoute allowedRoles={['student']}><StudentSchedule user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/student/grades" element={<PrivateRoute allowedRoles={['student']}><StudentGrades user={user as UserResponse} /></PrivateRoute>} />
-        <Route path="/dashboard/student/notifications" element={<PrivateRoute allowedRoles={['student']}><SharedNotificationsPage user={user as UserResponse} /></PrivateRoute>} />
+        <Route path="/dashboard/student/notifications" element={<PrivateRoute allowedRoles={['student']}><StudentNotificationsPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/student/profile" element={<PrivateRoute allowedRoles={['student']}><ProfilePage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/student/settings" element={<PrivateRoute allowedRoles={['student']}><SettingsPage user={user as UserResponse} /></PrivateRoute>} />
-        <Route path="/dashboard/student/contact" element={<PrivateRoute allowedRoles={['student']}><ContactPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/student/forum" element={<PrivateRoute allowedRoles={['student']}><ForumPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/student/forum/create" element={<PrivateRoute allowedRoles={['student']}><CreatePostPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/student/forum/:postId" element={<PrivateRoute allowedRoles={['student']}><PostPage user={user as UserResponse} /></PrivateRoute>} />
@@ -345,7 +359,7 @@ function App() {
         <Route path="/dashboard/teacher/schedule" element={<PrivateRoute allowedRoles={['teacher']}><TeacherSchedule user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/teacher/feedback" element={<PrivateRoute allowedRoles={['teacher']}><TeacherFeedbackPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/teacher/reports" element={<PrivateRoute allowedRoles={['teacher']}><TeacherReports user={user as UserResponse} /></PrivateRoute>} />
-        <Route path="/dashboard/teacher/notifications" element={<PrivateRoute allowedRoles={['teacher']}><SharedNotificationsPage user={user as UserResponse} /></PrivateRoute>} />
+        <Route path="/dashboard/teacher/notifications" element={<PrivateRoute allowedRoles={['teacher']}><TeacherNotificationsPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/teacher/profile" element={<PrivateRoute allowedRoles={['teacher']}><ProfilePage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/teacher/settings" element={<PrivateRoute allowedRoles={['teacher']}><SettingsPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/teacher/contact" element={<PrivateRoute allowedRoles={['teacher']}><ContactPage user={user as UserResponse} /></PrivateRoute>} />
@@ -365,7 +379,7 @@ function App() {
         <Route path="/dashboard/parent/grades" element={<PrivateRoute allowedRoles={['parent']}><ParentGrades user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/parent/schedule" element={<PrivateRoute allowedRoles={['parent']}><ParentSchedule user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/parent/feedback" element={<PrivateRoute allowedRoles={['parent']}><ParentFeedback user={user as UserResponse} /></PrivateRoute>} />
-        <Route path="/dashboard/parent/notifications" element={<PrivateRoute allowedRoles={['parent']}><SharedNotificationsPage user={user as UserResponse} /></PrivateRoute>} />
+        <Route path="/dashboard/parent/notifications" element={<PrivateRoute allowedRoles={['parent']}><ParentNotificationsPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/parent/profile" element={<PrivateRoute allowedRoles={['parent']}><ProfilePage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/parent/settings" element={<PrivateRoute allowedRoles={['parent']}><SettingsPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/parent/contact" element={<PrivateRoute allowedRoles={['parent']}><ContactPage user={user as UserResponse} /></PrivateRoute>} />

@@ -3,20 +3,36 @@ import { signInSchema, signUpSchema } from '@/validations/auth';
 
 export type UserRole = 'administrator' | 'teacher' | 'student' | 'parent';
 
+export interface UserSettings {
+  language?: string;
+  theme?: string;
+  notifications?: {
+    email?: boolean;
+    push?: boolean;
+    sms?: boolean;
+  };
+  displayMode?: 'light' | 'dark' | 'system';
+  timezone?: string;
+}
+
 export interface UserResponse {
   id: string;
   email: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
   role: UserRole;
+  profilePicture?: string;
   phoneNumber?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
   studentId?: string;
   teacherId?: string;
   parentId?: string;
-  profilePicture?: string;
-  bio?: string;
+  departmentId?: string;
+  isVerified?: boolean;
+  status?: 'active' | 'inactive' | 'suspended';
+  lastLogin?: string;
+  settings?: UserSettings;
 }
 
 // Alias User to UserResponse for backward compatibility

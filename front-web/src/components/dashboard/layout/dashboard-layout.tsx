@@ -1,6 +1,6 @@
-import { ReactNode, useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { UserResponse, UserRole } from '../../../types/auth'
+import { ReactNode, useState, useEffect, useCallback } from 'react'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { UserResponse, UserRole, User } from '../../../types/auth'
 import { AppSidebar } from './app-sidebar'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '../../../components/ui/sidebar'
 import { Separator } from '../../../components/ui/separator'
@@ -8,7 +8,10 @@ import { LogOut, Settings, User as UserIcon, Bell, AlertCircle } from 'lucide-re
 import toast from 'react-hot-toast'
 import { Badge } from '../../../components/ui/badge'
 import { authService } from '../../../services/auth.service'
-import { getRoleDisplayName } from '../../../lib/auth-utils'
+import { getRoleDisplayName, checkStudentId } from '../../../lib/auth-utils'
+import { LanguageSelector } from '../../../components/ui/language-selector'
+import { useTranslation } from 'react-i18next'
+import { cn } from '../../../lib/utils'
 
 interface DashboardLayoutProps {
   children: ReactNode
@@ -22,6 +25,48 @@ export const DashboardLayout = ({ children, user: propUser }: DashboardLayoutPro
   const [user, setUser] = useState<UserResponse | null>(propUser)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
+  const location = useLocation()
+  const { t } = useTranslation()
+  
+  // Page transition state
+  const [isChangingRoute, setIsChangingRoute] = useState(false)
+  const [prevPath, setPrevPath] = useState(location.pathname)
+  const [transitionKey, setTransitionKey] = useState<number>(Date.now())
+
+  // Use memo for repeated path comparisons
+  const isNewPath = prevPath !== location.pathname
+
+  // Handle route changes - optimize with useCallback
+  const handleRouteChange = useCallback(() => {
+    if (isNewPath) {
+      // Route is changing, trigger transition
+      setIsChangingRoute(true)
+      
+      // Generate a new transition key to properly handle content swapping
+      setTransitionKey(Date.now())
+      
+      // After a short delay, complete the transition
+      const timer = setTimeout(() => {
+        setIsChangingRoute(false)
+        setPrevPath(location.pathname)
+      }, 300)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [isNewPath, location.pathname, prevPath])
+
+  // Apply route change effect
+  useEffect(() => {
+    handleRouteChange()
+  }, [handleRouteChange, location.pathname])
+
+  // Close dropdowns when route changes
+  useEffect(() => {
+    if (isNewPath) {
+      setIsProfileMenuOpen(false)
+      setIsNotificationsOpen(false)
+    }
+  }, [isNewPath, location.pathname])
 
   // Effect to load user from localStorage if not provided as prop
   useEffect(() => {
@@ -78,6 +123,12 @@ export const DashboardLayout = ({ children, user: propUser }: DashboardLayoutPro
     
     validateAuth()
   }, [navigate])
+
+  // Apply studentId check for student users
+  let enhancedUser = user;
+  if (user && user.role === 'student') {
+    enhancedUser = checkStudentId(user);
+  }
 
   // If there's an error, show it
   if (error) {
@@ -136,32 +187,35 @@ export const DashboardLayout = ({ children, user: propUser }: DashboardLayoutPro
 
   const getUserInfo = () => {
     // Make sure user and user.role exist
-    if (!user || !user.role) return 'User'
+    if (!enhancedUser || !enhancedUser.role) return 'User'
 
-    switch (user.role) {
+    switch (enhancedUser.role) {
       case 'student':
-        return `Student ID: ${user.studentId || 'ST-' + user.id}`
+        return `Student ID: ${enhancedUser.studentId || 'ST-' + enhancedUser.id}`
       case 'teacher':
-        return `Teacher ID: ${user.teacherId || 'TCH-' + user.id}`
+        return `Teacher ID: ${enhancedUser.teacherId || 'TCH-' + enhancedUser.id}`
       case 'administrator':
         return 'Administrator'
       case 'parent':
-        return `Parent ID: ${user.parentId || 'PR-' + user.id}`
+        return `Parent ID: ${enhancedUser.parentId || 'PR-' + enhancedUser.id}`
       default:
-        return user.email || 'User'
+        return enhancedUser.email || 'User'
     }
   }
 
   return (
     <SidebarProvider>
-      <AppSidebar user={user} />
+      <AppSidebar user={enhancedUser} />
       <SidebarInset>
         <header className="sticky top-0 flex h-14 items-center gap-4 border-b bg-background px-4 z-10">
           <SidebarTrigger />
           <Separator orientation="vertical" className="h-6" />
-          <div className="font-semibold">{user && user.role ? getRoleTitle(user.role) : 'Dashboard'}</div>
+          <div className="font-semibold">{enhancedUser && enhancedUser.role ? getRoleTitle(enhancedUser.role) : t('navigation.dashboard')}</div>
           <div className="flex-1" />
           <div className="flex items-center gap-4 relative">
+            {/* Language Selector */}
+            <LanguageSelector className="mr-2" />
+            
             {/* Notifications */}
             <button 
               className="relative p-2 rounded-full hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
@@ -174,36 +228,36 @@ export const DashboardLayout = ({ children, user: propUser }: DashboardLayoutPro
             {/* User info and profile menu */}
             <div className="flex items-center relative">
               <div className="text-sm text-gray-500 mr-2 hidden sm:block">
-                <div className="font-medium text-gray-900">{user.firstName || ''} {user.lastName || ''}</div>
+                <div className="font-medium text-gray-900">{enhancedUser?.firstName || ''} {enhancedUser?.lastName || ''}</div>
                 <div>{getUserInfo()}</div>
               </div>
               <button 
                 className="flex items-center space-x-2 rounded-full focus:outline-none focus:ring-2 focus:ring-primary"
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
               >
-                {user.profilePicture ? (
+                {enhancedUser?.profilePicture ? (
                   <img
                     className="h-8 w-8 rounded-full"
-                    src={user.profilePicture}
+                    src={enhancedUser.profilePicture}
                     alt=""
                   />
                 ) : (
                   <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center">
-                    {user.firstName?.[0] || ''}
-                    {user.lastName?.[0] || ''}
+                    {enhancedUser?.firstName?.[0] || ''}
+                    {enhancedUser?.lastName?.[0] || ''}
                   </div>
                 )}
               </button>
 
-              {/* Profile dropdown menu */}
+              {/* Profile dropdown menu - use popper or portals for better transitions */}
               {isProfileMenuOpen && (
                 <div className="absolute right-0 top-10 w-56 bg-white shadow-lg rounded-md border border-gray-200 py-1 z-20">
                   <div className="px-4 py-2 border-b border-gray-100">
-                    <p className="text-sm font-medium">{user ? `${user.firstName || ''} ${user.lastName || ''}` : 'User'}</p>
+                    <p className="text-sm font-medium">{enhancedUser ? `${enhancedUser.firstName || ''} ${enhancedUser.lastName || ''}` : 'User'}</p>
                     <p className="text-xs text-gray-500">{getUserInfo()}</p>
                   </div>
                   <Link 
-                    to={`/dashboard/${user?.role || 'student'}/profile`} 
+                    to={`/dashboard/${enhancedUser?.role || 'student'}/profile`} 
                     className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     onClick={() => setIsProfileMenuOpen(false)}
                   >
@@ -211,7 +265,7 @@ export const DashboardLayout = ({ children, user: propUser }: DashboardLayoutPro
                     My Profile
                   </Link>
                   <Link 
-                    to={`/dashboard/${user?.role || 'student'}/settings`} 
+                    to={`/dashboard/${enhancedUser?.role || 'student'}/settings`} 
                     className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     onClick={() => setIsProfileMenuOpen(false)}
                   >
@@ -228,7 +282,7 @@ export const DashboardLayout = ({ children, user: propUser }: DashboardLayoutPro
                 </div>
               )}
 
-              {/* Notifications dropdown */}
+              {/* Notifications dropdown - use popper or portals for better transitions */}
               {isNotificationsOpen && (
                 <div className="absolute right-0 top-10 w-80 bg-white shadow-lg rounded-md border border-gray-200 py-1 z-20">
                   <div className="px-4 py-2 border-b border-gray-100">
@@ -238,32 +292,27 @@ export const DashboardLayout = ({ children, user: propUser }: DashboardLayoutPro
                     </div>
                   </div>
                   <div className="max-h-[400px] overflow-y-auto">
-                    {/* Example notifications - replace with real data */}
-                    <div className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100">
-                      <p className="text-sm font-medium">New assignment posted</p>
-                      <p className="text-xs text-gray-500">2 hours ago</p>
-                    </div>
-                    <div className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100">
-                      <p className="text-sm font-medium">Grade updated</p>
-                      <p className="text-xs text-gray-500">Yesterday</p>
-                    </div>
-                  </div>
-                  <div className="px-4 py-2 border-t border-gray-100">
-                    <Link 
-                      to={`/dashboard/${user.role || 'student'}/notifications`}
-                      className="text-sm text-primary hover:text-primary/90"
-                      onClick={() => setIsNotificationsOpen(false)}
-                    >
-                      View all notifications
-                    </Link>
+                    {/* Notification entries would go here */}
                   </div>
                 </div>
               )}
             </div>
           </div>
         </header>
-        <main className="flex-1 p-4 bg-gray-50">
-          {children}
+        
+        {/* Main content with improved transition effect */}
+        <main className="flex-1 p-4 relative">
+          {/* Use a key to force clean re-renders between routes */}
+          <div
+            key={transitionKey}
+            className={cn(
+              "route-transition-container",
+              "transition-all duration-300 ease-in-out",
+              isChangingRoute ? "opacity-0 transform translate-y-4" : "opacity-100 transform translate-y-0"
+            )}
+          >
+            {children}
+          </div>
         </main>
       </SidebarInset>
     </SidebarProvider>
