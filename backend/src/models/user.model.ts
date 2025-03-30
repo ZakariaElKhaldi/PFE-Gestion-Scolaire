@@ -205,6 +205,21 @@ class UserModel {
       throw error;
     }
   }
+
+  /**
+   * Get all potential message recipients (all users except the current user)
+   */
+  async getPotentialMessageRecipients(currentUserId: string): Promise<UserResponse[]> {
+    const query = `
+      SELECT id, email, firstName, lastName, role, profilePicture, phoneNumber, studentId, createdAt, updatedAt, bio 
+      FROM users 
+      WHERE id != ? 
+      ORDER BY firstName, lastName
+    `;
+    
+    const [rows] = await pool.query<UserRow[]>(query, [currentUserId]);
+    return rows;
+  }
 }
 
 export const userModel = new UserModel(); 

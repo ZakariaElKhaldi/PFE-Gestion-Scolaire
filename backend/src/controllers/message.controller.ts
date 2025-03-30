@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { MessageModel, MessageStatus, Message, CreateMessageDTO, MessageFilter, MessageWithUserDetails } from '../models/message.model';
-import { UserModel } from '../models/user.model';
+import { messageModel, MessageStatus, Message, CreateMessageDTO, MessageFilter, MessageWithUserDetails } from '../models/message.model';
+import { userModel } from '../models/user.model';
 
 class MessageController {
   /**
@@ -19,7 +19,7 @@ class MessageController {
       };
 
       // Get messages involving the current user
-      const messages = await MessageModel.getMessages(filters);
+      const messages = await messageModel.getMessages(filters);
 
       return res.status(200).json({
         messages,
@@ -42,7 +42,7 @@ class MessageController {
       }
 
       const messageId = req.params.id;
-      const message = await MessageModel.getMessageById(messageId);
+      const message = await messageModel.getMessageById(messageId);
 
       if (!message) {
         return res.status(404).json({ error: 'Message not found' });
@@ -77,7 +77,7 @@ class MessageController {
       }
 
       // Check if receiver exists
-      const receiver = await UserModel.getUserById(receiverId);
+      const receiver = await userModel.findById(receiverId);
       if (!receiver) {
         return res.status(404).json({ error: 'Recipient not found' });
       }
@@ -89,7 +89,7 @@ class MessageController {
         content
       };
 
-      const message = await MessageModel.createMessage(messageData);
+      const message = await messageModel.createMessage(messageData);
 
       return res.status(201).json({ message });
     } catch (error: any) {
@@ -109,7 +109,7 @@ class MessageController {
       }
 
       const messageId = req.params.id;
-      const message = await MessageModel.getMessageById(messageId);
+      const message = await messageModel.getMessageById(messageId);
 
       if (!message) {
         return res.status(404).json({ error: 'Message not found' });
@@ -120,7 +120,7 @@ class MessageController {
         return res.status(403).json({ error: 'You do not have permission to delete this message' });
       }
 
-      await MessageModel.deleteMessage(messageId);
+      await messageModel.deleteMessage(messageId);
 
       return res.status(200).json({ message: 'Message deleted successfully' });
     } catch (error: any) {
@@ -140,7 +140,7 @@ class MessageController {
       }
 
       const messageId = req.params.id;
-      const message = await MessageModel.getMessageById(messageId);
+      const message = await messageModel.getMessageById(messageId);
 
       if (!message) {
         return res.status(404).json({ error: 'Message not found' });
@@ -157,7 +157,7 @@ class MessageController {
       }
 
       // Update message as read
-      const updatedMessage = await MessageModel.updateMessageStatus(
+      const updatedMessage = await messageModel.updateMessageStatus(
         messageId, 
         MessageStatus.READ,
         new Date()
@@ -185,7 +185,7 @@ class MessageController {
         receiverId: userId
       };
 
-      const messages = await MessageModel.getMessages(filters);
+      const messages = await messageModel.getMessages(filters);
 
       return res.status(200).json({
         messages,
@@ -212,7 +212,7 @@ class MessageController {
         senderId: userId
       };
 
-      const messages = await MessageModel.getMessages(filters);
+      const messages = await messageModel.getMessages(filters);
 
       return res.status(200).json({
         messages,
@@ -239,7 +239,7 @@ class MessageController {
         status: MessageStatus.SENT // Undelivered messages
       };
 
-      const messages = await MessageModel.getMessages(filters);
+      const messages = await messageModel.getMessages(filters);
 
       return res.status(200).json({
         messages,
@@ -264,15 +264,16 @@ class MessageController {
       const otherUserId = req.params.userId;
 
       // Get messages in both directions
-      const messages = await MessageModel.getConversation(userId, otherUserId);
+      const messages = await messageModel.getConversation(userId, otherUserId);
 
-      return res.status(200).json({
-        messages,
-        count: messages.length
-      });
+      return res.status(200).json(messages);
     } catch (error: any) {
       console.error('Error fetching conversation:', error);
-      return res.status(500).json({ error: error.message || 'Internal server error' });
+      // Include more detailed error information in the response for debugging
+      return res.status(500).json({ 
+        error: error.message || 'Internal server error',
+        details: error.toString()
+      });
     }
   }
 
@@ -286,7 +287,7 @@ class MessageController {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      const partners = await MessageModel.getConversationPartners(userId);
+      const partners = await messageModel.getConversationPartners(userId);
 
       return res.status(200).json({
         partners,
@@ -308,7 +309,7 @@ class MessageController {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      const recipients = await UserModel.getPotentialMessageRecipients(userId);
+      const recipients = await userModel.getPotentialMessageRecipients(userId);
 
       return res.status(200).json({
         recipients,
@@ -330,7 +331,7 @@ class MessageController {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      const counts = await MessageModel.getMessageCounts(userId);
+      const counts = await messageModel.getMessageCounts(userId);
 
       return res.status(200).json(counts);
     } catch (error: any) {

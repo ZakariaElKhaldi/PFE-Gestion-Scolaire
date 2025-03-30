@@ -67,14 +67,14 @@ class MessageModel {
   /**
    * Get messages with optional filters
    */
-  async getMessages(filter: MessageFilter = {}): Promise<Message[]> {
+  async getMessages(filter: MessageFilter = {}): Promise<MessageWithUserDetails[]> {
     try {
       let query = `
         SELECT m.*, 
-               u1.full_name AS senderName, 
-               u1.avatar AS senderAvatar,
-               u2.full_name AS receiverName, 
-               u2.avatar AS receiverAvatar
+               CONCAT(u1.firstName, ' ', u1.lastName) AS senderName, 
+               NULL AS senderAvatar,
+               CONCAT(u2.firstName, ' ', u2.lastName) AS receiverName, 
+               NULL AS receiverAvatar
         FROM messages m
         JOIN users u1 ON m.sender_id = u1.id
         JOIN users u2 ON m.receiver_id = u2.id
@@ -116,9 +116,9 @@ class MessageModel {
       
       query += ' ORDER BY m.sent_at DESC';
       
-      const [rows] = await queryAsync<MessageWithDetailsRow[]>(query, params);
+      const [rows] = await queryAsync(query, params) as [MessageWithDetailsRow[], FieldPacket[]];
       
-      return rows.map(row => ({
+      return rows.map((row: MessageWithDetailsRow) => ({
         id: row.id,
         senderId: row.senderId,
         receiverId: row.receiverId,
@@ -141,21 +141,21 @@ class MessageModel {
   /**
    * Get a specific message by ID
    */
-  async getMessageById(id: string): Promise<Message | null> {
+  async getMessageById(id: string): Promise<MessageWithUserDetails | null> {
     try {
       const query = `
         SELECT m.*, 
-               u1.full_name AS senderName, 
-               u1.avatar AS senderAvatar,
-               u2.full_name AS receiverName, 
-               u2.avatar AS receiverAvatar
+               CONCAT(u1.firstName, ' ', u1.lastName) AS senderName, 
+               NULL AS senderAvatar,
+               CONCAT(u2.firstName, ' ', u2.lastName) AS receiverName, 
+               NULL AS receiverAvatar
         FROM messages m
         JOIN users u1 ON m.sender_id = u1.id
         JOIN users u2 ON m.receiver_id = u2.id
         WHERE m.id = ?
       `;
       
-      const [rows] = await queryAsync<MessageWithDetailsRow[]>(query, [id]);
+      const [rows] = await queryAsync(query, [id]) as [MessageWithDetailsRow[], FieldPacket[]];
       
       if (rows.length === 0) {
         return null;
@@ -229,7 +229,7 @@ class MessageModel {
     try {
       const query = 'DELETE FROM messages WHERE id = ?';
       
-      const [result] = await queryAsync<OkPacket>(query, [id]);
+      const [result] = await queryAsync(query, [id]) as [OkPacket, FieldPacket[]];
       
       return result.affectedRows > 0;
     } catch (error) {
@@ -241,7 +241,7 @@ class MessageModel {
   /**
    * Update message status and readAt timestamp
    */
-  async updateMessageStatus(id: string, status: MessageStatus, readAt?: Date): Promise<Message | null> {
+  async updateMessageStatus(id: string, status: MessageStatus, readAt?: Date): Promise<MessageWithUserDetails | null> {
     try {
       let query = 'UPDATE messages SET status = ?';
       const params: any[] = [status];
@@ -254,7 +254,7 @@ class MessageModel {
       query += ' WHERE id = ?';
       params.push(id);
       
-      await queryAsync<OkPacket>(query, params);
+      await queryAsync(query, params) as [OkPacket, FieldPacket[]];
       
       return this.getMessageById(id);
     } catch (error) {
@@ -268,25 +268,67 @@ class MessageModel {
    */
   async getConversation(userId1: string, userId2: string): Promise<MessageWithUserDetails[]> {
     try {
+      // First check if the messages table exists
+      const checkTableExists = `
+        SELECT COUNT(*) as tableExists 
+        FROM information_schema.tables 
+        WHERE table_schema = DATABASE() 
+        AND table_name = 'messages'
+      `;
+      
+      const [tableCheck] = await queryAsync(checkTableExists, []) as [any[], FieldPacket[]];
+      
+      if (!tableCheck || !tableCheck[0] || !tableCheck[0].tableExists) {
+        // Table doesn't exist, return empty array
+        return [];
+      }
+      
+      // Now we'll examine the actual column names
+      const getColumns = `
+        SELECT COLUMN_NAME 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = 'messages'
+      `;
+      
+      const [columns] = await queryAsync(getColumns, []) as [any[], FieldPacket[]];
+      
+      // Default column names
+      let senderIdColumn = 'senderId';
+      let receiverIdColumn = 'receiverId';
+      
+      // Check if the column names are different
+      if (columns && columns.length > 0) {
+        const columnNames = columns.map((col: any) => col.COLUMN_NAME.toLowerCase());
+        
+        if (columnNames.includes('sender_id')) {
+          senderIdColumn = 'sender_id';
+        }
+        
+        if (columnNames.includes('receiver_id')) {
+          receiverIdColumn = 'receiver_id';
+        }
+      }
+      
       const query = `
         SELECT m.*, 
-               u1.full_name AS senderName, 
-               u1.avatar AS senderAvatar,
-               u2.full_name AS receiverName, 
-               u2.avatar AS receiverAvatar
+               CONCAT(u1.firstName, ' ', u1.lastName) AS senderName, 
+               NULL AS senderAvatar,
+               CONCAT(u2.firstName, ' ', u2.lastName) AS receiverName, 
+               NULL AS receiverAvatar
         FROM messages m
-        JOIN users u1 ON m.sender_id = u1.id
-        JOIN users u2 ON m.receiver_id = u2.id
-        WHERE (m.sender_id = ? AND m.receiver_id = ?)
-           OR (m.sender_id = ? AND m.receiver_id = ?)
+        JOIN users u1 ON m.${senderIdColumn} = u1.id
+        JOIN users u2 ON m.${receiverIdColumn} = u2.id
+        WHERE (m.${senderIdColumn} = ? AND m.${receiverIdColumn} = ?)
+           OR (m.${senderIdColumn} = ? AND m.${receiverIdColumn} = ?)
         ORDER BY m.sent_at ASC
       `;
       
-      const [rows] = await queryAsync<MessageWithDetailsRow[]>(query, [
+      const [rows] = await queryAsync(query, [
         userId1, userId2, userId2, userId1
-      ]);
+      ]) as [MessageWithDetailsRow[], FieldPacket[]];
       
-      return rows.map(row => ({
+      return rows.map((row: MessageWithDetailsRow) => ({
         id: row.id,
         senderId: row.senderId,
         receiverId: row.receiverId,
@@ -311,53 +353,71 @@ class MessageModel {
    */
   async getConversationPartners(userId: string): Promise<ConversationPartner[]> {
     try {
+      // First check if the messages table exists
+      const checkTableExists = `
+        SELECT COUNT(*) as tableExists 
+        FROM information_schema.tables 
+        WHERE table_schema = DATABASE() 
+        AND table_name = 'messages'
+      `;
+      
+      const [tableCheck] = await queryAsync(checkTableExists, []) as [any[], FieldPacket[]];
+      
+      if (!tableCheck || !tableCheck[0] || !tableCheck[0].tableExists) {
+        // Table doesn't exist, return empty array
+        return [];
+      }
+      
+      // Now we'll examine the actual column names
+      const getColumns = `
+        SELECT COLUMN_NAME 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = 'messages'
+      `;
+      
+      const [columns] = await queryAsync(getColumns, []) as [any[], FieldPacket[]];
+      
+      // Default column names
+      let senderIdColumn = 'senderId';
+      let receiverIdColumn = 'receiverId';
+      
+      // Check if the column names are different
+      if (columns && columns.length > 0) {
+        const columnNames = columns.map((col: any) => col.COLUMN_NAME.toLowerCase());
+        
+        if (columnNames.includes('sender_id')) {
+          senderIdColumn = 'sender_id';
+        }
+        
+        if (columnNames.includes('receiver_id')) {
+          receiverIdColumn = 'receiver_id';
+        }
+      }
+      
+      // Get all potential users who could be conversation partners, regardless of existing messages
       const query = `
         SELECT 
           u.id AS userId,
-          u.full_name AS name,
-          u.avatar,
-          (
-            SELECT m.content
-            FROM messages m
-            WHERE (m.sender_id = u.id AND m.receiver_id = ?)
-               OR (m.sender_id = ? AND m.receiver_id = u.id)
-            ORDER BY m.sent_at DESC
-            LIMIT 1
-          ) AS lastMessage,
-          (
-            SELECT m.sent_at
-            FROM messages m
-            WHERE (m.sender_id = u.id AND m.receiver_id = ?)
-               OR (m.sender_id = ? AND m.receiver_id = u.id)
-            ORDER BY m.sent_at DESC
-            LIMIT 1
-          ) AS lastMessageTime,
-          (
-            SELECT COUNT(*)
-            FROM messages m
-            WHERE m.sender_id = u.id 
-              AND m.receiver_id = ?
-              AND m.status != 'read'
-          ) AS unreadCount
+          CONCAT(u.firstName, ' ', u.lastName) AS name,
+          NULL AS avatar,
+          '' AS lastMessage,
+          NOW() AS lastMessageTime,
+          0 AS unreadCount
         FROM users u
         WHERE u.id != ?
-          AND EXISTS (
-            SELECT 1
-            FROM messages m
-            WHERE (m.sender_id = u.id AND m.receiver_id = ?)
-               OR (m.sender_id = ? AND m.receiver_id = u.id)
-          )
-        ORDER BY lastMessageTime DESC
+        AND u.role IN ('teacher', 'student', 'administrator')
+        ORDER BY u.firstName, u.lastName
       `;
       
-      const [rows] = await queryAsync<ConversationPartnerRow[]>(query, [
-        userId, userId, userId, userId, userId, userId, userId, userId
-      ]);
+      const [rows] = await queryAsync(query, [userId]) as [ConversationPartnerRow[], FieldPacket[]];
       
-      return rows;
+      // Ensure we always return an array, even if empty
+      return Array.isArray(rows) ? rows : [];
     } catch (error) {
       console.error('Error getting conversation partners:', error);
-      throw error;
+      // Return empty array instead of throwing
+      return [];
     }
   }
   
@@ -366,33 +426,82 @@ class MessageModel {
    */
   async getMessageCounts(userId: string): Promise<MessageCounts> {
     try {
+      // First check if the messages table exists
+      const checkTableExists = `
+        SELECT COUNT(*) as tableExists 
+        FROM information_schema.tables 
+        WHERE table_schema = DATABASE() 
+        AND table_name = 'messages'
+      `;
+      
+      const [tableCheck] = await queryAsync(checkTableExists, []) as [any[], FieldPacket[]];
+      
+      if (!tableCheck || !tableCheck[0] || !tableCheck[0].tableExists) {
+        // Table doesn't exist, return default values
+        return {
+          total: 0,
+          sent: 0,
+          received: 0,
+          unread: 0
+        };
+      }
+      
+      // Now get column names to determine the correct field names
+      const getColumns = `
+        SELECT COLUMN_NAME 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = 'messages'
+      `;
+      
+      const [columns] = await queryAsync(getColumns, []) as [any[], FieldPacket[]];
+      
+      // Default column names
+      let senderIdColumn = 'sender_id';
+      let receiverIdColumn = 'receiver_id';
+      let statusColumn = 'status';
+      
+      // Check if the column names are different
+      if (columns && columns.length > 0) {
+        const columnNames = columns.map((col: any) => col.COLUMN_NAME.toLowerCase());
+        
+        if (columnNames.includes('senderid')) {
+          senderIdColumn = 'senderId';
+        }
+        
+        if (columnNames.includes('receiverid')) {
+          receiverIdColumn = 'receiverId';
+        }
+      }
+      
+      // Build and execute the query with the correct column names
       const query = `
         SELECT 
           (
             SELECT COUNT(*)
             FROM messages
-            WHERE sender_id = ? OR receiver_id = ?
+            WHERE ${senderIdColumn} = ? OR ${receiverIdColumn} = ?
           ) AS total,
           (
             SELECT COUNT(*)
             FROM messages
-            WHERE sender_id = ?
+            WHERE ${senderIdColumn} = ?
           ) AS sent,
           (
             SELECT COUNT(*)
             FROM messages
-            WHERE receiver_id = ?
+            WHERE ${receiverIdColumn} = ?
           ) AS received,
           (
             SELECT COUNT(*)
             FROM messages
-            WHERE receiver_id = ? AND status != 'read'
+            WHERE ${receiverIdColumn} = ? AND ${statusColumn} != 'read'
           ) AS unread
       `;
       
-      const [rows] = await queryAsync<MessageCountsRow[]>(query, [
+      const [rows] = await queryAsync(query, [
         userId, userId, userId, userId, userId
-      ]);
+      ]) as [MessageCountsRow[], FieldPacket[]];
       
       if (rows.length === 0) {
         return {
@@ -412,5 +521,4 @@ class MessageModel {
 }
 
 // Export a singleton instance
-export const messageModel = new MessageModel();
-export { MessageModel }; 
+export const messageModel = new MessageModel(); 

@@ -50,6 +50,10 @@ export default function TeacherMessages({ user }: TeacherMessagesProps) {
   
   // Mobile view state
   const [isMobileViewingConversation, setIsMobileViewingConversation] = useState(false)
+  
+  // AI assistant constants
+  const AI_ASSISTANT_ID = "ai-assistant-1"
+  const isAIConversation = activeConversation === AI_ASSISTANT_ID
 
   // Load conversation partners on mount
   useEffect(() => {
@@ -96,18 +100,12 @@ export default function TeacherMessages({ user }: TeacherMessagesProps) {
     const loadMessages = async () => {
       setMessagesLoading(true)
       try {
-        const messages = await messageService.getConversation(activeConversation)
+        // Use special method for AI assistant
+        const messages = isAIConversation
+          ? await messageService.getAIAssistantConversation()
+          : await messageService.getConversation(activeConversation)
         
-        // Ensure messages have the correct senderId property
-        const processedMessages = messages.map(msg => ({
-          ...msg,
-          // Ensure message ownership is correctly identified
-          isMine: msg.senderId === user.id
-        }))
-        
-        setMessages(processedMessages)
-        
-        // Set recipient details for the header
+        // Process and set recipient details based on the current conversation
         const conversation = conversations.find(c => c.userId === activeConversation)
         if (conversation) {
           setActiveRecipientDetails({
@@ -116,11 +114,12 @@ export default function TeacherMessages({ user }: TeacherMessagesProps) {
           })
         }
         
+        // We don't need to set isMine on messages anymore since ConversationView 
+        // will determine this directly from senderId comparison
+        setMessages(messages)
+        
         // On mobile, switch to conversation view
         setIsMobileViewingConversation(true)
-        
-        // After loading messages, refresh conversation list to update unread counts
-        refreshConversations()
       } catch (error) {
         console.error("Error loading conversation messages:", error)
       } finally {
@@ -129,7 +128,10 @@ export default function TeacherMessages({ user }: TeacherMessagesProps) {
     }
     
     loadMessages()
-  }, [activeConversation, conversations, user.id])
+    
+    // Only depend on activeConversation and user.id changes
+    // NOT including 'conversations' here to avoid continuous refreshes
+  }, [activeConversation, user.id, isAIConversation])
   
   // Function to load potential recipients for new message
   const loadPotentialRecipients = async () => {
@@ -163,14 +165,39 @@ export default function TeacherMessages({ user }: TeacherMessagesProps) {
     if (!activeConversation || !content.trim()) return
     
     try {
-      // Send message via API
-      await messageService.sendMessage({
-        receiverId: activeConversation,
-        subject: "Re: " + (activeRecipientDetails?.name || "Discussion"),
-        content: content
-      })
+      // Special handling for AI assistant
+      if (isAIConversation) {
+        // Create user message
+        const userMessage: Message = {
+          id: `temp-${Date.now()}`,
+          senderId: user.id,
+          receiverId: AI_ASSISTANT_ID,
+          subject: "Message to AI Assistant",
+          content: content,
+          sentAt: new Date().toISOString(),
+          status: "sent"
+        }
+        
+        // Add user message to the conversation
+        setMessages(prev => [...prev, userMessage])
+        
+        // Get AI response
+        const aiResponse = await messageService.sendMessageToAI(content)
+        
+        if (aiResponse) {
+          // Add AI response to the conversation
+          setMessages(prev => [...prev, aiResponse])
+        }
+        
+        // Update conversation list after sending messages
+        // This is outside the message loading effect
+        refreshConversations()
+        return
+      }
       
-      // Add the sent message to the current messages immediately for better UX
+      // For regular messages
+      
+      // First add the message to local state for immediate feedback
       const newMessage: Message = {
         id: `temp-${Date.now()}`,
         senderId: user.id,
@@ -178,24 +205,21 @@ export default function TeacherMessages({ user }: TeacherMessagesProps) {
         subject: "Re: " + (activeRecipientDetails?.name || "Discussion"),
         content: content,
         sentAt: new Date().toISOString(),
-        status: "sent",
-        isMine: true // Explicitly mark as mine
+        status: "sent"
       }
       
+      // Add to conversation immediately
       setMessages(prev => [...prev, newMessage])
       
-      // Refresh messages
-      const messages = await messageService.getConversation(activeConversation)
+      // Then send it to the server
+      await messageService.sendMessage({
+        receiverId: activeConversation,
+        subject: "Re: " + (activeRecipientDetails?.name || "Discussion"),
+        content: content
+      })
       
-      // Process messages to ensure correct ownership
-      const processedMessages = messages.map(msg => ({
-        ...msg,
-        isMine: msg.senderId === user.id
-      }))
-      
-      setMessages(processedMessages)
-      
-      // Refresh conversations to update last message
+      // Update conversation list after sending message
+      // This is separate from message loading
       refreshConversations()
     } catch (error) {
       console.error("Error sending message:", error)

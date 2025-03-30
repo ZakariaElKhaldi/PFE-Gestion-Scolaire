@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User } from "../../../types/auth";
 import { StudentLayout } from "../../../components/dashboard/layout/student-layout";
 import { Accordion, AccordionItem } from "../../../components/Accordion";
@@ -12,7 +12,10 @@ import {
   Calendar,
   CheckCircle,
   XCircle,
+  Bot,
 } from "lucide-react";
+import { AIAssistant } from "../../../components/dashboard/support/AIAssistant";
+import { AITicketHelper } from "../../../components/dashboard/support/AITicketHelper";
 
 interface StudentSupportProps {
   user: User;
@@ -72,6 +75,19 @@ export default function StudentSupport({ user }: StudentSupportProps) {
     description: "",
     urgency: "low" as "low" | "medium" | "high",
   });
+  const [supportAgentAvailable, setSupportAgentAvailable] = useState(false);
+  const [humanSupportRequested, setHumanSupportRequested] = useState(false);
+
+  // Simulate a support agent becoming available after some time (for demo purposes)
+  useEffect(() => {
+    if (humanSupportRequested) {
+      const timer = setTimeout(() => {
+        setSupportAgentAvailable(true);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [humanSupportRequested]);
 
   const handleCreateTicket = () => {
     if (newTicket.title.trim() === "" || newTicket.description.trim() === "") return;
@@ -85,6 +101,10 @@ export default function StudentSupport({ user }: StudentSupportProps) {
     };
     setTickets([...tickets, ticket]);
     setNewTicket({ title: "", description: "", urgency: "low" });
+  };
+  
+  const handleHumanSupportRequest = () => {
+    setHumanSupportRequested(true);
   };
 
   return (
@@ -121,7 +141,12 @@ export default function StudentSupport({ user }: StudentSupportProps) {
               Tickets
             </button>
             <button
-              onClick={() => setActiveTab("chat")}
+              onClick={() => {
+                setActiveTab("chat");
+                // Reset the support agent status when switching to chat
+                setSupportAgentAvailable(false);
+                setHumanSupportRequested(false);
+              }}
               className={`px-1 py-4 text-sm font-medium flex items-center gap-2 ${
                 activeTab === "chat"
                   ? "border-b-2 border-blue-600 text-blue-600"
@@ -268,6 +293,17 @@ export default function StudentSupport({ user }: StudentSupportProps) {
                           {ticket.status === "open" ? "Ouvert" : "Résolu"}
                         </span>
                       </div>
+                      
+                      {/* AI Ticket Helper */}
+                      {ticket.status === "open" && (
+                        <div className="mt-4">
+                          <AITicketHelper 
+                            ticketTitle={ticket.title} 
+                            ticketDescription={ticket.description} 
+                            ticketUrgency={ticket.urgency}
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -284,33 +320,62 @@ export default function StudentSupport({ user }: StudentSupportProps) {
             </h2>
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
               <div className="h-96 flex flex-col justify-between">
-                {/* Messages du chat */}
-                <div className="space-y-4 overflow-y-auto">
-                  <div className="flex justify-end">
-                    <div className="bg-blue-100 p-3 rounded-lg max-w-[70%]">
-                      <p className="text-sm text-gray-700">Bonjour, j'ai un problème avec mon devoir.</p>
-                      <p className="text-xs text-gray-500 text-right mt-1">10:12 AM</p>
+                {supportAgentAvailable ? (
+                  <div className="h-full flex flex-col space-y-4">
+                    <div className="bg-green-100 p-3 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        <p className="font-medium text-green-800">Agent de support connecté</p>
+                      </div>
+                      <p className="text-sm text-green-700 mt-1">
+                        Un agent humain a rejoint la conversation. Comment puis-je vous aider aujourd'hui?
+                      </p>
                     </div>
-                  </div>
-                  <div className="flex justify-start">
-                    <div className="bg-gray-100 p-3 rounded-lg max-w-[70%]">
-                      <p className="text-sm text-gray-700">Pouvez-vous me donner plus de détails ?</p>
-                      <p className="text-xs text-gray-500 text-right mt-1">10:13 AM</p>
+                    
+                    {/* Messages du chat - historique avec un agent réel */}
+                    <div className="space-y-4 overflow-y-auto flex-1">
+                      <div className="flex justify-end">
+                        <div className="bg-blue-100 p-3 rounded-lg max-w-[70%]">
+                          <p className="text-sm text-gray-700">Bonjour, j'ai un problème avec mon devoir.</p>
+                          <p className="text-xs text-gray-500 text-right mt-1">10:12 AM</p>
+                        </div>
+                      </div>
+                      <div className="flex justify-start">
+                        <div className="bg-gray-100 p-3 rounded-lg max-w-[70%]">
+                          <p className="text-sm text-gray-700">Bonjour! Je suis Sarah du support technique. Pouvez-vous me donner plus de détails sur le problème que vous rencontrez?</p>
+                          <p className="text-xs text-gray-500 text-right mt-1">10:13 AM</p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                {/* Zone de saisie du message */}
-                <div className="mt-4 flex items-center gap-2">
-                  <textarea
-                    rows={2}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 p-2"
-                    placeholder="Tapez votre message..."
-                  />
-                  <button className="p-2 rounded-md bg-blue-600 text-white hover:bg-blue-700" title="Envoyer">
-                    <Send className="h-5 w-5" />
-                  </button>
-                </div>
+                    {/* Zone de saisie du message */}
+                    <div className="mt-4 flex items-center gap-2">
+                      <textarea
+                        rows={2}
+                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 p-2"
+                        placeholder="Tapez votre message..."
+                      />
+                      <button className="p-2 rounded-md bg-blue-600 text-white hover:bg-blue-700" title="Envoyer">
+                        <Send className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-full">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Bot className="h-5 w-5 text-blue-600" />
+                      <p className="text-sm font-medium text-gray-600">
+                        Assistant IA est actif - un agent de support humain sera disponible sous peu
+                      </p>
+                    </div>
+                    <div className="h-[calc(100%-2rem)]">
+                      <AIAssistant
+                        supportWaitingTime={20}
+                        onHumanSupportRequest={handleHumanSupportRequest}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Progress } from '../../ui/progress';
+import { AIAssistantWidget } from '../AIAssistantWidget';
 
 interface Grade {
   subject: string;
@@ -176,28 +177,36 @@ export function StudentDashboard({
         </Card>
       </div>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle>Today's Schedule</CardTitle>
-          <Button variant="link" onClick={() => document.getElementById('schedule-tab')?.click()}>
-            View Full Schedule
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {todaySchedule.periods.map((period, i) => (
-              <div key={i} className="flex items-center p-2 bg-gray-50 rounded-md">
-                <div className="w-20 text-sm font-medium">{period.time.split(' - ')[0]}</div>
-                <div className="flex-1 ml-4">
-                  <div className="font-medium">{period.subject}</div>
-                  <div className="text-sm text-gray-500">{period.teacher} • {period.room}</div>
-                </div>
-                <Badge variant="outline">{period.time}</Badge>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle>Today's Schedule</CardTitle>
+              <Button variant="link" onClick={() => document.getElementById('schedule-tab')?.click()}>
+                View Full Schedule
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {todaySchedule.periods.map((period, i) => (
+                  <div key={i} className="flex items-center p-2 bg-gray-50 rounded-md">
+                    <div className="w-20 text-sm font-medium">{period.time.split(' - ')[0]}</div>
+                    <div className="flex-1 ml-4">
+                      <div className="font-medium">{period.subject}</div>
+                      <div className="text-sm text-gray-500">{period.teacher} • {period.room}</div>
+                    </div>
+                    <Badge variant="outline">{period.time}</Badge>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </div>
+        
+        <div className="md:col-span-1">
+          <AIAssistantWidget />
+        </div>
+      </div>
 
       <Tabs defaultValue="grades" className="w-full">
         <TabsList className="grid w-full grid-cols-4">

@@ -1,6 +1,7 @@
 import { apiClient } from "../lib/api-client"
 import { Message } from "../types/models"
 import { formatISO, subDays, subHours, subMinutes } from "date-fns"
+import { AiProfileService } from "./ai-profile.service"
 
 export interface CreateMessageData {
   receiverId: string
@@ -39,12 +40,13 @@ export interface MessageRecipient {
 }
 
 export class MessageService {
-  private basePath = "/api/messages"
+  private basePath = "/messages"
   
   // Mock data for development
   private mockMessages: Message[] = []
   private mockPartners: ConversationPartner[] = []
   private mockRecipients: MessageRecipient[] = []
+  private readonly AI_ASSISTANT_ID = "ai-assistant-1"
 
   constructor() {
     // Initialize mock data
@@ -226,12 +228,25 @@ export class MessageService {
 
   async getConversation(userId: string): Promise<Message[]> {
     try {
-      const response = await apiClient.get<Message[]>(`${this.basePath}/conversation/${userId}`);
+      const response = await apiClient.get<Message[] | { messages: Message[], count: number }>(`${this.basePath}/conversation/${userId}`);
       
-      if (response.data && Array.isArray(response.data)) {
+      let messages: Message[] = [];
+      
+      // Handle different response formats
+      if (response.data) {
+        if (Array.isArray(response.data)) {
+          // New format - API returns messages array directly
+          messages = response.data;
+        } else if (response.data.messages && Array.isArray(response.data.messages)) {
+          // Old format - API returns { messages, count }
+          messages = response.data.messages;
+        }
+      }
+      
+      if (messages.length > 0) {
         // Process messages to ensure they have the correct properties
         const currentUserId = this.getCurrentUserId();
-        return response.data.map(message => ({
+        return messages.map(message => ({
           ...message,
           isMine: message.senderId === currentUserId
         }));
@@ -247,13 +262,41 @@ export class MessageService {
   async getConversationPartners() {
     try {
       const response = await apiClient.get(`${this.basePath}/partners`)
-      const data = response.data as { partners: ConversationPartner[] }
-      return data.partners || []
+      // Better error handling - handle different response structures
+      if (response && response.data) {
+        // Handle both formats: {partners: [...]} or {data: {partners: [...]}}
+        if (Array.isArray(response.data)) {
+          return response.data as ConversationPartner[];
+        } else {
+          const data = response.data as any;
+          if (data.partners && Array.isArray(data.partners)) {
+            return data.partners as ConversationPartner[];
+          } else if (data.data && data.data.partners && Array.isArray(data.data.partners)) {
+            return data.data.partners as ConversationPartner[];
+          }
+        }
+      }
+      
+      // If we couldn't extract partners from response, use mock data
+      console.warn("Response format unexpected, using mock data:", response?.data);
+      
+      // Return mock partners as fallback
+      // Add AI Assistant to the top of the list if it's not there
+      const partners = [...this.mockPartners]
+      if (!partners.some(p => p.userId === this.AI_ASSISTANT_ID)) {
+        partners.unshift(this.getAIAssistantProfile())
+      }
+      return partners
     } catch (error) {
       console.error("Error fetching conversation partners:", error)
       
       // Return mock partners as fallback
-      return this.mockPartners
+      // Add AI Assistant to the top of the list if it's not there
+      const partners = [...this.mockPartners]
+      if (!partners.some(p => p.userId === this.AI_ASSISTANT_ID)) {
+        partners.unshift(this.getAIAssistantProfile())
+      }
+      return partners
     }
   }
   
@@ -266,7 +309,12 @@ export class MessageService {
       console.error("Error fetching potential recipients:", error)
       
       // Return mock recipients as fallback
-      return this.mockRecipients
+      // Add AI Assistant to the top of the list if it's not there
+      const recipients = [...this.mockRecipients]
+      if (!recipients.some(r => r.id === this.AI_ASSISTANT_ID)) {
+        recipients.unshift(this.getAIAssistantRecipient())
+      }
+      return recipients
     }
   }
   
@@ -329,11 +377,6 @@ export class MessageService {
   }
 
   private getCurrentUserId(): string {
-    // For mock data implementation - hardcode to teacher-1 
-    // since we're using mock data with teacher-1 as the sender ID
-    return 'teacher-1';
-    
-    /* Uncomment when API is working
     try {
       const userJson = localStorage.getItem('user');
       if (userJson) {
@@ -344,25 +387,175 @@ export class MessageService {
       console.error("Error getting current user ID:", e);
     }
     
-    return ''; // Default empty string if not found
-    */
+    // Fallback to 'teacher-1' for mock data if no user is found
+    return 'teacher-1';
   }
 
   private getMockConversation(userId: string): Message[] {
-    // Filter messages for this conversation
-    const currentUserId = this.getCurrentUserId();
+    // For AI Assistant, create a special welcome message if no conversation exists
+    if (userId === this.AI_ASSISTANT_ID) {
+      const currentUserId = this.getCurrentUserId();
+      
+      // Get existing conversation or create new one
+      let conversation = this.mockMessages.filter(message => 
+        (message.senderId === userId && message.receiverId === currentUserId) ||
+        (message.senderId === currentUserId && message.receiverId === userId)
+      );
+      
+      // If no conversation exists, add a welcome message
+      if (conversation.length === 0) {
+        const welcomeMessage: Message = {
+          id: `msg-ai-welcome`,
+          senderId: this.AI_ASSISTANT_ID,
+          receiverId: currentUserId,
+          subject: "Welcome",
+          content: "Hello! I'm your AI Assistant. How can I help you today? You can ask me questions about your courses, assignments, or school policies.",
+          sentAt: formatISO(new Date()),
+          status: "sent",
+          isMine: false
+        };
+        
+        this.mockMessages.push(welcomeMessage);
+        conversation = [welcomeMessage];
+        
+        // Also create a conversation partner entry if it doesn't exist
+        if (!this.mockPartners.some(p => p.userId === this.AI_ASSISTANT_ID)) {
+          this.mockPartners.unshift(this.getAIAssistantProfile());
+        }
+      }
+      
+      return conversation;
+    }
     
-    return this.mockMessages
-      .filter(msg => 
-        (msg.senderId === currentUserId && msg.receiverId === userId) || 
-        (msg.senderId === userId && msg.receiverId === currentUserId)
-      )
-      .map(msg => ({
-        ...msg,
-        // Set isMine flag based on senderId match with 'teacher-1'
-        isMine: msg.senderId === 'teacher-1'
-      }))
-      .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+    // For regular users, use the existing method
+    const currentUserId = this.getCurrentUserId();
+    const conversationMessages = this.mockMessages.filter(message => 
+      (message.senderId === userId && message.receiverId === currentUserId) ||
+      (message.senderId === currentUserId && message.receiverId === userId)
+    );
+    
+    return conversationMessages.map(message => ({
+      ...message,
+      isMine: message.senderId === currentUserId
+    }));
+  }
+
+  // Get AI Assistant profile for conversation list
+  private getAIAssistantProfile(): ConversationPartner {
+    return {
+      userId: this.AI_ASSISTANT_ID,
+      name: "AI Assistant",
+      avatar: null,
+      lastMessage: "Hello! I'm your AI Assistant. How can I help you today?",
+      lastMessageTime: formatISO(new Date()),
+      unreadCount: 1
+    };
+  }
+
+  // Get AI Assistant as a potential recipient
+  private getAIAssistantRecipient(): MessageRecipient {
+    return {
+      id: this.AI_ASSISTANT_ID,
+      fullName: "AI Assistant",
+      avatar: null,
+      role: "assistant"
+    };
+  }
+
+  // Get a conversation with the AI Assistant
+  async getAIAssistantConversation(): Promise<Message[]> {
+    try {
+      const conversation = this.getMockConversation(this.AI_ASSISTANT_ID);
+      return conversation;
+    } catch (error) {
+      console.error("Error getting AI assistant conversation:", error);
+      return [];
+    }
+  }
+
+  // Send a message to the AI Assistant
+  async sendMessageToAI(content: string): Promise<Message | null> {
+    try {
+      // First add the user message to the conversation
+      const userMessage: Message = {
+        id: `msg-ai-${Date.now()}-user`,
+        senderId: this.getCurrentUserId(),
+        receiverId: this.AI_ASSISTANT_ID,
+        subject: "Message to AI Assistant",
+        content: content,
+        sentAt: formatISO(new Date()),
+        status: "sent",
+        isMine: true
+      };
+      
+      // Add to mock data
+      this.mockMessages.push(userMessage);
+      
+      // Update the last message in the AI conversation partner
+      const aiPartner = this.mockPartners.find(p => p.userId === this.AI_ASSISTANT_ID);
+      if (aiPartner) {
+        aiPartner.lastMessage = content;
+        aiPartner.lastMessageTime = userMessage.sentAt;
+      }
+      
+      // Now get AI response using the AI Profile service
+      try {
+        const aiResponse = await AiProfileService.queryProfile(content);
+        
+        // Create AI response message
+        const aiResponseMessage: Message = {
+          id: `msg-ai-${Date.now()}-response`,
+          senderId: this.AI_ASSISTANT_ID,
+          receiverId: this.getCurrentUserId(),
+          subject: "Re: Message to AI Assistant",
+          content: aiResponse.response || "I'm sorry, I couldn't process your message.",
+          sentAt: formatISO(new Date()),
+          status: "sent",
+          isMine: false
+        };
+        
+        // Add to mock data
+        this.mockMessages.push(aiResponseMessage);
+        
+        // Update the last message in the AI conversation partner
+        if (aiPartner) {
+          aiPartner.lastMessage = aiResponseMessage.content;
+          aiPartner.lastMessageTime = aiResponseMessage.sentAt;
+          aiPartner.unreadCount += 1;
+        }
+        
+        return aiResponseMessage;
+      } catch (error) {
+        console.error("Error getting AI response:", error);
+        
+        // Create fallback AI error message
+        const aiErrorMessage: Message = {
+          id: `msg-ai-${Date.now()}-error`,
+          senderId: this.AI_ASSISTANT_ID,
+          receiverId: this.getCurrentUserId(),
+          subject: "Re: Message to AI Assistant",
+          content: "I apologize, but I'm having trouble processing your request right now. Please try again later.",
+          sentAt: formatISO(new Date()),
+          status: "sent",
+          isMine: false
+        };
+        
+        // Add to mock data
+        this.mockMessages.push(aiErrorMessage);
+        
+        // Update the last message in the AI conversation partner
+        if (aiPartner) {
+          aiPartner.lastMessage = aiErrorMessage.content;
+          aiPartner.lastMessageTime = aiErrorMessage.sentAt;
+          aiPartner.unreadCount += 1;
+        }
+        
+        return aiErrorMessage;
+      }
+    } catch (error) {
+      console.error("Error sending message to AI:", error);
+      return null;
+    }
   }
 
   // Initialize mock messages with proper sender identification
@@ -489,6 +682,8 @@ export class MessageService {
   // Initialize mock recipients
   private initMockRecipients() {
     this.mockRecipients = [
+      // Add AI Assistant as the first recipient
+      this.getAIAssistantRecipient(),
       {
         id: "student-1",
         fullName: "Alex Johnson",

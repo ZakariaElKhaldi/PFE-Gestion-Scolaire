@@ -17,6 +17,7 @@ import { createGradesTable } from '../migrations/create-grades-table';
 import { createMaterialsTable } from '../migrations/create-materials-table';
 import { createFeedbackTable } from '../migrations/create-feedback-table';
 import { createParentChildTable } from '../migrations/create-parent-child-table';
+import { createMessagesTable } from '../migrations/create-messages-table';
 
 interface Migration {
   name: string;
@@ -133,6 +134,12 @@ const migrations: Migration[] = [
     description: 'Creates the feedback table',
     priority: 45,
     execute: createFeedbackTable
+  },
+  {
+    name: 'create_messages_table',
+    description: 'Creates the messages table',
+    priority: 55,
+    execute: createMessagesTable
   }
   // Add more migrations here
 ];

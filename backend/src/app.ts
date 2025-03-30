@@ -141,6 +141,7 @@ import materialRoutes from './routes/material.routes';
 import feedbackRoutes from './routes/feedback.routes';
 import certificateRoutes from './routes/certificate.routes';
 import { adminRoutes } from './routes/admin.routes';
+import aiProfileRoutes from './routes/ai-profile.routes';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
@@ -153,6 +154,7 @@ app.use('/api/materials', materialRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/certificates', certificateRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/ai-profiles', aiProfileRoutes);
 
 // Default route
 app.get('/', (req, res) => {

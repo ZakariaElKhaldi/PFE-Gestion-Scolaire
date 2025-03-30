@@ -1,98 +1,94 @@
 import React from "react"
-import { formatDistanceToNow } from "date-fns"
-import { Check, CheckCheck, Clock } from "lucide-react"
+import { format, isToday, isYesterday } from "date-fns"
+import { Check, CheckCheck, Clock, CheckCircle, Bot } from "lucide-react"
 import { Message } from "../../../types/models"
 
 interface MessageBubbleProps {
   message: Message
   isMine: boolean
+  isFromAI?: boolean
 }
 
-export function MessageBubble({ message, isMine }: MessageBubbleProps) {
-  const formatTime = (date: string) => {
+export function MessageBubble({ message, isMine, isFromAI = false }: MessageBubbleProps) {
+  // Format the time string from ISO date
+  const formatTimeString = (dateString: string) => {
     try {
-      const messageDate = new Date(date)
-      const today = new Date()
+      const date = new Date(dateString)
       
-      // Format to show time only for today's messages
-      if (messageDate.toDateString() === today.toDateString()) {
-        return messageDate.toLocaleTimeString([], { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        })
+      if (isToday(date)) {
+        return format(date, "HH:mm")
+      } else if (isYesterday(date)) {
+        return `Yesterday, ${format(date, "HH:mm")}`
+      } else {
+        return format(date, "MMM d, HH:mm")
       }
-      
-      // For older messages, show relative time
-      return formatDistanceToNow(messageDate, { addSuffix: true })
-    } catch (e) {
-      return ""
+    } catch (error) {
+      console.error("Error formatting date:", error)
+      return "Invalid date"
     }
   }
 
-  const getStatusIcon = () => {
-    if (!isMine) return null
-    
-    switch (message.status) {
-      case "read":
-        return <CheckCheck className="h-4 w-4 text-blue-500" />
-      case "delivered":
-        return <CheckCheck className="h-4 w-4 text-gray-400" />
-      case "sent":
-        return <Check className="h-4 w-4 text-gray-400" />
-      default:
-        return <Clock className="h-4 w-4 text-gray-400" />
-    }
+  // For my message (right side, blue)
+  if (isMine) {
+    return (
+      <div className="w-full flex justify-end mb-2">
+        <div className="max-w-[80%] bg-blue-600 text-white px-4 py-2 rounded-tl-xl rounded-tr-sm rounded-bl-xl rounded-br-xl shadow-sm">
+          {message.subject && (
+            <div className="font-medium mb-1">
+              {message.subject}
+            </div>
+          )}
+          
+          <div className="text-sm whitespace-pre-wrap break-words">
+            {message.content}
+          </div>
+          
+          <div className="flex items-center justify-end gap-1 mt-1">
+            <span className="text-xs text-blue-200">
+              {formatTimeString(message.sentAt)}
+            </span>
+            <div className="ml-1">
+              {message.status === "read" ? (
+                <CheckCircle className="h-3 w-3 text-blue-300" />
+              ) : (
+                <span className="inline-block h-2 w-2 rounded-full border border-blue-200"></span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
-
-  // Force right alignment for current user's messages with inline styles
-  const containerStyle: React.CSSProperties = {
-    display: 'flex',
-    width: '100%',
-    justifyContent: isMine ? 'flex-end' : 'flex-start',
-    marginBottom: '8px'
-  };
-
-  const bubbleStyle: React.CSSProperties = {
-    maxWidth: '70%',
-    marginLeft: isMine ? 'auto !important' : '0',
-    marginRight: isMine ? '0' : 'auto !important',
-    borderRadius: '0.5rem',
-    padding: '0.75rem 0.75rem',
-    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
-  };
-
-  // Override classes for message bubble
-  const bubbleClasses = isMine 
-    ? "bg-green-600 text-white rounded-tr-none"
-    : "bg-white border border-gray-200 text-gray-800 rounded-tl-none";
-
+  
+  // For others' messages (left side, gray or gradient for AI)
   return (
-    <div 
-      style={containerStyle}
-      data-is-mine={isMine ? "true" : "false"} // For debugging
-    >
-      <div
-        style={bubbleStyle}
-        className={bubbleClasses}
+    <div className="w-full flex justify-start mb-2">
+      <div 
+        className={`max-w-[80%] px-4 py-2 rounded-tl-sm rounded-tr-xl rounded-bl-xl rounded-br-xl shadow-sm
+          ${isFromAI 
+            ? "bg-gradient-to-br from-violet-100 to-blue-100 text-gray-800" 
+            : "bg-gray-100 text-gray-800"
+          }`}
       >
-        {/* Message subject shown only for the first message */}
         {message.subject && (
-          <div className={`font-medium text-sm mb-1 ${isMine ? "text-green-50" : "text-gray-700"}`}>
+          <div className="font-medium mb-1 text-gray-700">
             {message.subject}
+            {isFromAI && (
+              <span className="inline-flex items-center ml-1 text-blue-600">
+                <Bot className="h-3 w-3 mr-1" />
+              </span>
+            )}
           </div>
         )}
         
-        {/* Message content */}
         <div className="text-sm whitespace-pre-wrap break-words">
           {message.content}
         </div>
         
-        {/* Time and status indicators */}
-        <div className="flex items-center justify-end gap-1 mt-1">
-          <span className={`text-xs ${isMine ? "text-green-100" : "text-gray-500"}`}>
-            {formatTime(message.sentAt)}
+        <div className="flex items-center justify-start gap-1 mt-1">
+          <span className="text-xs text-gray-500">
+            {formatTimeString(message.sentAt)}
           </span>
-          {getStatusIcon()}
         </div>
       </div>
     </div>
