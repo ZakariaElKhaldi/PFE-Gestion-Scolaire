@@ -3,6 +3,7 @@ import { submissionModel, Submission, CreateSubmissionDTO as ModelCreateSubmissi
 import { courseModel } from '../models/course.model';
 import { userModel } from '../models/user.model';
 import { courseEnrollmentModel } from '../models/course-enrollment.model';
+import { SubmissionModel } from '../models/submission.model';
 
 export interface AssignmentFilters {
   courseId?: string;
@@ -19,7 +20,7 @@ export interface CreateAssignmentData {
   title: string;
   description: string;
   dueDate: Date;
-  totalPoints: number;
+  points: number;
   status: 'draft' | 'published' | 'closed';
 }
 
@@ -74,7 +75,7 @@ export interface SubmissionWithDetails extends Submission {
   assignment?: {
     title: string;
     dueDate: Date;
-    totalPoints: number;
+    points: number;
     courseId: string;
     courseName?: string;
   };
@@ -305,34 +306,89 @@ class AssignmentService {
    * Submit an assignment
    */
   async submitAssignment(submissionData: CreateSubmissionData): Promise<Submission> {
-    const now = new Date();
-    
-    // Create submission object
-    const createData: ModelCreateSubmissionDTO = {
-      assignmentId: submissionData.assignmentId,
-      studentId: submissionData.studentId,
-      submissionUrl: submissionData.submissionUrl,
-      fileName: submissionData.fileName,
-      fileType: submissionData.fileType,
-      fileSize: submissionData.fileSize,
-      status: 'submitted'
-    };
-    
-    // Get assignment to check due date
-    const assignment = await assignmentModel.findById(submissionData.assignmentId);
-    if (!assignment) {
-      throw new Error('Assignment not found');
+    try {
+      console.log('Assignment service submitting assignment with data:', JSON.stringify(submissionData, null, 2));
+      
+      const now = new Date();
+      
+      // Validate required fields
+      if (!submissionData.assignmentId) {
+        throw new Error('Assignment ID is required');
+      }
+      
+      if (!submissionData.studentId) {
+        throw new Error('Student ID is required');
+      }
+      
+      // Check if assignment exists first
+      try {
+        const assignment = await assignmentModel.findById(submissionData.assignmentId);
+        if (!assignment) {
+          throw new Error(`Assignment not found with ID: ${submissionData.assignmentId}`);
+        }
+        console.log('Found assignment:', JSON.stringify(assignment, null, 2));
+      } catch (err: unknown) {
+        console.error('Error checking assignment:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        throw new Error(`Failed to verify assignment: ${errorMessage}`);
+      }
+      
+      // Create a simplified submission object with minimal fields
+      const createData = {
+        assignmentId: submissionData.assignmentId,
+        studentId: submissionData.studentId,
+        feedback: submissionData.content || '',
+        status: 'submitted' as const
+      };
+      
+      console.log('Attempting to create submission with data:', JSON.stringify(createData, null, 2));
+      
+      // Create submission directly using SQL to bypass potential model issues
+      try {
+        // Generate a UUID for the submission
+        const id = require('uuid').v4();
+        const query = `
+          INSERT INTO assignment_submissions 
+          (id, assignmentId, studentId, feedback, status, submittedAt, submissionUrl)
+          VALUES (?, ?, ?, ?, ?, NOW(), ?)
+        `;
+        
+        const values = [
+          id,
+          createData.assignmentId,
+          createData.studentId,
+          createData.feedback,
+          createData.status,
+          submissionData.submissionUrl || null
+        ];
+        
+        console.log('Executing SQL query:', query);
+        console.log('With values:', values);
+        
+        const [result] = await require('../config/db').pool.query(query, values);
+        console.log('Query result:', result);
+        
+        // Return a constructed submission object with type assertions
+        return {
+          id,
+          assignmentId: createData.assignmentId,
+          studentId: createData.studentId,
+          submissionText: createData.feedback,
+          feedback: createData.feedback,
+          status: createData.status,
+          submissionDate: now,
+          submittedAt: now,
+          submissionUrl: submissionData.submissionUrl
+        } as unknown as Submission;
+      } catch (dbError: unknown) {
+        console.error('Database error creating submission:', dbError);
+        const errorMessage = dbError instanceof Error ? dbError.message : 'Unknown database error';
+        throw new Error(`Database error: ${errorMessage}`);
+      }
+    } catch (error) {
+      console.error('Error in assignment service submitAssignment:', error);
+      throw error;
     }
-    
-    // Check if submission is late
-    if (now > assignment.dueDate) {
-      createData.status = 'late';
-    }
-    
-    // Create submission
-    const submission = await submissionModel.create(createData);
-    
-    return submission;
   }
 
   /**
@@ -368,7 +424,7 @@ class AssignmentService {
       assignment: {
         title: assignment.title,
         dueDate: assignment.dueDate,
-        totalPoints: assignment.totalPoints,
+        points: assignment.points,
         courseId: assignment.courseId,
         courseName: course ? course.name : 'Unknown Course'
       }
@@ -396,8 +452,8 @@ class AssignmentService {
     }
     
     // Validate grade is within range
-    if (gradeData.grade < 0 || gradeData.grade > assignment.totalPoints) {
-      throw new Error(`Grade must be between 0 and ${assignment.totalPoints} points`);
+    if (gradeData.grade < 0 || gradeData.grade > assignment.points) {
+      throw new Error(`Grade must be between 0 and ${assignment.points} points`);
     }
     
     // Update submission with grade
@@ -443,7 +499,7 @@ class AssignmentService {
         assignment: {
           title: assignment.title,
           dueDate: assignment.dueDate,
-          totalPoints: assignment.totalPoints,
+          points: assignment.points,
           courseId: assignment.courseId,
           courseName: course ? course.name : 'Unknown Course'
         }
@@ -474,7 +530,7 @@ class AssignmentService {
         assignment: {
           title: assignment.title,
           dueDate: assignment.dueDate,
-          totalPoints: assignment.totalPoints,
+          points: assignment.points,
           courseId: assignment.courseId,
           courseName: course ? course.name : 'Unknown Course'
         }

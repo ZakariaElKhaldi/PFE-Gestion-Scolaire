@@ -30,6 +30,27 @@ router.get('/', (req, res, next) => {
 
 /**
  * @swagger
+ * /settings/user:
+ *   get:
+ *     summary: Get user settings
+ *     tags: [Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User settings
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/user', (req, res, next) => {
+  settingsController.getUserSettings(req, res)
+    .catch(next);
+});
+
+/**
+ * @swagger
  * /settings:
  *   put:
  *     summary: Update user settings
@@ -65,6 +86,47 @@ router.get('/', (req, res, next) => {
  *         description: Server error
  */
 router.put('/', (req, res, next) => {
+  settingsController.updateUserSettings(req, res)
+    .catch(next);
+});
+
+/**
+ * @swagger
+ * /settings/user:
+ *   put:
+ *     summary: Update user settings
+ *     tags: [Settings]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               theme:
+ *                 type: string
+ *                 enum: [light, dark, system]
+ *               language:
+ *                 type: string
+ *               emailNotifications:
+ *                 type: boolean
+ *               pushNotifications:
+ *                 type: boolean
+ *               smsNotifications:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Settings updated successfully
+ *       400:
+ *         description: Invalid input data
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.put('/user', (req, res, next) => {
   settingsController.updateUserSettings(req, res)
     .catch(next);
 });

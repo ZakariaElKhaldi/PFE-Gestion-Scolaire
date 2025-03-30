@@ -8,6 +8,7 @@ export interface CalendarEvent {
   description?: string
   attendees?: number
   status: "scheduled" | "in_progress" | "completed" | "cancelled"
+  isAllDay?: boolean
 }
 
 export interface OfficeHour {

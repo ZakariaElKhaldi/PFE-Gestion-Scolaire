@@ -19,12 +19,14 @@ export class SettingsController {
       
       const settings = await settingsService.getUserSettings(userId);
       
+      // Return in a format the frontend expects
       res.status(200).json({
         error: false,
-        data: { settings },
+        data: settings, // Return settings directly instead of nested in an object
         message: 'Settings retrieved successfully',
       });
     } catch (error: any) {
+      console.error('Error retrieving user settings:', error);
       res.status(500).json({
         error: true,
         message: error.message || 'Failed to retrieve settings',

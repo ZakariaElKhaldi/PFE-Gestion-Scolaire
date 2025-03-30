@@ -1,5 +1,5 @@
 // Add database initialization before starting the server
-import app, { server } from './app';
+import app, { server, io } from './app';
 import { runMigrations } from './db/migrations';
 import { config } from './config';
 import { testConnection } from './config/db';
@@ -68,10 +68,20 @@ async function startServer() {
       }
     });
     
+    // Setup debug listeners for Socket.IO
+    io.on('connection', (socket) => {
+      logger.debug(`Socket connected: ${socket.id}`);
+    });
+    
+    io.engine.on("connection_error", (err) => {
+      logger.error(`Socket.IO connection error: ${err.message}`, { context: err.context });
+    });
+    
     server.listen(PORT, () => {
       if (operational) {
         logger.startup(`Server running at http://localhost:${PORT}`);
         logger.info(`API docs available at http://localhost:${PORT}/api-docs`);
+        logger.info(`Socket.IO server running on ws://localhost:${PORT}`);
       } else {
         logger.warn(`Server running in MAINTENANCE MODE at http://localhost:${PORT}`);
         logger.warn('Only basic functionality and health checks are available');

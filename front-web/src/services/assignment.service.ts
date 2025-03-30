@@ -1,5 +1,7 @@
-import axios from '../config/axios';
+import axiosInstance from '../config/axios';
+import axios from 'axios';
 import { Assignment, Submission, SubmissionWithDetails } from '../types/assignment';
+import { v4 as uuidv4 } from 'uuid';
 
 // Extended interface to match the original but add our mock data properties
 export interface AssignmentWithDetails extends Assignment {
@@ -193,7 +195,8 @@ class AssignmentService {
     teacherId?: string;
   }): Promise<AssignmentWithDetails[]> {
     // If this is a development/mock environment
-    if (process.env.NODE_ENV === 'development' || !axios.defaults.baseURL) {
+    if (process.env.NODE_ENV === 'development' && !axiosInstance.defaults.baseURL) {
+      // Mock implementation - no changes
       // Simulate API delay
       await delay(800);
       
@@ -221,10 +224,10 @@ class AssignmentService {
       return [];
     }
     
-    // Regular API call for production
+    // Real API call for production
     try {
-      const { data } = await axios.get(this.baseUrl, { params: filters });
-      return data.data.assignments;
+      const { data } = await axiosInstance.get(this.baseUrl, { params: filters });
+      return data.data.assignments || [];
     } catch (error) {
       console.error('Error fetching assignments:', error);
       // Return empty array in case of error
@@ -237,7 +240,7 @@ class AssignmentService {
    */
   async getAssignment(id: string): Promise<AssignmentWithDetails | null> {
     // If this is a development/mock environment
-    if (process.env.NODE_ENV === 'development' || !axios.defaults.baseURL) {
+    if (process.env.NODE_ENV === 'development' || !axiosInstance.defaults.baseURL) {
       // Simulate API delay
       await delay(500);
       
@@ -255,7 +258,7 @@ class AssignmentService {
     
     // Regular API call for production
     try {
-      const { data } = await axios.get(`${this.baseUrl}/${id}`);
+      const { data } = await axiosInstance.get(`${this.baseUrl}/${id}`);
       return data.data.assignment;
     } catch (error) {
       console.error(`Error fetching assignment ${id}:`, error);
@@ -274,7 +277,7 @@ class AssignmentService {
     points: number;
     status: 'draft' | 'published' | 'closed';
   }): Promise<Assignment> {
-    const { data } = await axios.post(this.baseUrl, assignmentData);
+    const { data } = await axiosInstance.post(this.baseUrl, assignmentData);
     return data.data.assignment;
   }
 
@@ -289,7 +292,7 @@ class AssignmentService {
     points: number;
     status: 'draft' | 'published' | 'closed';
   }>): Promise<Assignment> {
-    const { data } = await axios.put(`${this.baseUrl}/${id}`, assignmentData);
+    const { data } = await axiosInstance.put(`${this.baseUrl}/${id}`, assignmentData);
     return data.data.assignment;
   }
 
@@ -297,49 +300,121 @@ class AssignmentService {
    * Delete an assignment
    */
   async deleteAssignment(id: string): Promise<void> {
-    await axios.delete(`${this.baseUrl}/${id}`);
+    await axiosInstance.delete(`${this.baseUrl}/${id}`);
   }
 
   /**
    * Get assignments for a specific course
    */
   async getAssignmentsForCourse(courseId: string): Promise<Assignment[]> {
-    const { data } = await axios.get(`${this.baseUrl}/course/${courseId}`);
+    const { data } = await axiosInstance.get(`${this.baseUrl}/course/${courseId}`);
     return data.data.assignments;
   }
 
   /**
-   * Get upcoming assignments
+   * Get upcoming assignments for current student
    */
-  async getUpcomingAssignments(limit?: number): Promise<Assignment[]> {
-    const { data } = await axios.get(`${this.baseUrl}/upcoming`, {
-      params: { limit }
-    });
-    return data.data.assignments;
+  async getUpcomingAssignments(limit?: number): Promise<AssignmentWithDetails[]> {
+    // If this is a development/mock environment
+    if (process.env.NODE_ENV === 'development' && !axiosInstance.defaults.baseURL) {
+      // Mock implementation - no changes
+      await delay(800);
+      
+      // Combine all mock assignments and filter by dueDate > now
+      let allAssignments: AssignmentWithDetails[] = [];
+      for (const teacherId in MOCK_ASSIGNMENTS) {
+        allAssignments = [...allAssignments, ...MOCK_ASSIGNMENTS[teacherId]];
+      }
+      
+      // Filter to find assignments with due dates in the future
+      const upcomingAssignments = allAssignments
+        .filter(a => new Date(a.dueDate) > new Date())
+        .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+      
+      // Limit the number of results if requested
+      if (limit && limit > 0) {
+        return upcomingAssignments.slice(0, limit);
+      }
+      
+      return upcomingAssignments;
+    }
+    
+    // Real API call for production
+    try {
+      const { data } = await axiosInstance.get(`${this.baseUrl}/upcoming`, { 
+        params: { limit } 
+      });
+      return data.data.assignments || [];
+    } catch (error) {
+      console.error('Error fetching upcoming assignments:', error);
+      return [];
+    }
   }
 
   /**
    * Get recent assignments
    */
   async getRecentAssignments(limit?: number): Promise<Assignment[]> {
-    const { data } = await axios.get(`${this.baseUrl}/recent`, {
+    const { data } = await axiosInstance.get(`${this.baseUrl}/recent`, {
       params: { limit }
     });
     return data.data.assignments;
   }
 
   /**
-   * Submit an assignment
+   * Submit an assignment with file or comment
    */
   async submitAssignment(assignmentId: string, submissionData: {
-    submissionUrl?: string;
+    file?: File;
     comment?: string;
   }): Promise<Submission> {
-    const { data } = await axios.post(
-      `${this.baseUrl}/${assignmentId}/submit`,
-      submissionData
-    );
-    return data.data.submission;
+    // If this is a development/mock environment
+    if (process.env.NODE_ENV === 'development' && !axiosInstance.defaults.baseURL) {
+      // Mock implementation
+      await delay(1000);
+      
+      // Create a mock submission
+      const submission: Submission = {
+        id: uuidv4(),
+        assignmentId,
+        studentId: 'stud1', // Mock student ID
+        submittedAt: new Date().toISOString(),
+        status: 'submitted',
+        submissionUrl: submissionData.file ? URL.createObjectURL(submissionData.file) : undefined,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      return submission;
+    }
+    
+    // Real API submission using FormData for file upload
+    try {
+      const formData = new FormData();
+      
+      if (submissionData.file) {
+        formData.append('file', submissionData.file);
+      }
+      
+      if (submissionData.comment) {
+        formData.append('comment', submissionData.comment);
+      }
+      
+      const { data } = await axiosInstance.post(
+        `${this.baseUrl}/${assignmentId}/submit`, 
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+      
+      return data.data.submission;
+    } catch (error) {
+      console.error('Error submitting assignment:', error);
+      throw error;
+    }
   }
 
   /**
@@ -349,7 +424,7 @@ class AssignmentService {
     grade: number;
     feedback?: string;
   }): Promise<SubmissionWithDetails> {
-    const { data } = await axios.post(
+    const { data } = await axiosInstance.post(
       `${this.baseUrl}/submissions/${submissionId}/grade`,
       gradeData
     );
@@ -360,16 +435,65 @@ class AssignmentService {
    * Get submissions for an assignment
    */
   async getSubmissionsForAssignment(assignmentId: string): Promise<SubmissionWithDetails[]> {
-    const { data } = await axios.get(`${this.baseUrl}/${assignmentId}/submissions`);
+    const { data } = await axiosInstance.get(`${this.baseUrl}/${assignmentId}/submissions`);
     return data.data.submissions;
   }
 
   /**
-   * Get my submissions
+   * Get submissions for the currently logged-in student
    */
   async getMySubmissions(): Promise<SubmissionWithDetails[]> {
-    const { data } = await axios.get(`${this.baseUrl}/submissions/my`);
-    return data.data.submissions;
+    // If this is a development/mock environment
+    if (process.env.NODE_ENV === 'development' && !axiosInstance.defaults.baseURL) {
+      // Mock implementation
+      await delay(800);
+      
+      // Return submissions for mock student ID 'stud1'
+      let submissions: SubmissionWithDetails[] = [];
+      
+      // Iterate through each assignment's submissions
+      for (const assignmentId in MOCK_SUBMISSIONS) {
+        // Filter for the current student
+        const studentSubmissions = MOCK_SUBMISSIONS[assignmentId]
+          .filter(s => s.studentId === 'stud1')
+          .map(s => {
+            // Find the corresponding assignment
+            let assignment: any = null;
+            for (const teacherId in MOCK_ASSIGNMENTS) {
+              const found = MOCK_ASSIGNMENTS[teacherId].find(a => a.id === s.assignmentId);
+              if (found) {
+                assignment = found;
+                break;
+              }
+            }
+            
+            // Convert to SubmissionWithDetails
+            return {
+              ...s,
+              assignment: assignment ? {
+                title: assignment.title,
+                dueDate: assignment.dueDate,
+                points: assignment.points,
+                courseId: assignment.courseId,
+                courseName: assignment.courseName
+              } : undefined
+            } as SubmissionWithDetails;
+          });
+        
+        submissions = [...submissions, ...studentSubmissions];
+      }
+      
+      return submissions;
+    }
+    
+    // Real API call for production
+    try {
+      const { data } = await axiosInstance.get(`${this.baseUrl}/my-submissions`);
+      return data.data.submissions || [];
+    } catch (error) {
+      console.error('Error fetching my submissions:', error);
+      return [];
+    }
   }
 
   /**
@@ -387,7 +511,7 @@ class AssignmentService {
       const queryString = params.toString() ? `?${params.toString()}` : '';
       
       // Call the teacher-specific endpoint
-      const response = await axios.get(`/teachers/assignments${queryString}`);
+      const response = await axiosInstance.get(`/teachers/assignments${queryString}`);
       console.log('Teacher assignments API response:', response.data);
       
       // Check the response structure and handle both data formats
@@ -441,21 +565,58 @@ class AssignmentService {
     dueDate: string | Date;
     points?: number;
     status?: 'draft' | 'published' | 'closed';
+    file?: File;
   }): Promise<AssignmentWithDetails> {
     try {
-      // Fixed URL by removing duplicate /api/
-      const response = await axios.post('/teachers/assignments', data);
+      console.log('Creating teacher assignment with data:', data);
       
-      // Handle different response structures
-      if (response.data && response.data.data && response.data.data.assignment) {
-        return response.data.data.assignment;
-      } else if (response.data && response.data.assignment) {
-        return response.data.assignment;
+      // If we have a file, use FormData
+      if (data.file) {
+        const formData = new FormData();
+        
+        // Add all fields to the FormData
+        formData.append('title', data.title);
+        if (data.description) formData.append('description', data.description);
+        formData.append('courseId', data.courseId);
+        
+        // Format date if needed
+        const formattedDate = typeof data.dueDate === 'object' 
+          ? data.dueDate.toISOString() 
+          : data.dueDate;
+        formData.append('dueDate', formattedDate);
+        
+        if (data.points) formData.append('points', data.points.toString());
+        if (data.status) formData.append('status', data.status);
+        
+        // Add the file
+        formData.append('file', data.file);
+        
+        // Make the API call with multipart/form-data
+        const response = await axiosInstance.post('/teachers/assignments', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+        
+        console.log('Assignment created with file, response:', response.data);
+        
+        return response.data.data?.assignment || response.data;
       } else {
-        throw new Error('Invalid response structure from API');
+        // Regular JSON payload if no file
+        const response = await axiosInstance.post('/teachers/assignments', data);
+        console.log('Assignment created, response:', response.data);
+        
+        return response.data.data?.assignment || response.data;
       }
     } catch (error) {
       console.error('Error creating teacher assignment:', error);
+      
+      // Return mock data for testing
+      if (process.env.NODE_ENV === 'development' && !axiosInstance.defaults.baseURL) {
+        await delay(1000);
+        return this.getMockTeacherAssignment(data);
+      }
+      
       throw error;
     }
   }
@@ -466,7 +627,7 @@ class AssignmentService {
   async getTeacherSubmissions(assignmentId: string): Promise<MockSubmission[]> {
     try {
       // Fixed URL by removing duplicate /api/
-      const response = await axios.get(`/teachers/assignments/${assignmentId}/submissions`);
+      const response = await axiosInstance.get(`/teachers/assignments/${assignmentId}/submissions`);
       
       // Handle different response structures
       let submissions = [];
@@ -495,7 +656,7 @@ class AssignmentService {
   }): Promise<MockSubmission> {
     try {
       // Fixed URL by removing duplicate /api/
-      const response = await axios.post(`/teachers/submissions/${submissionId}/grade`, data);
+      const response = await axiosInstance.post(`/teachers/submissions/${submissionId}/grade`, data);
       
       // Handle different response structures
       if (response.data && response.data.data && response.data.data.submission) {
@@ -543,6 +704,73 @@ class AssignmentService {
   private getMockSubmissions(assignmentId: string): MockSubmission[] {
     // Simulate API delay
     return MOCK_SUBMISSIONS[assignmentId] || [];
+  }
+
+  /**
+   * Create a mock assignment for development
+   */
+  private getMockTeacherAssignment(data: {
+    title: string;
+    description?: string;
+    courseId: string;
+    dueDate: string | Date;
+    points?: number;
+    status?: 'draft' | 'published' | 'closed';
+    file?: File;
+  }): AssignmentWithDetails {
+    // Generate a mock assignment with the provided data
+    const mockAssignment: AssignmentWithDetails = {
+      id: uuidv4(),
+      title: data.title,
+      description: data.description || '',
+      courseId: data.courseId,
+      courseName: this.getCourseNameById(data.courseId),
+      dueDate: typeof data.dueDate === 'string' ? data.dueDate : data.dueDate.toISOString(),
+      points: data.points || 100,
+      status: data.status || 'draft',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      submissionCount: 0,
+      averageGrade: null,
+      teacherId: '2ba42f01-28ac-492e-a51f-2beb1b6bfe0f', // Mock teacher ID
+      teacherName: 'John Smith'
+    };
+
+    // If there's a file, add a mock file URL
+    if (data.file) {
+      mockAssignment.attachmentUrl = URL.createObjectURL(data.file);
+      mockAssignment.attachmentName = data.file.name;
+    }
+
+    // Add to mock data for this session
+    if (!MOCK_ASSIGNMENTS['2ba42f01-28ac-492e-a51f-2beb1b6bfe0f']) {
+      MOCK_ASSIGNMENTS['2ba42f01-28ac-492e-a51f-2beb1b6bfe0f'] = [];
+    }
+    MOCK_ASSIGNMENTS['2ba42f01-28ac-492e-a51f-2beb1b6bfe0f'].push(mockAssignment);
+
+    return mockAssignment;
+  }
+
+  /**
+   * Helper to get course name from ID for mock data
+   */
+  private getCourseNameById(courseId: string): string {
+    switch (courseId) {
+      case 'course1':
+        return 'Mathematics 101';
+      case 'course2':
+        return 'Physics 201';
+      case 'course3':
+        return 'English Literature';
+      case 'c1':
+        return 'Mathematics';
+      case 'c2':
+        return 'Physics';
+      case 'c3':
+        return 'Chemistry';
+      default:
+        return 'Unknown Course';
+    }
   }
 }
 

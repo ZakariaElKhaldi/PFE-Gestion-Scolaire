@@ -9,7 +9,7 @@ import { testConnection } from './config/db';
 import routes from './routes';
 import { initializeDatabase } from './utils/db-init';
 import { setupSocketIO } from './socket';
-import assignmentRoutes from './routes/assignment.routes';
+import { assignmentRoutes } from './routes/assignment.routes';
 import documentRoutes from './routes/document.routes';
 import teacherRoutes from './routes/teacher.routes';
 import { attendanceRoutes } from './routes/attendance.routes';
@@ -19,6 +19,7 @@ import { Server } from 'socket.io';
 import { getHealthStatus } from './utils/health-check';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './config/swagger';
+import fs from 'fs';
 
 // Import error handling middleware
 import { errorHandler, notFoundHandler, asyncHandler } from './middlewares/error.middleware';
@@ -48,6 +49,30 @@ app.use(morgan('dev'));
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/api/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Add a route to check if uploads directory is accessible
+app.get('/api/check-uploads', (req, res) => {
+  const uploadsPath = path.join(__dirname, '../uploads');
+  try {
+    const stats = fs.statSync(uploadsPath);
+    const items = fs.readdirSync(uploadsPath);
+    res.json({
+      exists: true,
+      isDirectory: stats.isDirectory(),
+      permissions: {
+        read: true,
+        write: fs.accessSync(uploadsPath, fs.constants.W_OK) === undefined
+      },
+      contents: items
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      exists: false,
+      error: error.message
+    });
+  }
+});
 
 // Swagger API Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -140,19 +165,12 @@ app.use(notFoundHandler);
 // Register error handling middleware (should be the last middleware)
 app.use(errorHandler);
 
-// Initialize socket.io (but don't start listening)
+// Initialize HTTP server
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: config.frontendUrl,
-    methods: ["GET", "POST"],
-    credentials: true
-  }
-});
 
-// WebSocket setup
-setupSocketIO(server);
+// Initialize Socket.IO (only once!)
+const io = setupSocketIO(server);
 
-// Don't start the server here, let server.ts handle it
+// Export the server and io instances
 export { server, io };
 export default app; 

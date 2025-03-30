@@ -12,6 +12,9 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { submissionModel } from '../models/submission.model';
 import { JwtPayload } from '../types/auth';
+import { AssignmentModel } from '../models/assignment.model';
+import { AssignmentSubmissionModel } from '../models/assignment-submission.model';
+import { SubmissionModel } from '../models/submission.model';
 
 class AssignmentController {
   /**
@@ -272,69 +275,69 @@ class AssignmentController {
   /**
    * Submit an assignment
    */
-  async submitAssignment(req: Request, res: Response) {
+  async submitAssignment(req: Request, res: Response): Promise<Response> {
     try {
-      if (!req.user) {
-        return res.status(401).json({
-          error: true,
-          message: 'Authentication required',
-        });
-      }
+      console.log('Assignment submission request received:', {
+        body: req.body,
+        file: req.file ? 'File present' : 'No file',
+        userId: req.user?.userId,
+        assignmentId: req.params.id
+      });
+
+      const assignmentId = req.params.id;
+      const studentId = req.user?.studentId || req.user?.userId;
+      const { comment } = req.body;
       
-      const assignmentId = req.params.assignmentId;
-      
-      // Check if there's a file attached
-      if (!req.file) {
+      // Validate assignment id
+      if (!assignmentId) {
+        console.error('Missing assignment ID for submission');
         return res.status(400).json({
           error: true,
-          message: 'No file uploaded for submission',
+          message: 'Assignment ID is required'
         });
       }
 
-      // Validate file type
-      if (!isFileTypeAllowed(req.file.mimetype)) {
+      // Validate student id
+      if (!studentId) {
+        console.error('Missing student ID for submission');
         return res.status(400).json({
           error: true,
-          message: 'File type not allowed',
+          message: 'Student ID is required'
         });
       }
 
-      // Validate file size
-      if (!isFileSizeAllowed(req.file.size)) {
+      // Ensure either file or comment is provided
+      if (!req.file && !comment) {
+        console.error('No file or comment provided for submission');
         return res.status(400).json({
           error: true,
-          message: 'File size exceeds limit',
+          message: 'A file or comment is required for submission'
         });
       }
 
-      // Save file to disk using enhanced utilities
-      const fileInfo: FileInfo = saveFile(
-        req.file.buffer, 
-        req.file.originalname, 
-        'assignment'
-      );
-
-      // Create submission with file URL
-      const submissionData: CreateSubmissionData = {
+      // Create a basic submission with minimal fields
+      const submissionData = {
         assignmentId,
-        studentId: req.user.userId,
-        submissionUrl: fileInfo.url,
-        fileName: fileInfo.originalName,
-        fileType: fileInfo.type,
-        fileSize: fileInfo.size
+        studentId,
+        content: comment || ''
       };
+
+      console.log('Using service to submit assignment with data:', submissionData);
       
+      // Use the assignment service to create the submission
       const submission = await assignmentService.submitAssignment(submissionData);
       
-      res.status(201).json({
+      return res.status(201).json({
         error: false,
-        data: { submission },
         message: 'Assignment submitted successfully',
+        data: submission
       });
-    } catch (error: any) {
-      res.status(400).json({
+    } catch (error: unknown) {
+      console.error('Error in submitAssignment:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return res.status(500).json({
         error: true,
-        message: error.message || 'Failed to submit assignment',
+        message: `Failed to submit assignment: ${errorMessage}`
       });
     }
   }

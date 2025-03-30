@@ -116,32 +116,45 @@ export const useSocket = () => {
       console.log(`Attempting to connect to socket (attempt ${connectionAttempts + 1}/${maxRetries})...`);
       
       const socketInstance = io(SOCKET_URL, {
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'], // Support both websocket and long-polling
         autoConnect: true,
         reconnection: true,
-        reconnectionAttempts: 2,
-        reconnectionDelay: 1000,
-        timeout: 5000
+        reconnectionAttempts: 5,
+        reconnectionDelay: 2000,
+        timeout: 10000,
+        withCredentials: true,
+        forceNew: true // Force a new connection to avoid conflicts
       }) as Socket<ServerToClientEvents, ClientToServerEvents>
 
       socketInstance.on('connect', () => {
         console.log('Socket connected');
         setIsConnected(true);
         setError(null);
+        setConnectionAttempts(0); // Reset connection attempts on successful connection
       })
 
       socketInstance.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
+        console.error('Socket connection error:', error.message);
         setError(error);
         setIsConnected(false);
-        setConnectionAttempts(prev => prev + 1);
+        
+        // Only increment counter if it's a persistent failure
+        if (connectionAttempts < maxRetries - 1) {
+          setConnectionAttempts(prev => prev + 1);
+        } else {
+          console.log('Connection failed repeatedly, switching to fallback mode');
+          setUseFallback(true);
+        }
       })
 
       socketInstance.on('disconnect', (reason) => {
         console.log('Socket disconnected:', reason);
         setIsConnected(false);
-        if (reason === 'io server disconnect') {
-          // Server disconnected us, try to reconnect
+        
+        // Try to reconnect automatically for certain disconnect reasons
+        if (reason === 'io server disconnect' || reason === 'transport close') {
+          // Server disconnected us or transport closed, try to reconnect
+          console.log('Attempting to reconnect...');
           socketInstance.connect();
         }
       })

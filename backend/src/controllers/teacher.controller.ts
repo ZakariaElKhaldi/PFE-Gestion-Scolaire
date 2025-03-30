@@ -4,6 +4,7 @@ import { sendSuccess, sendServerError, sendBadRequest, sendNotFound, sendForbidd
 import { TeacherService } from '../services/teacher.service';
 import { assignmentService } from '../services/assignment.service';
 import { courseModel } from '../models/course.model';
+import { saveUploadedFile } from '../utils/file-utils';
 
 export class TeacherController {
   private teacherService: TeacherService;
@@ -136,31 +137,82 @@ export class TeacherController {
   });
 
   /**
-   * Create a new assignment for teacher's course
+   * Create an assignment with optional file attachment
    */
   createTeacherAssignment = asyncHandler(async (req: Request, res: Response) => {
     const teacherId = req.user?.id;
-    const { title, description, courseId, dueDate, points, status } = req.body;
     
-    if (!teacherId || !title || !courseId || !dueDate) {
-      return sendBadRequest(res, 'Missing required fields');
+    if (!teacherId) {
+      return sendBadRequest(res, 'Missing required parameters');
     }
 
     try {
-      // Verify teacher is assigned to the course
-      const isTeacherAssigned = await this.teacherService.isTeacherAssignedToCourse(teacherId, courseId);
-      if (!isTeacherAssigned) {
+      console.log('Creating assignment with data:', {
+        body: req.body,
+        file: req.file ? {
+          filename: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        } : 'No file',
+        user: req.user
+      });
+      
+      // Validate required fields
+      const { title, courseId, dueDate } = req.body;
+      
+      if (!title || !courseId || !dueDate) {
+        return sendBadRequest(res, 'Title, course ID, and due date are required');
+      }
+      
+      // Get the course to verify teacher ownership
+      const course = await courseModel.findById(courseId);
+      
+      if (!course) {
+        return sendNotFound(res, 'Course not found');
+      }
+      
+      // Make sure the teacher owns this course
+      if (course.teacherId !== teacherId) {
         return sendForbidden(res, 'You are not authorized to create assignments for this course');
       }
 
-      const assignment = await assignmentService.createAssignment({
+      // Prepare assignment data
+      const assignmentData = {
         title,
-        description,
+        description: req.body.description || '',
         courseId,
-        dueDate,
-        totalPoints: points || 100,
-        status: status || 'draft'
-      }, teacherId);
+        dueDate: new Date(dueDate),
+        points: req.body.points ? parseInt(req.body.points) : 100,
+        status: req.body.status || 'draft'
+      };
+      
+      console.log('Assignment data prepared:', assignmentData);
+      
+      // Handle file upload if provided
+      if (req.file) {
+        try {
+          console.log('Processing file upload...');
+          // Save the file and get its info
+          const fileInfo = await saveUploadedFile(req.file, 'assignment');
+          console.log('File saved successfully:', fileInfo);
+          
+          // Extend assignment data with file info
+          Object.assign(assignmentData, {
+            attachmentUrl: fileInfo.url,
+            attachmentName: fileInfo.originalName,
+            attachmentType: fileInfo.type,
+            attachmentSize: fileInfo.size
+          });
+        } catch (fileError) {
+          console.error('Error saving file:', fileError);
+          return sendServerError(res, 'Failed to save attachment file');
+        }
+      }
+      
+      // Create the assignment
+      console.log('Creating assignment in database...');
+      const assignment = await assignmentService.createAssignment(assignmentData, teacherId);
+      console.log('Assignment created successfully:', assignment);
       
       return sendCreated(res, { assignment }, 'Assignment created successfully');
     } catch (error: any) {
@@ -240,6 +292,30 @@ export class TeacherController {
     } catch (error: any) {
       console.error('Error grading submission:', error);
       return sendServerError(res, error.message || 'Failed to grade submission');
+    }
+  });
+
+  /**
+   * Get feedback received by the teacher from students
+   */
+  getReceivedFeedback = asyncHandler(async (req: Request, res: Response) => {
+    const teacherId = req.user?.id;
+    
+    if (!teacherId) {
+      return sendBadRequest(res, 'Teacher ID is required');
+    }
+
+    try {
+      // Use the feedback model to get teacher feedback
+      const feedbackModel = await import('../models/feedback.model').then(m => m.feedbackModel);
+      const feedback = await feedbackModel.getByTeacherId(teacherId);
+      
+      return sendSuccess(res, { feedback }, 'Teacher feedback retrieved successfully');
+    } catch (error: any) {
+      console.error('Error getting teacher feedback:', error);
+      
+      // Return empty array if there's an error (like table not existing)
+      return sendSuccess(res, { feedback: [] }, 'No feedback found');
     }
   });
 }

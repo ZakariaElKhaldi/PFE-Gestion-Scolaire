@@ -25,4 +25,20 @@ pool.getConnection()
   })
   .catch(err => {
     console.error('Failed to connect to database:', err);
-  }); 
+  });
+
+/**
+ * Helper function to execute SQL queries
+ * @param sql SQL query string
+ * @param params Query parameters
+ * @returns Query results
+ */
+export const queryAsync = async (sql: string, params: any[] = []): Promise<any> => {
+  try {
+    const [results] = await pool.query(sql, params);
+    return results;
+  } catch (error) {
+    console.error('Error executing query:', error);
+    throw error;
+  }
+}; 

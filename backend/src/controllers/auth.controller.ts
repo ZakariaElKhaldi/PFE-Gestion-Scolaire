@@ -398,10 +398,12 @@ class AuthController {
       const token = jwt.sign(
         { 
           id: user.id, 
+          userId: user.id,
           email: user.email, 
           role: user.role,
           firstName: user.firstName,
-          lastName: user.lastName
+          lastName: user.lastName,
+          ...(user.role === 'student' && { studentId: user.id })
         },
         process.env.JWT_SECRET || 'your-secret-key',
         { 

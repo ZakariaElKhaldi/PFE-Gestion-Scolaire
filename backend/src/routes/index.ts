@@ -3,7 +3,7 @@ import authRoutes from './auth.routes';
 import userRoutes from './user.routes';
 import courseRoutes from './course.routes';
 import classRoutes from './class.routes';
-import assignmentRoutes from './assignment.routes';
+import { assignmentRoutes } from './assignment.routes';
 import departmentRoutes from './department.routes';
 import studentRoutes from './student.routes';
 import paymentRoutes from './payment.routes';
@@ -14,6 +14,7 @@ import teacherRoutes from './teacher.routes';
 import parentRoutes from './parent.routes';
 import parentVerificationRoutes from './parent-verification.routes';
 import settingsRoutes from './settings.routes';
+import messageRoutes from './message.routes';
 import express from 'express';
 
 const router = Router();
@@ -71,5 +72,8 @@ router.use('/parent-verification', parentVerificationRoutes);
 
 // Settings routes
 router.use('/settings', settingsRoutes);
+
+// Message routes
+router.use('/messages', messageRoutes);
 
 export default router; 

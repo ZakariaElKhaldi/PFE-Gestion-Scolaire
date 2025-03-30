@@ -19,7 +19,7 @@ export interface Assignment {
   title: string;
   description: string;
   dueDate: Date;
-  totalPoints: number;
+  points: number;
   createdAt: Date;
   updatedAt: Date;
   status: 'draft' | 'published' | 'closed';
@@ -30,7 +30,7 @@ export interface CreateAssignmentDTO {
   title: string;
   description: string;
   dueDate: Date;
-  totalPoints: number;
+  points: number;
   status?: 'draft' | 'published' | 'closed';
 }
 
@@ -38,7 +38,7 @@ export interface UpdateAssignmentDTO {
   title?: string;
   description?: string;
   dueDate?: Date;
-  totalPoints?: number;
+  points?: number;
   status?: 'draft' | 'published' | 'closed';
 }
 
@@ -57,7 +57,7 @@ export class AssignmentModel {
         title VARCHAR(255) NOT NULL,
         description TEXT,
         dueDate DATETIME NOT NULL,
-        totalPoints DECIMAL(5,2) NOT NULL DEFAULT 100.00,
+        points INT NOT NULL DEFAULT 100,
         status ENUM('draft', 'published', 'closed') DEFAULT 'draft',
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -145,7 +145,7 @@ export class AssignmentModel {
     
     const query = `
       INSERT INTO assignments (
-        id, courseId, title, description, dueDate, totalPoints, status
+        id, courseId, title, description, dueDate, points, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
     
@@ -155,7 +155,7 @@ export class AssignmentModel {
       assignmentData.title,
       assignmentData.description,
       assignmentData.dueDate,
-      assignmentData.totalPoints,
+      assignmentData.points,
       assignmentData.status || 'draft'
     ]);
     
@@ -259,7 +259,7 @@ export class AssignmentModel {
     try {
       const query = `
         INSERT INTO assignments 
-        (courseId, title, description, dueDate, totalPoints, status, createdAt, updatedAt)
+        (courseId, title, description, dueDate, points, status, createdAt, updatedAt)
         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
       `;
 
@@ -269,7 +269,7 @@ export class AssignmentModel {
         assignment.title,
         assignment.description,
         assignment.dueDate,
-        assignment.totalPoints,
+        assignment.points,
         status
       ];
 
@@ -284,7 +284,7 @@ export class AssignmentModel {
         dueDate: assignment.dueDate,
         createdAt: new Date(),
         updatedAt: new Date(),
-        totalPoints: assignment.totalPoints,
+        points: assignment.points,
         status: status
       };
     } catch (error) {
@@ -297,7 +297,7 @@ export class AssignmentModel {
   static async findAssignmentById(id: string): Promise<Assignment | null> {
     try {
       const query = `
-        SELECT id, courseId, title, description, dueDate, totalPoints, createdAt, updatedAt, status
+        SELECT id, courseId, title, description, dueDate, points, createdAt, updatedAt, status
         FROM assignments
         WHERE id = ?
       `;
@@ -318,7 +318,7 @@ export class AssignmentModel {
         dueDate: new Date(assignment.dueDate),
         createdAt: new Date(assignment.createdAt),
         updatedAt: new Date(assignment.updatedAt),
-        totalPoints: assignment.totalPoints,
+        points: assignment.points,
         status: assignment.status
       };
     } catch (error) {
@@ -331,7 +331,7 @@ export class AssignmentModel {
   static async findAssignmentsByCourseId(courseId: string): Promise<Assignment[]> {
     try {
       const query = `
-        SELECT id, courseId, title, description, dueDate, totalPoints, createdAt, updatedAt, status
+        SELECT id, courseId, title, description, dueDate, points, createdAt, updatedAt, status
         FROM assignments
         WHERE courseId = ?
         ORDER BY dueDate ASC
@@ -348,7 +348,7 @@ export class AssignmentModel {
         dueDate: new Date(row.dueDate),
         createdAt: new Date(row.createdAt),
         updatedAt: new Date(row.updatedAt),
-        totalPoints: row.totalPoints,
+        points: row.points,
         status: row.status
       }));
     } catch (error) {

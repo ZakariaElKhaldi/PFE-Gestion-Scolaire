@@ -10,6 +10,7 @@ export function generateToken(userId: string, role?: string): string {
   // Create a token with user ID and role
   const payload = {
     userId,
+    id: userId,
     role
   };
   

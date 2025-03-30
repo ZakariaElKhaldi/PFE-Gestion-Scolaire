@@ -64,6 +64,7 @@ export interface JwtPayload {
   role: UserRole;
   firstName: string;
   lastName: string;
+  studentId?: string; // Optional student ID for student users
 }
 
 // Extend Express Request type to include user property

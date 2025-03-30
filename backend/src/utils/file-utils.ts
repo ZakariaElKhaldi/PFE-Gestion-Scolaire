@@ -10,13 +10,49 @@ export const uploadDir = path.join(__dirname, '../../uploads');
 export const documentsDir = path.join(uploadDir, 'documents');
 export const assignmentsDir = path.join(uploadDir, 'assignments');
 export const profilesDir = path.join(uploadDir, 'profiles');
+export const submissionsDir = path.join(uploadDir, 'submissions'); // Add submissions directory
 
 // Ensure the upload directories exist
-for (const dir of [uploadDir, documentsDir, assignmentsDir, profilesDir]) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+function createDirectoryIfNotExists(dir: string) {
+  try {
+    if (!fs.existsSync(dir)) {
+      console.log(`Creating directory: ${dir}`);
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    return true;
+  } catch (error) {
+    console.error(`Error creating directory ${dir}:`, error);
+    return false;
   }
 }
+
+// Initialize directories on module load
+export function initializeDirectories() {
+  console.log('Initializing file storage directories...');
+  
+  const allDirs = [uploadDir, documentsDir, assignmentsDir, profilesDir, submissionsDir];
+  let success = true;
+  
+  for (const dir of allDirs) {
+    if (!createDirectoryIfNotExists(dir)) {
+      console.error(`Failed to create or verify directory: ${dir}`);
+      success = false;
+    } else {
+      console.log(`Directory verified: ${dir}`);
+    }
+  }
+  
+  if (success) {
+    console.log('All file storage directories initialized successfully');
+  } else {
+    console.error('Failed to initialize some file storage directories');
+  }
+  
+  return success;
+}
+
+// Initialize directories
+initializeDirectories();
 
 // Interface for file info
 export interface FileInfo {
@@ -29,12 +65,16 @@ export interface FileInfo {
 }
 
 // Get the URL for a file
-export function getFileUrl(filename: string): string {
-  return `/api/uploads/${filename}`;
+export function getFileUrl(filename: string, category: string = ''): string {
+  return `/api/uploads/${category ? category + '/' : ''}${filename}`;
 }
 
 // Get the absolute path for a file
-export function getFilePath(filename: string): string {
+export function getFilePath(filename: string, category: string = ''): string {
+  if (category === 'document') return path.join(documentsDir, filename);
+  if (category === 'assignment') return path.join(assignmentsDir, filename);
+  if (category === 'profile') return path.join(profilesDir, filename);
+  if (category === 'submission') return path.join(submissionsDir, filename);
   return path.join(uploadDir, filename);
 }
 
@@ -42,52 +82,77 @@ export function getFilePath(filename: string): string {
 export function saveFile(
   buffer: Buffer, 
   originalName: string, 
-  category: 'document' | 'assignment' | 'profile' = 'document'
+  category: 'document' | 'assignment' | 'profile' | 'submission' = 'document'
 ): FileInfo {
-  // Generate a unique filename
-  const ext = path.extname(originalName);
-  const timestamp = Date.now();
-  const randomString = crypto.randomBytes(8).toString('hex');
-  const fileName = `${timestamp}-${randomString}${ext}`;
-  
-  // Determine the appropriate directory
-  let targetDir = uploadDir;
-  switch (category) {
-    case 'document':
-      targetDir = documentsDir;
-      break;
-    case 'assignment':
-      targetDir = assignmentsDir;
-      break;
-    case 'profile':
-      targetDir = profilesDir;
-      break;
+  if (!buffer || buffer.length === 0) {
+    throw new Error('Invalid or empty file buffer');
   }
   
-  // Create the file path
-  const filePath = path.join(targetDir, fileName);
+  if (!originalName) {
+    throw new Error('Original filename is required');
+  }
   
-  // Write the file to disk
-  fs.writeFileSync(filePath, buffer);
-  
-  // Return file info with separate path (internal) and url (for DB)
-  return {
-    originalName,
-    fileName,
-    path: filePath,
-    url: getFileUrl(`${category}/${fileName}`),
-    size: buffer.length,
-    type: mime.lookup(ext) || 'application/octet-stream'
-  };
+  try {
+    // Generate a unique filename
+    const ext = path.extname(originalName) || '.bin';
+    const timestamp = Date.now();
+    const randomString = crypto.randomBytes(8).toString('hex');
+    const fileName = `${timestamp}-${randomString}${ext}`;
+    
+    // Determine the appropriate directory
+    let targetDir = uploadDir;
+    switch (category) {
+      case 'document':
+        targetDir = documentsDir;
+        break;
+      case 'assignment':
+        targetDir = assignmentsDir;
+        break;
+      case 'profile':
+        targetDir = profilesDir;
+        break;
+      case 'submission':
+        targetDir = submissionsDir;
+        break;
+    }
+    
+    // Ensure the target directory exists
+    if (!createDirectoryIfNotExists(targetDir)) {
+      throw new Error(`Failed to create directory for ${category} files`);
+    }
+    
+    // Create the file path
+    const filePath = path.join(targetDir, fileName);
+    
+    // Write the file to disk
+    fs.writeFileSync(filePath, buffer);
+    console.log(`File saved successfully: ${filePath}`);
+    
+    // Return file info with separate path (internal) and url (for DB)
+    return {
+      originalName,
+      fileName,
+      path: filePath,
+      url: getFileUrl(fileName, category),
+      size: buffer.length,
+      type: mime.lookup(ext) || 'application/octet-stream'
+    };
+  } catch (error) {
+    console.error('Error saving file:', error);
+    throw error; // Re-throw for proper handling upstream
+  }
 }
 
 // Delete a file
 export function deleteFile(filePath: string): boolean {
   try {
+    console.log(`Attempting to delete file: ${filePath}`);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
+      console.log(`File deleted successfully: ${filePath}`);
       return true;
     }
+    console.warn(`File not found, cannot delete: ${filePath}`);
     return false;
   } catch (error) {
     console.error('Error deleting file:', error);
@@ -116,12 +181,19 @@ export const maxFileSize = 10 * 1024 * 1024; // 10MB
 
 // Check if file type is allowed
 export function isFileTypeAllowed(mimeType: string): boolean {
-  return allowedFileTypes.includes(mimeType);
+  // Display debug information
+  console.log(`Checking if mime type is allowed: ${mimeType}`);
+  const allowed = allowedFileTypes.includes(mimeType);
+  console.log(`Mime type ${mimeType} is ${allowed ? 'allowed' : 'not allowed'}`);
+  return allowed;
 }
 
 // Check if file size is within limits
 export function isFileSizeAllowed(size: number): boolean {
-  return size <= maxFileSize;
+  console.log(`Checking if file size is allowed: ${size} bytes (limit: ${maxFileSize} bytes)`);
+  const allowed = size <= maxFileSize;
+  console.log(`File size ${size} bytes is ${allowed ? 'allowed' : 'not allowed'}`);
+  return allowed;
 }
 
 // Get the content type based on file extension
@@ -156,12 +228,38 @@ export function getContentType(filePath: string): string {
 
 // Stream a file to response
 export function streamFileToResponse(filePath: string, res: any, fileName?: string): void {
-  const fileStream = fs.createReadStream(filePath);
-  const contentType = getContentType(filePath);
-  const downloadName = fileName || path.basename(filePath);
+  if (!fs.existsSync(filePath)) {
+    console.error(`File not found for streaming: ${filePath}`);
+    res.status(404).send('File not found');
+    return;
+  }
+
+  try {
+    const fileStream = fs.createReadStream(filePath);
+    const contentType = getContentType(filePath);
+    const downloadName = fileName || path.basename(filePath);
+    
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+    
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error(`Error streaming file ${filePath}:`, error);
+    res.status(500).send('Error streaming file');
+  }
+}
+
+// Save a file from multer upload (req.file)
+export function saveUploadedFile(file: Express.Multer.File, category: 'document' | 'assignment' | 'profile' | 'submission' = 'document'): FileInfo {
+  if (!file || !file.buffer) {
+    throw new Error('Invalid or missing file upload');
+  }
   
-  res.setHeader('Content-Type', contentType);
-  res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+  console.log('Saving uploaded file:', {
+    originalname: file.originalname,
+    mimetype: file.mimetype,
+    size: file.size
+  });
   
-  fileStream.pipe(res);
+  return saveFile(file.buffer, file.originalname, category);
 } 

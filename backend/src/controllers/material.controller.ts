@@ -49,7 +49,7 @@ export class MaterialController {
    */
   getMaterialsForStudent = asyncHandler(async (req: Request, res: Response) => {
     try {
-      const studentId = req.params.studentId || (req.user?.userId as string);
+      const studentId = req.params.studentId || req.user?.studentId || (req.user?.userId as string);
       const courseId = req.query.courseId as string;
       const type = req.query.type as MaterialType;
       const status = req.query.status as MaterialStatus;
@@ -79,7 +79,7 @@ export class MaterialController {
    */
   getMaterial = asyncHandler(async (req: Request, res: Response) => {
     const { materialId } = req.params;
-    const studentId = req.user?.userId as string;
+    const studentId = req.user?.studentId || (req.user?.userId as string);
     
     if (!materialId) {
       return sendBadRequest(res, 'Material ID is required');
@@ -286,7 +286,7 @@ export class MaterialController {
    */
   downloadMaterial = asyncHandler(async (req: Request, res: Response) => {
     const { materialId } = req.params;
-    const studentId = req.user?.userId as string;
+    const studentId = req.user?.studentId || (req.user?.userId as string);
     
     if (!materialId) {
       return sendBadRequest(res, 'Material ID is required');
@@ -330,7 +330,7 @@ export class MaterialController {
    */
   updateMaterialProgress = asyncHandler(async (req: Request, res: Response) => {
     const { materialId } = req.params;
-    const studentId = req.user?.userId as string;
+    const studentId = req.user?.studentId || (req.user?.userId as string);
     const { status, progress } = req.body;
     
     if (!materialId) {

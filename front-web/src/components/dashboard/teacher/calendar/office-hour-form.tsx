@@ -1,115 +1,300 @@
-import { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { X, Calendar, MapPin, Users, Clock, AlertCircle, Check } from 'lucide-react'
 import { OfficeHour } from '@/types/calendar'
 
 interface OfficeHourFormProps {
-  hour: OfficeHour
+  hour?: OfficeHour
   onSave: (hour: OfficeHour) => void
   onCancel: () => void
-  errors: Record<string, string>
 }
 
-export const OfficeHourForm = ({ hour, onSave, onCancel, errors }: OfficeHourFormProps) => {
-  const [formData, setFormData] = useState<OfficeHour>(hour)
+export const OfficeHourForm = ({ hour, onSave, onCancel }: OfficeHourFormProps) => {
+  const [formData, setFormData] = useState<OfficeHour>({
+    id: hour?.id || '',
+    dayOfWeek: hour?.dayOfWeek || 'Monday',
+    startTime: hour?.startTime || '09:00',
+    endTime: hour?.endTime || '10:00',
+    location: hour?.location || '',
+    isRecurring: hour?.isRecurring ?? true,
+    maxStudents: hour?.maxStudents || 5,
+    currentBookings: hour?.currentBookings || 0
+  })
+  
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [showSuccess, setShowSuccess] = useState(false)
+
+  // Weekdays options
+  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+  
+  // Generate time options (7 AM to 7 PM in 15-minute increments)
+  const generateTimeOptions = () => {
+    const options = []
+    for (let hour = 7; hour <= 19; hour++) {
+      for (let minute = 0; minute < 60; minute += 15) {
+        const formattedHour = hour.toString().padStart(2, '0')
+        const formattedMinute = minute.toString().padStart(2, '0')
+        options.push(`${formattedHour}:${formattedMinute}`)
+      }
+    }
+    return options
+  }
+  
+  const timeOptions = generateTimeOptions()
+  
+  // Format time for display
+  const formatTimeForDisplay = (timeString: string) => {
+    const [hours, minutes] = timeString.split(':').map(Number)
+    const period = hours >= 12 ? 'PM' : 'AM'
+    const hour12 = hours % 12 || 12
+    return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target
+    
+    if (type === 'checkbox') {
+      const checkbox = e.target as HTMLInputElement
+      setFormData({
+        ...formData,
+        [name]: checkbox.checked
+      })
+    } else if (name === 'maxStudents') {
+      setFormData({
+        ...formData,
+        [name]: parseInt(value, 10)
+      })
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      })
+    }
+    
+    // Clear error when field is changed
+    if (errors[name]) {
+      setErrors({
+        ...errors,
+        [name]: ''
+      })
+    }
+  }
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {}
+    
+    if (!formData.location.trim()) {
+      newErrors.location = 'Location is required'
+    }
+    
+    if (formData.maxStudents <= 0) {
+      newErrors.maxStudents = 'Maximum students must be greater than 0'
+    }
+    
+    const startTime = formData.startTime.split(':').map(Number)
+    const endTime = formData.endTime.split(':').map(Number)
+    
+    const startMinutes = startTime[0] * 60 + startTime[1]
+    const endMinutes = endTime[0] * 60 + endTime[1]
+    
+    if (endMinutes <= startMinutes) {
+      newErrors.endTime = 'End time must be after start time'
+    }
+    
+    return newErrors
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSave(formData)
+    
+    const newErrors = validateForm()
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      return
+    }
+    
+    // Show success animation
+    setShowSuccess(true)
+    
+    // Wait for animation then save
+    setTimeout(() => {
+      onSave({
+        ...formData,
+        id: formData.id || Math.random().toString(36).substr(2, 9)
+      })
+    }, 750)
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-semibold mb-4">
-          {hour.id ? 'Edit Office Hours' : 'Add Office Hours'}
-        </h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Day of Week</label>
+    <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 px-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-800">
+            {hour?.id ? 'Edit Office Hours' : 'Add New Office Hours'}
+          </h3>
+          <button
+            onClick={onCancel}
+            className="text-gray-500 hover:text-gray-700 focus:outline-none"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+          {/* Day of Week */}
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-gray-700 flex items-center">
+              <Calendar className="h-4 w-4 mr-1.5 text-gray-500" />
+              Day of Week
+            </label>
             <select
+              name="dayOfWeek"
               value={formData.dayOfWeek}
-              onChange={(e) => setFormData({ ...formData, dayOfWeek: e.target.value })}
-              className={`w-full rounded-md border p-2 ${errors.dayOfWeek ? 'border-red-500' : 'border-gray-300'}`}
+              onChange={handleChange}
+              className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
             >
-              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => (
-                <option key={day} value={day}>{day}</option>
+              {daysOfWeek.map((day) => (
+                <option key={day} value={day}>
+                  {day}
+                </option>
               ))}
             </select>
-            {errors.dayOfWeek && <p className="text-xs text-red-500">{errors.dayOfWeek}</p>}
           </div>
-
+          
+          {/* Time Range */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Start Time</label>
-              <input
-                type="time"
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-gray-700 flex items-center">
+                <Clock className="h-4 w-4 mr-1.5 text-gray-500" />
+                Start Time
+              </label>
+              <select
+                name="startTime"
                 value={formData.startTime}
-                onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                className={`w-full rounded-md border p-2 ${errors.startTime ? 'border-red-500' : 'border-gray-300'}`}
-                required
-              />
-              {errors.startTime && <p className="text-xs text-red-500">{errors.startTime}</p>}
+                onChange={handleChange}
+                className="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+              >
+                {timeOptions.map((time) => (
+                  <option key={`start-${time}`} value={time}>
+                    {formatTimeForDisplay(time)}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">End Time</label>
-              <input
-                type="time"
+            
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-gray-700 flex items-center">
+                <Clock className="h-4 w-4 mr-1.5 text-gray-500" />
+                End Time
+              </label>
+              <select
+                name="endTime"
                 value={formData.endTime}
-                onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                className={`w-full rounded-md border p-2 ${errors.endTime ? 'border-red-500' : 'border-gray-300'}`}
-                required
-              />
-              {errors.endTime && <p className="text-xs text-red-500">{errors.endTime}</p>}
+                onChange={handleChange}
+                className={`block w-full px-3 py-2 bg-white border rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm ${
+                  errors.endTime ? 'border-red-500' : 'border-gray-300'
+                }`}
+              >
+                {timeOptions.map((time) => (
+                  <option key={`end-${time}`} value={time}>
+                    {formatTimeForDisplay(time)}
+                  </option>
+                ))}
+              </select>
+              {errors.endTime && (
+                <p className="mt-1 text-xs text-red-600 flex items-center">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  {errors.endTime}
+                </p>
+              )}
             </div>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Location</label>
+          
+          {/* Location */}
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-gray-700 flex items-center">
+              <MapPin className="h-4 w-4 mr-1.5 text-gray-500" />
+              Location
+            </label>
             <input
               type="text"
+              name="location"
               value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              className={`w-full rounded-md border p-2 ${errors.location ? 'border-red-500' : 'border-gray-300'}`}
-              required
+              onChange={handleChange}
+              placeholder="Room number or online meeting link"
+              className={`block w-full px-3 py-2 bg-white border rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm ${
+                errors.location ? 'border-red-500' : 'border-gray-300'
+              }`}
             />
-            {errors.location && <p className="text-xs text-red-500">{errors.location}</p>}
+            {errors.location && (
+              <p className="mt-1 text-xs text-red-600 flex items-center">
+                <AlertCircle className="h-3 w-3 mr-1" />
+                {errors.location}
+              </p>
+            )}
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Maximum Students</label>
+          
+          {/* Maximum Students */}
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-gray-700 flex items-center">
+              <Users className="h-4 w-4 mr-1.5 text-gray-500" />
+              Maximum Students
+            </label>
             <input
               type="number"
+              name="maxStudents"
+              min="1"
+              max="50"
               value={formData.maxStudents}
-              onChange={(e) => setFormData({ ...formData, maxStudents: parseInt(e.target.value) })}
-              className={`w-full rounded-md border p-2 ${errors.maxStudents ? 'border-red-500' : 'border-gray-300'}`}
-              min={1}
-              required
+              onChange={handleChange}
+              className={`block w-full px-3 py-2 bg-white border rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm ${
+                errors.maxStudents ? 'border-red-500' : 'border-gray-300'
+              }`}
             />
-            {errors.maxStudents && <p className="text-xs text-red-500">{errors.maxStudents}</p>}
+            {errors.maxStudents && (
+              <p className="mt-1 text-xs text-red-600 flex items-center">
+                <AlertCircle className="h-3 w-3 mr-1" />
+                {errors.maxStudents}
+              </p>
+            )}
           </div>
-
-          <div className="flex items-center gap-2">
+          
+          {/* Recurring Option */}
+          <div className="flex items-center">
             <input
               type="checkbox"
+              id="isRecurring"
+              name="isRecurring"
               checked={formData.isRecurring}
-              onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
-              className="rounded border-gray-300"
+              onChange={handleChange}
+              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
             />
-            <label className="text-sm font-medium">Recurring weekly</label>
+            <label htmlFor="isRecurring" className="ml-2 block text-sm text-gray-700">
+              Recurring weekly
+            </label>
           </div>
-
-          <div className="flex justify-end gap-2">
+          
+          {/* Action Buttons */}
+          <div className="pt-2 flex justify-end gap-3 border-t border-gray-100">
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600"
+              className={`relative px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 min-w-[90px] ${
+                showSuccess ? 'bg-green-500' : ''
+              }`}
+              disabled={showSuccess}
             >
-              Save
+              {showSuccess ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Check className="h-5 w-5 text-white" />
+                </div>
+              ) : hour?.id ? 'Save Changes' : 'Add Hours'}
             </button>
           </div>
         </form>

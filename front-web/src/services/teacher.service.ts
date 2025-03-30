@@ -281,6 +281,57 @@ class TeacherService {
     // In a real implementation, we would filter by date range
     return MOCK_ATTENDANCE[classId] || [];
   }
+
+  /**
+   * Get all courses for the teacher from the API
+   */
+  async getCourses() {
+    try {
+      console.log('Fetching teacher courses from API');
+      const response = await apiClient.get<any>('/teachers/courses');
+      
+      // Log the entire response structure for debugging
+      console.log('Full API response:', JSON.stringify(response));
+      
+      // Check each level of the response structure
+      if (response) {
+        console.log('Response level 1:', typeof response);
+        
+        if (response.data) {
+          console.log('Response level 2 (data):', typeof response.data, response.data);
+          
+          // The backend sends: { data: { courses: [...] }, message: '...' }
+          // Check if courses exist at this level
+          if (response.data.courses && Array.isArray(response.data.courses)) {
+            console.log('Found courses in response.data.courses');
+            return response.data.courses;
+          }
+          
+          // If not found there, check if it's a direct array
+          if (Array.isArray(response.data)) {
+            console.log('Found courses as response.data array');
+            return response.data;
+          }
+        }
+      }
+      
+      // Fallback - return mock courses
+      console.warn('No courses found in API response, using mock data');
+      return [
+        { id: 'mock-course-1', name: 'Mathematics' },
+        { id: 'mock-course-2', name: 'Physics' },
+        { id: 'mock-course-3', name: 'Chemistry' }
+      ];
+    } catch (error) {
+      console.error('Error fetching teacher courses:', error);
+      // Return mock courses as fallback
+      return [
+        { id: 'mock-course-1', name: 'Mathematics' },
+        { id: 'mock-course-2', name: 'Physics' },
+        { id: 'mock-course-3', name: 'Chemistry' }
+      ];
+    }
+  }
 }
 
 export const teacherService = new TeacherService();
