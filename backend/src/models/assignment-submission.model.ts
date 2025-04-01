@@ -1,6 +1,7 @@
 import { promisify } from 'util';
 import { pool } from '../config/db';
 import { OkPacket, RowDataPacket } from 'mysql2';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface AssignmentSubmission {
   id: string;
@@ -34,25 +35,32 @@ export class AssignmentSubmissionModel {
   // Create a new submission
   static async create(submission: CreateAssignmentSubmissionDTO): Promise<AssignmentSubmission> {
     try {
+      const id = uuidv4();
       const query = `
         INSERT INTO assignment_submissions 
-        (assignmentId, studentId, documentId, status, submittedAt)
-        VALUES (?, ?, ?, ?, NOW())
+        (id, assignmentId, studentId, documentId, status, submittedAt)
+        VALUES (?, ?, ?, ?, ?, NOW())
       `;
 
       const status = submission.status || 'submitted';
       const values = [
+        id,
         submission.assignmentId,
         submission.studentId,
         submission.documentId || null,
         status
       ];
 
-      const queryAsync = promisify<string, any[], OkPacket>(pool.query);
-      const result = await queryAsync(query, values);
+      console.log('Creating assignment submission with values:', { 
+        id, 
+        assignmentId: submission.assignmentId, 
+        studentId: submission.studentId 
+      });
+
+      const [result] = await pool.query<OkPacket>(query, values);
 
       return {
-        id: result.insertId.toString(),
+        id,
         assignmentId: submission.assignmentId,
         studentId: submission.studentId,
         documentId: submission.documentId,
@@ -245,22 +253,45 @@ export class AssignmentSubmissionModel {
   }
 }
 
-// SQL to create the assignment_submissions table
+// Updated SQL for creating the assignment_submissions table
 export const createAssignmentSubmissionsTableSQL = `
   CREATE TABLE IF NOT EXISTS assignment_submissions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    assignmentId INT NOT NULL,
-    studentId INT NOT NULL,
-    documentId INT,
-    submittedAt DATETIME NOT NULL,
+    id VARCHAR(36) PRIMARY KEY,
+    assignmentId VARCHAR(36) NOT NULL,
+    studentId VARCHAR(36) NOT NULL,
+    submittedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    documentId VARCHAR(255),
     status ENUM('submitted', 'graded', 'late') DEFAULT 'submitted',
     grade DECIMAL(5,2),
     feedback TEXT,
-    gradedAt DATETIME,
-    gradedBy INT,
+    gradedAt TIMESTAMP NULL DEFAULT NULL,
+    gradedBy VARCHAR(36),
     FOREIGN KEY (assignmentId) REFERENCES assignments(id) ON DELETE CASCADE,
-    FOREIGN KEY (studentId) REFERENCES students(id) ON DELETE CASCADE,
-    FOREIGN KEY (documentId) REFERENCES documents(id) ON DELETE SET NULL,
-    FOREIGN KEY (gradedBy) REFERENCES users(id) ON DELETE SET NULL
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-`; 
+    FOREIGN KEY (studentId) REFERENCES users(id) ON DELETE CASCADE
+  );
+`;
+
+// Initialize the table
+export const initializeAssignmentSubmissionsTable = async () => {
+  try {
+    console.log('Initializing assignment_submissions table');
+    const queryAsync = promisify<string, any[], OkPacket>(pool.query);
+    await queryAsync(createAssignmentSubmissionsTableSQL, []);
+    console.log('Assignment submissions table initialized successfully');
+    return true;
+  } catch (error) {
+    console.error('Failed to initialize assignment submissions table:', error);
+    return false;
+  }
+};
+
+// Initialize the table when the model is loaded
+initializeAssignmentSubmissionsTable()
+  .then(result => {
+    if (result) {
+      console.log('Assignment submissions table ready');
+    }
+  })
+  .catch(err => {
+    console.error('Error during assignment submissions table initialization:', err);
+  }); 

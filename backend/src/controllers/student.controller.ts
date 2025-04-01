@@ -5,6 +5,7 @@ import { StudentModel } from '../models/student.model';
 import { assignmentModel } from '../models/assignment.model';
 import { AssignmentSubmissionModel, CreateAssignmentSubmissionDTO } from '../models/assignment-submission.model';
 import { DocumentModel, CreateDocumentDTO } from '../models/document.model';
+import { Document } from '../types/documents';
 import * as fs from 'fs';
 import { 
   getFileUrl, 
@@ -32,7 +33,7 @@ class StudentController {
    * Get student dashboard data
    */
   getDashboardData = asyncHandler(async (req: Request, res: Response) => {
-    const studentId = req.user?.userId as string;
+    const studentId = req.user?.studentId || req.user?.userId as string;
     
     if (!studentId) {
       return sendBadRequest(res, 'Student ID is required');
@@ -134,7 +135,7 @@ class StudentController {
    * Get courses for a student
    */
   getStudentCourses = asyncHandler(async (req: Request, res: Response) => {
-    const studentId = req.params.studentId || (req.user?.userId as string);
+    const studentId = req.params.studentId || req.user?.studentId || (req.user?.userId as string);
     
     if (!studentId) {
       return sendBadRequest(res, 'Student ID is required');
@@ -156,7 +157,7 @@ class StudentController {
    * Get upcoming assignments for a student
    */
   getUpcomingAssignments = asyncHandler(async (req: Request, res: Response) => {
-    const studentId = req.params.studentId || (req.user?.userId as string);
+    const studentId = req.params.studentId || req.user?.studentId || (req.user?.userId as string);
     const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
     
     if (!studentId) {
@@ -171,7 +172,7 @@ class StudentController {
    * Get recent grades for a student
    */
   getRecentGrades = asyncHandler(async (req: Request, res: Response) => {
-    const studentId = req.params.studentId || (req.user?.userId as string);
+    const studentId = req.params.studentId || req.user?.studentId || (req.user?.userId as string);
     const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
     
     if (!studentId) {
@@ -186,7 +187,7 @@ class StudentController {
    * Get attendance stats for a student
    */
   getAttendanceStats = asyncHandler(async (req: Request, res: Response) => {
-    const studentId = req.params.studentId || (req.user?.userId as string);
+    const studentId = req.params.studentId || req.user?.studentId || (req.user?.userId as string);
     
     if (!studentId) {
       return sendBadRequest(res, 'Student ID is required');
@@ -200,7 +201,7 @@ class StudentController {
    * Get submissions for the current student
    */
   getStudentSubmissions = asyncHandler(async (req: Request, res: Response) => {
-    const studentId = req.user?.userId;
+    const studentId = req.user?.studentId || req.user?.userId;
     
     if (!studentId) {
       return sendBadRequest(res, 'Student ID is required');
@@ -234,7 +235,7 @@ class StudentController {
    */
   submitAssignment = asyncHandler(async (req: Request, res: Response) => {
     const assignmentId = req.params.assignmentId;
-    const studentId = req.user?.userId;
+    const studentId = req.user?.studentId || req.user?.userId;
     const { content } = req.body;
       
     if (!studentId) {
@@ -350,7 +351,7 @@ class StudentController {
    */
   downloadSubmission = asyncHandler(async (req: Request, res: Response) => {
     const submissionId = req.params.submissionId;
-    const userId = req.user?.userId;
+    const userId = req.user?.studentId || req.user?.userId;
     const userRole = req.user?.role;
     
     if (!userId) {
@@ -389,7 +390,7 @@ class StudentController {
    * Get detailed attendance records for a student
    */
   getDetailedAttendance = asyncHandler(async (req: Request, res: Response) => {
-    const studentId = req.params.studentId || (req.user?.userId as string);
+    const studentId = req.params.studentId || (req.user?.studentId as string) || (req.user?.userId as string);
     
     if (!studentId) {
       return sendBadRequest(res, 'Student ID is required');
@@ -416,7 +417,7 @@ class StudentController {
    * Get monthly attendance summary for a student
    */
   getMonthlyAttendanceSummary = asyncHandler(async (req: Request, res: Response) => {
-    const studentId = req.params.studentId || (req.user?.userId as string);
+    const studentId = req.params.studentId || (req.user?.studentId as string) || (req.user?.userId as string);
     const year = req.query.year ? parseInt(req.query.year as string) : new Date().getFullYear();
     
     if (!studentId) {
@@ -432,7 +433,7 @@ class StudentController {
    * Get student schedule
    */
   getStudentSchedule = asyncHandler(async (req: Request, res: Response) => {
-    const studentId = req.params.studentId || (req.user?.userId as string);
+    const studentId = req.params.studentId || (req.user?.studentId as string) || (req.user?.userId as string);
     
     if (!studentId) {
       return sendBadRequest(res, 'Student ID is required');
@@ -473,7 +474,7 @@ class StudentController {
    * Download attendance report
    */
   downloadAttendanceReport = asyncHandler(async (req: Request, res: Response) => {
-    const studentId = req.params.studentId || (req.user?.userId as string);
+    const studentId = req.params.studentId || (req.user?.studentId as string) || (req.user?.userId as string);
     const month = req.query.month ? parseInt(req.query.month as string) : undefined;
     const year = req.query.year ? parseInt(req.query.year as string) : undefined;
     const courseId = req.query.courseId as string;

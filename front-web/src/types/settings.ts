@@ -1,12 +1,32 @@
+export interface UserSettings {
+  id?: number;
+  userId: string;
+  theme: 'light' | 'dark';
+  language: 'english' | 'french' | 'arabic' | 'spanish';
+  notifications: boolean;
+  emailNotifications: boolean;
+  smsNotifications: boolean;
+  weekStartsOn: 'sunday' | 'monday';
+  dateFormat: 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD';
+  timeFormat: '12h' | '24h';
+  updatedAt?: string;
+}
+
 export interface SystemSettings {
-  schoolName: string
-  academicYear: string
-  timezone: string
-  emailNotifications: boolean
-  defaultLanguage: string
-  maintenanceMode: boolean
-  maxStudentsPerClass: number
-  gradingSystem: 'letter' | 'percentage' | 'points'
+  id?: number;
+  schoolName: string;
+  academicYear: string;
+  timezone: string;
+  contactEmail: string;
+  contactPhone: string;
+  address: string;
+  logo?: string;
+  enableParentPortal: boolean;
+  enableStudentPortal: boolean;
+  enableTeacherPortal: boolean;
+  maintenanceMode: boolean;
+  updatedBy: string;
+  updatedAt?: string;
 }
 
 export interface SystemMonitoring {
@@ -63,9 +83,19 @@ export interface NotificationSettings {
 }
 
 export interface SecuritySettings {
-  requireTwoFactor: boolean
-  passwordExpiryDays: number
-  sessionTimeout: number
-  allowedIpRanges: string[]
-  maxLoginAttempts: number
+  id?: number;
+  requireTwoFactor: boolean;
+  passwordExpiryDays: number;
+  sessionTimeout: number;
+  allowedIpRanges: string;
+  maxLoginAttempts: number;
+  updatedBy: string;
+  updatedAt?: string;
 }
+
+export interface AdminSettingsTabProps {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+}
+
+export type SettingsSectionType = 'user' | 'system' | 'security';

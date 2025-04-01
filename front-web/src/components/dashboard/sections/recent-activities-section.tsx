@@ -5,7 +5,7 @@ interface Activity {
   type: 'registration' | 'payment' | 'attendance' | 'grade' | 'system'
   title: string
   description: string
-  timestamp: Date
+  timestamp: string | Date
   icon?: React.ReactNode
 }
 
@@ -79,6 +79,17 @@ const getActivityIcon = (type: Activity['type']) => {
   }
 }
 
+// Helper function to safely format dates
+const formatDate = (timestamp: string | Date): string => {
+  try {
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+    return format(date, 'MMM d, h:mm a');
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Invalid date';
+  }
+};
+
 export const RecentActivitiesSection = ({ activities }: RecentActivitiesSectionProps) => {
   return (
     <div className="bg-white shadow rounded-lg">
@@ -88,36 +99,40 @@ export const RecentActivitiesSection = ({ activities }: RecentActivitiesSectionP
       <div className="px-4 py-5 sm:p-6">
         <div className="flow-root">
           <ul role="list" className="-mb-8">
-            {activities.map((activity, index) => (
-              <li key={activity.id}>
-                <div className="relative pb-8">
-                  {index !== activities.length - 1 && (
-                    <span
-                      className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200"
-                      aria-hidden="true"
-                    />
-                  )}
-                  <div className="relative flex space-x-3">
-                    <div>
-                      <span className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center ring-8 ring-white">
-                        <div className="text-primary">
-                          {activity.icon || getActivityIcon(activity.type)}
-                        </div>
-                      </span>
-                    </div>
-                    <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
+            {activities.length === 0 ? (
+              <li className="text-center text-gray-500 py-4">No recent activities</li>
+            ) : (
+              activities.map((activity, index) => (
+                <li key={activity.id}>
+                  <div className="relative pb-8">
+                    {index !== activities.length - 1 && (
+                      <span
+                        className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <div className="relative flex space-x-3">
                       <div>
-                        <p className="text-sm text-gray-900">{activity.title}</p>
-                        <p className="mt-0.5 text-sm text-gray-500">{activity.description}</p>
+                        <span className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center ring-8 ring-white">
+                          <div className="text-primary">
+                            {activity.icon || getActivityIcon(activity.type)}
+                          </div>
+                        </span>
                       </div>
-                      <div className="whitespace-nowrap text-right text-sm text-gray-500">
-                        {format(activity.timestamp, 'MMM d, h:mm a')}
+                      <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
+                        <div>
+                          <p className="text-sm text-gray-900">{activity.title}</p>
+                          <p className="mt-0.5 text-sm text-gray-500">{activity.description}</p>
+                        </div>
+                        <div className="whitespace-nowrap text-right text-sm text-gray-500">
+                          {formatDate(activity.timestamp)}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </li>
-            ))}
+                </li>
+              ))
+            )}
           </ul>
         </div>
       </div>

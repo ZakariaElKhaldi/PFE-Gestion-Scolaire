@@ -97,4 +97,23 @@ export const getRoleDisplayName = (role: string): string => {
     default:
       return 'User';
   }
+};
+
+/**
+ * Ensures the student user has studentId property
+ * For student users, if studentId is missing, uses userId as the studentId
+ */
+export const checkStudentId = (user: any): any => {
+  if (!user) return null;
+  
+  // If it's a student role but doesn't have studentId, use the userId
+  if (user.role === 'student' && !user.studentId && user.id) {
+    console.log('Adding missing studentId to student user, using userId');
+    return {
+      ...user,
+      studentId: user.id
+    };
+  }
+  
+  return user;
 }; 

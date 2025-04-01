@@ -93,11 +93,6 @@ const navigation = [
     icon: GraduationCap,
     href: "/dashboard/student/grades",
   },
-  {
-    title: "Contact & Support",
-    icon: HelpCircle,
-    href: "/dashboard/shared/contact",
-  },
 ]
 
 export function StudentSidebar() {

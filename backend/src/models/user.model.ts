@@ -151,10 +151,74 @@ class UserModel {
   }
 
   /**
+   * Hash a password
+   */
+  async hashPassword(password: string): Promise<string> {
+    const salt = await bcrypt.genSalt(10);
+    return bcrypt.hash(password, salt);
+  }
+
+  /**
    * Verify password
    */
   async verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
     return bcrypt.compare(plainPassword, hashedPassword);
+  }
+
+  /**
+   * Create a new user with a database connection (for transactions)
+   */
+  async createWithConnection(connection: any, userData: Omit<User, 'id'>): Promise<User> {
+    try {
+      const id = uuidv4(); // Generate a unique ID
+      const hashedPassword = await this.hashPassword(userData.password);
+      
+      const query = `
+        INSERT INTO users (id, email, password, firstName, lastName, phoneNumber, role)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `;
+      
+      await connection.query(query, [
+        id,
+        userData.email,
+        hashedPassword,
+        userData.firstName,
+        userData.lastName,
+        userData.phoneNumber,
+        userData.role
+      ]);
+      
+      // Don't return the password
+      return {
+        id,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        phoneNumber: userData.phoneNumber,
+        role: userData.role,
+        password: hashedPassword, // Required by the User interface
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error creating user with connection:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all potential message recipients (all users except the current user)
+   */
+  async getPotentialMessageRecipients(currentUserId: string): Promise<UserResponse[]> {
+    const query = `
+      SELECT id, email, firstName, lastName, role, profilePicture, phoneNumber, studentId, createdAt, updatedAt, bio 
+      FROM users 
+      WHERE id != ? 
+      ORDER BY firstName, lastName
+    `;
+    
+    const [rows] = await pool.query<UserRow[]>(query, [currentUserId]);
+    return rows;
   }
 }
 

@@ -1,3 +1,6 @@
+/* Import page transitions */
+@import './styles/page-transitions.css';
+
 @import "tailwindcss";
 
 @plugin "tailwindcss-animate";

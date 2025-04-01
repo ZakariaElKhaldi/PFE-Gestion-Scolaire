@@ -1,6 +1,6 @@
 import { DashboardLayout } from '../../../components/dashboard/layout/dashboard-layout'
 import { UserResponse } from '../../../types/auth'
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
@@ -54,19 +54,20 @@ import {
   DialogTrigger 
 } from '../../../components/ui/dialog';
 import { Label } from '../../../components/ui/label';
+import { adminService } from '../../../services/admin-service';
 
 interface FinancePageProps {
   user: UserResponse
 }
 
-// Sample data types
+// Define transaction interface
 interface Transaction {
   id: string;
   date: string;
   description: string;
   category: string;
   amount: number;
-  status: 'completed' | 'pending' | 'failed';
+  status: string;
 }
 
 interface BudgetCategory {
@@ -77,30 +78,112 @@ interface BudgetCategory {
   color: string;
 }
 
+// Sample data for fallback
+const revenueData = [
+  { name: 'Jan', revenue: 12000 },
+  { name: 'Feb', revenue: 15000 },
+  { name: 'Mar', revenue: 18000 },
+  { name: 'Apr', revenue: 22000 },
+  { name: 'May', revenue: 25000 },
+  { name: 'Jun', revenue: 28000 },
+  { name: 'Jul', revenue: 26000 },
+  { name: 'Aug', revenue: 30000 },
+  { name: 'Sep', revenue: 34000 },
+  { name: 'Oct', revenue: 38000 },
+  { name: 'Nov', revenue: 40000 },
+  { name: 'Dec', revenue: 42000 },
+];
+
 export const FinancePage = ({ user }: FinancePageProps) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [showAddTransactionDialog, setShowAddTransactionDialog] = useState(false);
+  const [financialData, setFinancialData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Sample financial data
+  // Fetch financial data
+  useEffect(() => {
+    const fetchFinancialData = async () => {
+      try {
+        setLoading(true);
+        const data = await adminService.getFinancialOverview();
+        setFinancialData(data);
+        setError(null);
+      } catch (err) {
+        console.error('Failed to fetch financial data:', err);
+        setError('Failed to load financial data. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFinancialData();
+  }, []);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <DashboardLayout user={user}>
+        <div className="p-6 flex justify-center items-center min-h-[80vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <DashboardLayout user={user}>
+        <div className="p-6 flex flex-col justify-center items-center min-h-[80vh]">
+          <div className="text-red-500 mb-4">
+            <svg className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-medium text-gray-900 mb-2">Error Loading Data</h3>
+          <p className="text-gray-500 mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()}>Try Again</Button>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Use data from API or fallback to sample data
   const financialSummary = {
     totalBudget: 1250000,
-    spent: 780000,
-    remaining: 470000,
-    percentageUsed: 62.4
+    spent: financialData?.totalRevenue || 780000,
+    remaining: 1250000 - (financialData?.totalRevenue || 780000),
+    percentageUsed: ((financialData?.totalRevenue || 780000) / 1250000) * 100
   };
 
-  const recentTransactions: Transaction[] = [
+  const recentTransactions = financialData?.recentTransactions || [
     { id: 'TX123456', date: '2023-12-01', description: 'Staff Salaries', category: 'Payroll', amount: 45000, status: 'completed' },
     { id: 'TX123457', date: '2023-12-02', description: 'Laboratory Equipment', category: 'Equipment', amount: 12500, status: 'completed' },
     { id: 'TX123458', date: '2023-12-03', description: 'Software Licenses', category: 'IT', amount: 7800, status: 'completed' },
     { id: 'TX123459', date: '2023-12-04', description: 'Building Maintenance', category: 'Facilities', amount: 5600, status: 'pending' },
-    { id: 'TX123460', date: '2023-12-05', description: 'Library Books', category: 'Academic', amount: 3200, status: 'completed' },
-    { id: 'TX123461', date: '2023-12-06', description: 'Cafeteria Supplies', category: 'Operations', amount: 2800, status: 'completed' },
-    { id: 'TX123462', date: '2023-12-07', description: 'Scholarship Payments', category: 'Financial Aid', amount: 18000, status: 'pending' },
-    { id: 'TX123463', date: '2023-12-08', description: 'Sports Equipment', category: 'Athletics', amount: 4500, status: 'completed' },
-    { id: 'TX123464', date: '2023-12-09', description: 'Admin Supplies', category: 'Office', amount: 1200, status: 'failed' },
-    { id: 'TX123465', date: '2023-12-10', description: 'Campus Events', category: 'Student Affairs', amount: 3500, status: 'completed' },
+    { id: 'TX123460', date: '2023-12-05', description: 'Library Books', category: 'Academic', amount: 3200, status: 'completed' }
   ];
+
+  // Transform API data for charts
+  const revenueByMonthData = financialData?.revenueByMonth 
+    ? Object.entries(financialData.revenueByMonth).map(([month, amount]) => ({
+        name: month,
+        revenue: amount
+      })).sort((a, b) => a.name.localeCompare(b.name))
+    : revenueData;
+
+  const categoryData = financialData?.revenueByCategory
+    ? Object.entries(financialData.revenueByCategory).map(([name, value]) => ({
+        name,
+        value
+      }))
+    : [
+        { name: 'Tuition', value: 850000 },
+        { name: 'Fees', value: 150000 },
+        { name: 'Donations', value: 120000 },
+        { name: 'Other', value: 130000 }
+      ];
 
   const budgetData: BudgetCategory[] = [
     { name: 'Payroll', allocated: 550000, spent: 450000, remaining: 100000, color: '#8884d8' },
@@ -134,7 +217,7 @@ export const FinancePage = ({ user }: FinancePageProps) => {
   ];
 
   // Transaction table columns
-  const columns: ColumnDef<Transaction>[] = [
+  const transactionColumns: ColumnDef<Transaction>[] = [
     {
       accessorKey: 'id',
       header: ({ column }) => (
@@ -352,7 +435,7 @@ export const FinancePage = ({ user }: FinancePageProps) => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {recentTransactions.slice(0, 5).map((transaction) => (
+                  {recentTransactions.slice(0, 5).map((transaction: Transaction) => (
                     <div key={transaction.id} className="flex items-center justify-between p-2 border-b">
                       <div>
                         <div className="font-medium">{transaction.description}</div>
@@ -419,7 +502,7 @@ export const FinancePage = ({ user }: FinancePageProps) => {
                     <Download className="h-4 w-4" />
                   </Button>
                 </div>
-                <DataTable columns={columns} data={recentTransactions} />
+                <DataTable columns={transactionColumns} data={recentTransactions} />
               </CardContent>
             </Card>
           </TabsContent>

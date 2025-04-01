@@ -3,6 +3,8 @@
 import { Home, Users, Settings, BookOpen, Bell, Calendar, BookText, FileText, BarChart, LucideIcon, BookCopy, GraduationCap, PenSquare, Mail, FileCheck, CreditCard, HelpCircle, MessageSquare } from "lucide-react"
 import { Link, useLocation } from "react-router-dom"
 import { User as UserType } from "../../../types/auth"
+import { useTranslation } from "react-i18next"
+import { useLanguage } from "../../../lib/language-context"
 
 import {
   Sidebar,
@@ -11,9 +13,9 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
+  SidebarMenuItem
 } from "../../../components/ui/sidebar"
+import { cn } from "../../../lib/utils"
 
 type NavigationItem = {
   title: string
@@ -44,11 +46,6 @@ const adminNavigation: NavigationItem[] = [
     title: "Courses",
     icon: BookText,
     href: "/dashboard/admin/courses",
-  },
-  {
-    title: "Course Content",
-    icon: FileText,
-    href: "/dashboard/admin/course-content",
   },
   {
     title: "Departments",
@@ -95,11 +92,6 @@ const adminNavigation: NavigationItem[] = [
     title: "Settings",
     icon: Settings,
     href: "/dashboard/admin/settings",
-  },
-  {
-    title: "System Settings",
-    icon: Settings,
-    href: "/dashboard/admin/system-settings",
   },
   {
     title: "Contact & Support",
@@ -220,11 +212,7 @@ const teacherNavigation: NavigationItem[] = [
     icon: Settings,
     href: "/dashboard/teacher/settings",
   },
-  {
-    title: "Contact & Support",
-    icon: HelpCircle,
-    href: "/dashboard/teacher/contact",
-  },
+
 ]
 
 const studentNavigation: NavigationItem[] = [
@@ -309,11 +297,6 @@ const studentNavigation: NavigationItem[] = [
     href: "/dashboard/student/settings",
   },
   {
-    title: "Contact & Support",
-    icon: HelpCircle,
-    href: "/dashboard/student/contact",
-  },
-  {
     title: "Forum",
     icon: MessageSquare,
     href: "/dashboard/student/forum",
@@ -391,11 +374,7 @@ const parentNavigation: NavigationItem[] = [
     icon: Settings,
     href: "/dashboard/parent/settings",
   },
-  {
-    title: "Contact & Support",
-    icon: HelpCircle,
-    href: "/dashboard/parent/contact",
-  },
+
   {
     title: "Forum",
     icon: MessageSquare,
@@ -409,6 +388,8 @@ interface AppSidebarProps {
 
 export function AppSidebar({ user }: AppSidebarProps) {
   const location = useLocation()
+  const { t } = useTranslation()
+  const { forceUpdate, isRTL } = useLanguage() // Get language context with forceUpdate
   
   const getNavigationByRole = () => {
     switch (user?.role) {
@@ -449,87 +430,44 @@ export function AppSidebar({ user }: AppSidebarProps) {
   return (
     <Sidebar>
       <SidebarContent>
+        <div className={cn(
+          "border-b mb-5 pb-4 px-6",
+          isRTL && "text-right"
+        )}>
+          <Link to="/" className={cn(
+            "flex items-center",
+            isRTL ? "flex-row-reverse justify-end" : "flex-row"
+          )}>
+            <img src="/logo.png" alt="Logo" className={cn(
+              "h-8 w-auto", 
+              isRTL ? "ml-2" : "mr-2"
+            )} />
+            <h1 className="text-lg font-semibold text-primary">School MS</h1>
+          </Link>
+        </div>
         <SidebarGroup>
-          <SidebarGroupLabel>{(user?.role || 'User').charAt(0).toUpperCase() + (user?.role || 'user').slice(1)} Menu</SidebarGroupLabel>
+          <SidebarGroupLabel>{t("navigation.menu")}</SidebarGroupLabel>
           <SidebarGroupContent>
-            {/* For teacher role, display grouped navigation */}
-            {user?.role === 'teacher' ? (
-              <>
-                {teacherNavigationGroups.map((group, index) => (
-                  <div key={index} className="mb-4">
-                    <div className="px-3 mb-2 text-xs font-semibold text-gray-500">{group.label}</div>
-                    <SidebarMenu>
-                      {group.items.map((item) => (
-                        <SidebarMenuItem key={item.title}>
-                          <SidebarMenuButton asChild isActive={location.pathname === item.href}>
-                            <Link to={item.href} className="flex items-center">
-                              <item.icon className="h-5 w-5" />
-                              <span className="ml-3">{item.title}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      ))}
-                    </SidebarMenu>
-                  </div>
-                ))}
-              </>
-            ) : user?.role === 'administrator' ? (
-              <>
-                {adminNavigationGroups.map((group, index) => (
-                  <div key={index} className="mb-4">
-                    <div className="px-3 mb-2 text-xs font-semibold text-gray-500">{group.label}</div>
-                    <SidebarMenu>
-                      {group.items.map((item) => (
-                        <SidebarMenuItem key={item.title}>
-                          <SidebarMenuButton asChild isActive={location.pathname === item.href}>
-                            <Link to={item.href} className="flex items-center">
-                              <item.icon className="h-5 w-5" />
-                              <span className="ml-3">{item.title}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      ))}
-                    </SidebarMenu>
-                  </div>
-                ))}
-              </>
-            ) : (
-              // Standard navigation for other roles
-              <SidebarMenu>
-                {navigation.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={location.pathname === item.href}>
-                      <Link to={item.href} className="flex items-center">
-                        <item.icon className="h-5 w-5" />
-                        <span className="ml-3">{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
+            <SidebarMenu>
+              {navigation.map((item, index) => {
+                const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
+                const translatedTitle = t(`navigation.${item.title.toLowerCase()}`);
+                
+                return (
+                  <SidebarMenuItem 
+                    key={index}
+                    href={item.href}
+                    icon={<item.icon />}
+                    active={isActive}
+                  >
+                    {translatedTitle}
                   </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            )}
+                );
+              })}
+            </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        
-        {/* Quick access to debug navigation */}
-        <div className="mt-6">
-          <SidebarGroup>
-            <SidebarGroupLabel>Development</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location.pathname === '/debug'}>
-                    <Link to="/debug" className="flex items-center text-amber-600">
-                      <HelpCircle className="h-5 w-5" />
-                      <span className="ml-3">Debug Navigation</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        </div>
       </SidebarContent>
     </Sidebar>
-  )
+  );
 }

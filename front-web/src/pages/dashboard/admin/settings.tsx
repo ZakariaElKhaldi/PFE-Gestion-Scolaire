@@ -1,26 +1,58 @@
 import { useState } from 'react'
 import { DashboardLayout } from '../../../components/dashboard/layout/dashboard-layout'
 import { UserResponse } from '../../../types/auth'
-import { SystemSettings, NotificationSettings, SecuritySettings, SystemMonitoring, FeatureFlags, ResourceLimits } from '../../../types/settings'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../../components/ui/card'
+import { Button } from '../../../components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs'
+import { RotateCcw, Save, AlertTriangle } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from '../../../components/ui/alert'
+
+// Import types
+import { 
+  SystemSettings,
+  NotificationSettings, 
+  SecuritySettings,
+  FeatureFlags,
+  ResourceLimits
+} from '../../../types/settings'
+
+// Import our extracted components
+import {
+  SystemStatusCard,
+  BackupDialog,
+  ResetSettingsDialog,
+  GeneralSettingsTab,
+  SecuritySettingsTab,
+  NotificationsTab,
+  SystemSettingsTab
+} from '../../../components/admin'
 
 interface SettingsPageProps {
   user: UserResponse
 }
 
 export const SettingsPage = ({ user }: SettingsPageProps) => {
-  // Mock data - Replace with actual API call
+  // Tab state
   const [activeTab, setActiveTab] = useState('general')
+  
+  // System settings state
   const [systemSettings, setSystemSettings] = useState<SystemSettings>({
-    schoolName: 'International Academy',
-    academicYear: '2024-2025',
+    id: 1,
+    schoolName: 'Academic Excellence Academy',
+    academicYear: '2023-2024',
     timezone: 'UTC+1',
-    emailNotifications: true,
-    defaultLanguage: 'English',
+    contactEmail: 'admin@academy.edu',
+    contactPhone: '+1234567890',
+    address: '123 Education St, Knowledge City',
+    enableParentPortal: true,
+    enableStudentPortal: true,
+    enableTeacherPortal: true,
     maintenanceMode: false,
-    maxStudentsPerClass: 30,
-    gradingSystem: 'percentage'
+    updatedBy: '',
+    updatedAt: new Date().toISOString(),
   })
 
+  // Notification settings state
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     emailNotifications: true,
     pushNotifications: true,
@@ -31,35 +63,19 @@ export const SettingsPage = ({ user }: SettingsPageProps) => {
     dailyDigest: false
   })
 
+  // Security settings state
   const [securitySettings, setSecuritySettings] = useState<SecuritySettings>({
+    id: 1,
     requireTwoFactor: false,
     passwordExpiryDays: 90,
     sessionTimeout: 30,
-    allowedIpRanges: ['*'],
-    maxLoginAttempts: 5
+    allowedIpRanges: '192.168.1.1/24, 10.0.0.1/16',
+    maxLoginAttempts: 5,
+    updatedBy: '',
+    updatedAt: new Date().toISOString(),
   })
 
-  const handleSystemSettingChange = (key: keyof SystemSettings, value: any) => {
-    setSystemSettings(prev => ({ ...prev, [key]: value }))
-  }
-
-  const handleNotificationSettingChange = (key: keyof NotificationSettings, value: boolean) => {
-    setNotificationSettings(prev => ({ ...prev, [key]: value }))
-  }
-
-  const handleSecuritySettingChange = (key: keyof SecuritySettings, value: any) => {
-    setSecuritySettings(prev => ({ ...prev, [key]: value }))
-  }
-
-  const [systemMonitoring, setSystemMonitoring] = useState<SystemMonitoring>({
-    cpu: { usage: 45, cores: 8, temperature: 65 },
-    memory: { total: 32000, used: 16000, free: 16000 },
-    storage: { total: 1000000, used: 400000, free: 600000 },
-    uptime: 1209600, // 14 days in seconds
-    lastBackup: '2025-02-14T12:00:00Z',
-    activeUsers: 245
-  })
-
+  // Feature flags state
   const [featureFlags, setFeatureFlags] = useState<FeatureFlags>({
     onlineExams: true,
     virtualClassrooms: true,
@@ -73,6 +89,7 @@ export const SettingsPage = ({ user }: SettingsPageProps) => {
     homeworkSubmission: true
   })
 
+  // Resource limits state
   const [resourceLimits, setResourceLimits] = useState<ResourceLimits>({
     maxFileUploadSize: 50, // MB
     maxStoragePerUser: 1000, // MB
@@ -82,509 +99,306 @@ export const SettingsPage = ({ user }: SettingsPageProps) => {
     maxClassesPerTeacher: 6
   })
 
+  // Additional state 
+  const [smsNotifications, setSmsNotifications] = useState(false)
+  const [dataBackup, setDataBackup] = useState(true)
+  const [enableRegistration, setEnableRegistration] = useState(true)
+  const [languagePreference, setLanguagePreference] = useState('english')
+  const [theme, setTheme] = useState('light')
+  const [showBackupDialog, setShowBackupDialog] = useState(false)
+  const [showResetDialog, setShowResetDialog] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Handler functions
+  const handleSystemSettingChange = (
+    key: keyof SystemSettings,
+    value: string | number | boolean
+  ) => {
+    setSystemSettings({
+      ...systemSettings,
+      [key]: value,
+    })
+  }
+
+  const handleNotificationSettingChange = (key: keyof NotificationSettings, value: boolean) => {
+    setNotificationSettings((prev: NotificationSettings) => ({ ...prev, [key]: value }))
+  }
+
+  const handleSecuritySettingChange = (key: keyof SecuritySettings, value: any) => {
+    setSecuritySettings((prev: SecuritySettings) => ({ ...prev, [key]: value }))
+  }
+
   const handleFeatureFlagChange = (key: keyof FeatureFlags) => {
-    setFeatureFlags(prev => ({ ...prev, [key]: !prev[key] }))
+    setFeatureFlags((prev: FeatureFlags) => ({ ...prev, [key]: !prev[key] }))
   }
 
   const handleResourceLimitChange = (key: keyof ResourceLimits, value: number) => {
-    setResourceLimits(prev => ({ ...prev, [key]: value }))
+    setResourceLimits((prev: ResourceLimits) => ({ ...prev, [key]: value }))
   }
 
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  const handleSaveSettings = () => {
+    setIsSaving(true)
+    // Simulate API call
+    setTimeout(() => {
+      setIsSaving(false)
+    }, 1500)
   }
 
-  const formatUptime = (seconds: number) => {
-    const days = Math.floor(seconds / 86400)
-    const hours = Math.floor((seconds % 86400) / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    return `${days}d ${hours}h ${minutes}m`
+  const handleBackup = () => {
+    // Handle backup logic
+    setShowBackupDialog(false)
   }
 
+  const handleReset = () => {
+    // Handle reset logic
+    setShowResetDialog(false)
+  }
+
+  // System metrics for display
+  const systemMetrics = {
+    cpuUsage: '32%',
+    memoryUsage: '48%',
+    diskUsage: '62%',
+    activeUsers: 327,
+    uptime: '23 days, 7 hours',
+    lastBackup: '2023-11-28 03:45 AM',
+    databaseSize: '1.8 GB',
+  }
+
+  // Enhanced tabs with more options
   const tabs = [
     { id: 'general', name: 'General' },
     { id: 'notifications', name: 'Notifications' },
     { id: 'security', name: 'Security & Privacy' },
-    { id: 'system', name: 'System' }
+    { id: 'integrations', name: 'Integrations' },
+    { id: 'system', name: 'System' },
+    { id: 'advanced', name: 'Advanced' }
   ]
 
   return (
     <DashboardLayout user={user}>
-      <div className="px-4 sm:px-6 lg:px-8 py-8">
-        <div className="sm:flex sm:items-center">
-          <div className="sm:flex-auto">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-between items-center mb-6">
+          <div>
             <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
             <p className="mt-2 text-sm text-gray-700">
               Manage your system settings, notifications, and security preferences.
             </p>
           </div>
-        </div>
-
-        <div className="mt-8">
-          {/* Tabs */}
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`${
-                    activeTab === tab.id
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
-                >
-                  {tab.name}
-                </button>
-              ))}
-            </nav>
-          </div>
-
-          {/* General Settings */}
-          {activeTab === 'general' && (
-            <div className="mt-8 max-w-3xl">
-              <div className="space-y-6">
-                <div>
-                  <label htmlFor="schoolName" className="block text-sm font-medium text-gray-700">
-                    School Name
-                  </label>
-                  <input
-                    type="text"
-                    name="schoolName"
-                    id="schoolName"
-                    value={systemSettings.schoolName}
-                    onChange={(e) => handleSystemSettingChange('schoolName', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="academicYear" className="block text-sm font-medium text-gray-700">
-                    Academic Year
-                  </label>
-                  <input
-                    type="text"
-                    name="academicYear"
-                    id="academicYear"
-                    value={systemSettings.academicYear}
-                    onChange={(e) => handleSystemSettingChange('academicYear', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="timezone" className="block text-sm font-medium text-gray-700">
-                    Timezone
-                  </label>
-                  <select
-                    id="timezone"
-                    name="timezone"
-                    value={systemSettings.timezone}
-                    onChange={(e) => handleSystemSettingChange('timezone', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                  >
-                    <option value="UTC+1">UTC+1</option>
-                    <option value="UTC+2">UTC+2</option>
-                    <option value="UTC+3">UTC+3</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="maxStudents" className="block text-sm font-medium text-gray-700">
-                    Maximum Students per Class
-                  </label>
-                  <input
-                    type="number"
-                    name="maxStudents"
-                    id="maxStudents"
-                    value={systemSettings.maxStudentsPerClass}
-                    onChange={(e) => handleSystemSettingChange('maxStudentsPerClass', parseInt(e.target.value))}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="gradingSystem" className="block text-sm font-medium text-gray-700">
-                    Grading System
-                  </label>
-                  <select
-                    id="gradingSystem"
-                    name="gradingSystem"
-                    value={systemSettings.gradingSystem}
-                    onChange={(e) => handleSystemSettingChange('gradingSystem', e.target.value)}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                  >
-                    <option value="percentage">Percentage</option>
-                    <option value="letter">Letter Grade</option>
-                    <option value="points">Points</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center">
-                  <button
-                    type="button"
-                    onClick={() => handleSystemSettingChange('maintenanceMode', !systemSettings.maintenanceMode)}
-                    className={`${
-                      systemSettings.maintenanceMode ? 'bg-primary' : 'bg-gray-200'
-                    } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2`}
-                  >
-                    <span
-                      className={`${
-                        systemSettings.maintenanceMode ? 'translate-x-5' : 'translate-x-0'
-                      } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
-                    />
-                  </button>
-                  <span className="ml-3 text-sm font-medium text-gray-700">Maintenance Mode</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Notification Settings */}
-          {activeTab === 'notifications' && (
-            <div className="mt-8 max-w-3xl">
-              <div className="space-y-6">
-                {Object.entries(notificationSettings).map(([key, value]) => (
-                  <div key={key} className="flex items-center">
-                    <button
-                      type="button"
-                      onClick={() => handleNotificationSettingChange(key as keyof NotificationSettings, !value)}
-                      className={`${
-                        value ? 'bg-primary' : 'bg-gray-200'
-                      } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2`}
-                    >
-                      <span
-                        className={`${
-                          value ? 'translate-x-5' : 'translate-x-0'
-                        } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
-                      />
-                    </button>
-                    <span className="ml-3 text-sm font-medium text-gray-700">
-                      {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Security Settings */}
-          {activeTab === 'security' && (
-            <div className="mt-8 max-w-3xl">
-              <div className="space-y-6">
-                <div className="flex items-center">
-                  <button
-                    type="button"
-                    onClick={() => handleSecuritySettingChange('requireTwoFactor', !securitySettings.requireTwoFactor)}
-                    className={`${
-                      securitySettings.requireTwoFactor ? 'bg-primary' : 'bg-gray-200'
-                    } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2`}
-                  >
-                    <span
-                      className={`${
-                        securitySettings.requireTwoFactor ? 'translate-x-5' : 'translate-x-0'
-                      } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
-                    />
-                  </button>
-                  <span className="ml-3 text-sm font-medium text-gray-700">Require Two-Factor Authentication</span>
-                </div>
-
-                <div>
-                  <label htmlFor="passwordExpiry" className="block text-sm font-medium text-gray-700">
-                    Password Expiry (days)
-                  </label>
-                  <input
-                    type="number"
-                    name="passwordExpiry"
-                    id="passwordExpiry"
-                    value={securitySettings.passwordExpiryDays}
-                    onChange={(e) => handleSecuritySettingChange('passwordExpiryDays', parseInt(e.target.value))}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="sessionTimeout" className="block text-sm font-medium text-gray-700">
-                    Session Timeout (minutes)
-                  </label>
-                  <input
-                    type="number"
-                    name="sessionTimeout"
-                    id="sessionTimeout"
-                    value={securitySettings.sessionTimeout}
-                    onChange={(e) => handleSecuritySettingChange('sessionTimeout', parseInt(e.target.value))}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="maxLoginAttempts" className="block text-sm font-medium text-gray-700">
-                    Maximum Login Attempts
-                  </label>
-                  <input
-                    type="number"
-                    name="maxLoginAttempts"
-                    id="maxLoginAttempts"
-                    value={securitySettings.maxLoginAttempts}
-                    onChange={(e) => handleSecuritySettingChange('maxLoginAttempts', parseInt(e.target.value))}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* System Monitoring and Features */}
-          {activeTab === 'system' && (
-            <div className="mt-8 max-w-6xl">
-              {/* System Monitoring */}
-              <div className="mb-8">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">System Monitoring</h3>
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {/* CPU Stats */}
-                  <div className="bg-white overflow-hidden shadow rounded-lg">
-                    <div className="p-5">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0">
-                          <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                          </svg>
-                        </div>
-                        <div className="ml-5 w-0 flex-1">
-                          <dl>
-                            <dt className="text-sm font-medium text-gray-500 truncate">CPU Usage</dt>
-                            <dd className="flex items-baseline">
-                              <div className="flex items-center text-2xl font-semibold text-gray-900">
-                                {systemMonitoring.cpu.usage}%
-                              </div>
-                            </dd>
-                          </dl>
-                          <div className="text-sm text-gray-500 mt-2">
-                            {systemMonitoring.cpu.cores} Cores • {systemMonitoring.cpu.temperature}°C
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Memory Stats */}
-                  <div className="bg-white overflow-hidden shadow rounded-lg">
-                    <div className="p-5">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0">
-                          <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                        </div>
-                        <div className="ml-5 w-0 flex-1">
-                          <dl>
-                            <dt className="text-sm font-medium text-gray-500 truncate">Memory Usage</dt>
-                            <dd className="flex items-baseline">
-                              <div className="flex items-center text-2xl font-semibold text-gray-900">
-                                {formatBytes(systemMonitoring.memory.used)} / {formatBytes(systemMonitoring.memory.total)}
-                              </div>
-                            </dd>
-                          </dl>
-                          <div className="text-sm text-gray-500 mt-2">
-                            {formatBytes(systemMonitoring.memory.free)} Available
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Storage Stats */}
-                  <div className="bg-white overflow-hidden shadow rounded-lg">
-                    <div className="p-5">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0">
-                          <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                          </svg>
-                        </div>
-                        <div className="ml-5 w-0 flex-1">
-                          <dl>
-                            <dt className="text-sm font-medium text-gray-500 truncate">Storage</dt>
-                            <dd className="flex items-baseline">
-                              <div className="flex items-center text-2xl font-semibold text-gray-900">
-                                {formatBytes(systemMonitoring.storage.used)} / {formatBytes(systemMonitoring.storage.total)}
-                              </div>
-                            </dd>
-                          </dl>
-                          <div className="text-sm text-gray-500 mt-2">
-                            {formatBytes(systemMonitoring.storage.free)} Available
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* System Info */}
-                  <div className="bg-white overflow-hidden shadow rounded-lg">
-                    <div className="p-5">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0">
-                          <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                        <div className="ml-5 w-0 flex-1">
-                          <dl>
-                            <dt className="text-sm font-medium text-gray-500 truncate">System Uptime</dt>
-                            <dd className="flex items-baseline">
-                              <div className="flex items-center text-2xl font-semibold text-gray-900">
-                                {formatUptime(systemMonitoring.uptime)}
-                              </div>
-                            </dd>
-                          </dl>
-                          <div className="text-sm text-gray-500 mt-2">
-                            Last Backup: {new Date(systemMonitoring.lastBackup).toLocaleString()}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Active Users */}
-                  <div className="bg-white overflow-hidden shadow rounded-lg">
-                    <div className="p-5">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0">
-                          <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                          </svg>
-                        </div>
-                        <div className="ml-5 w-0 flex-1">
-                          <dl>
-                            <dt className="text-sm font-medium text-gray-500 truncate">Active Users</dt>
-                            <dd className="flex items-baseline">
-                              <div className="flex items-center text-2xl font-semibold text-gray-900">
-                                {systemMonitoring.activeUsers}
-                              </div>
-                            </dd>
-                          </dl>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Feature Flags */}
-              <div className="mb-8">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Feature Toggles</h3>
-                <div className="bg-white shadow rounded-lg divide-y divide-gray-200">
-                  {Object.entries(featureFlags).map(([key, value]) => (
-                    <div key={key} className="p-4 flex items-center justify-between">
-                      <div>
-                        <h4 className="text-base font-medium text-gray-900">
-                          {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                        </h4>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleFeatureFlagChange(key as keyof FeatureFlags)}
-                        className={`${value ? 'bg-primary' : 'bg-gray-200'} 
-                          relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 
-                          border-transparent transition-colors duration-200 ease-in-out focus:outline-none 
-                          focus:ring-2 focus:ring-primary focus:ring-offset-2`}
-                      >
-                        <span
-                          className={`${value ? 'translate-x-5' : 'translate-x-0'}
-                            pointer-events-none inline-block h-5 w-5 transform rounded-full 
-                            bg-white shadow ring-0 transition duration-200 ease-in-out`}
-                        />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Resource Limits */}
-              <div className="mb-8">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Resource Limits</h3>
-                <div className="bg-white shadow rounded-lg p-6 space-y-6">
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Max File Upload Size (MB)</label>
-                      <input
-                        type="number"
-                        value={resourceLimits.maxFileUploadSize}
-                        onChange={(e) => handleResourceLimitChange('maxFileUploadSize', parseInt(e.target.value))}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Storage per User (MB)</label>
-                      <input
-                        type="number"
-                        value={resourceLimits.maxStoragePerUser}
-                        onChange={(e) => handleResourceLimitChange('maxStoragePerUser', parseInt(e.target.value))}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Max Concurrent Users</label>
-                      <input
-                        type="number"
-                        value={resourceLimits.maxConcurrentUsers}
-                        onChange={(e) => handleResourceLimitChange('maxConcurrentUsers', parseInt(e.target.value))}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Max Video Length (minutes)</label>
-                      <input
-                        type="number"
-                        value={resourceLimits.maxVideoLength}
-                        onChange={(e) => handleResourceLimitChange('maxVideoLength', parseInt(e.target.value))}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Bandwidth per User (Mbps)</label>
-                      <input
-                        type="number"
-                        value={resourceLimits.maxBandwidthPerUser}
-                        onChange={(e) => handleResourceLimitChange('maxBandwidthPerUser', parseInt(e.target.value))}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Classes per Teacher</label>
-                      <input
-                        type="number"
-                        value={resourceLimits.maxClassesPerTeacher}
-                        onChange={(e) => handleResourceLimitChange('maxClassesPerTeacher', parseInt(e.target.value))}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Save Button */}
-          <div className="mt-8 flex justify-end">
-            <button
-              type="button"
-              className="inline-flex items-center justify-center rounded-md border border-transparent bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-            >
-              Save Changes
-            </button>
+          <div className="text-sm text-gray-600">
+            Logged in as: {user.firstName} {user.lastName}
           </div>
         </div>
+
+        {systemSettings.maintenanceMode && (
+          <Alert className="bg-amber-50 border-amber-200 mb-6">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertTitle className="text-amber-600">Maintenance Mode Enabled</AlertTitle>
+            <AlertDescription className="text-amber-700">
+              The system is currently in maintenance mode. Only administrators can access the platform.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {/* System Status Card */}
+          <div className="md:col-span-1">
+            <SystemStatusCard 
+              cpuUsage={systemMetrics.cpuUsage}
+              memoryUsage={systemMetrics.memoryUsage}
+              diskUsage={systemMetrics.diskUsage}
+              activeUsers={systemMetrics.activeUsers}
+              uptime={systemMetrics.uptime}
+              lastBackup={systemMetrics.lastBackup}
+              databaseSize={systemMetrics.databaseSize}
+              onBackupClick={() => setShowBackupDialog(true)}
+            />
+          </div>
+          
+          {/* Main Settings Tabs */}
+          <div className="md:col-span-3">
+            <Card>
+              <CardHeader>
+                <CardTitle>Configuration Settings</CardTitle>
+                <CardDescription>Manage system-wide configurations and preferences</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  <TabsList className="mb-4 grid grid-cols-6 gap-2">
+                    {tabs.map((tab) => (
+                      <TabsTrigger key={tab.id} value={tab.id}>{tab.name}</TabsTrigger>
+                    ))}
+                  </TabsList>
+                  
+                  {/* General Settings Tab */}
+                  <TabsContent value="general">
+                    <GeneralSettingsTab 
+                      systemSettings={systemSettings}
+                      handleSystemSettingChange={handleSystemSettingChange}
+                      languagePreference={languagePreference}
+                      setLanguagePreference={setLanguagePreference}
+                      theme={theme}
+                      setTheme={setTheme}
+                    />
+                  </TabsContent>
+                  
+                  {/* Notifications Tab */}
+                  <TabsContent value="notifications">
+                    <NotificationsTab 
+                      notificationSettings={notificationSettings}
+                      handleNotificationSettingChange={handleNotificationSettingChange}
+                      smsNotifications={smsNotifications}
+                      setSmsNotifications={setSmsNotifications}
+                    />
+                  </TabsContent>
+                  
+                  {/* Security Tab */}
+                  <TabsContent value="security">
+                    <SecuritySettingsTab 
+                      securitySettings={securitySettings}
+                      handleSecuritySettingChange={handleSecuritySettingChange}
+                      enableRegistration={enableRegistration}
+                      setEnableRegistration={setEnableRegistration}
+                    />
+                  </TabsContent>
+                  
+                  {/* Integrations Tab */}
+                  <TabsContent value="integrations" className="space-y-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <p className="font-medium">Google Workspace</p>
+                          <div className="text-sm text-muted-foreground">
+                            Integration with Google services
+                          </div>
+                        </div>
+                        <Button variant="outline">Configure</Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <p className="font-medium">Microsoft 365</p>
+                          <div className="text-sm text-muted-foreground">
+                            Integration with Microsoft services
+                          </div>
+                        </div>
+                        <Button variant="outline">Configure</Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <p className="font-medium">Payment Gateway</p>
+                          <div className="text-sm text-muted-foreground">
+                            Online payment processing integration
+                          </div>
+                        </div>
+                        <Button variant="outline">Configure</Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <p className="font-medium">Learning Management System</p>
+                          <div className="text-sm text-muted-foreground">
+                            Integration with external LMS
+                          </div>
+                        </div>
+                        <Button variant="outline">Configure</Button>
+                      </div>
+                    </div>
+                  </TabsContent>
+                  
+                  {/* System Tab */}
+                  <TabsContent value="system">
+                    <SystemSettingsTab 
+                      featureFlags={featureFlags}
+                      handleFeatureFlagChange={handleFeatureFlagChange}
+                      resourceLimits={resourceLimits}
+                      handleResourceLimitChange={handleResourceLimitChange}
+                    />
+                  </TabsContent>
+                  
+                  {/* Advanced Tab */}
+                  <TabsContent value="advanced" className="space-y-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <p className="font-medium">Automated Backups</p>
+                          <div className="text-sm text-muted-foreground">
+                            Schedule regular system backups
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button 
+                            variant={dataBackup ? "default" : "outline"}
+                            onClick={() => setDataBackup(true)}
+                          >
+                            Enabled
+                          </Button>
+                          <Button 
+                            variant={!dataBackup ? "default" : "outline"}
+                            onClick={() => setDataBackup(false)}
+                          >
+                            Disabled
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between mt-4">
+                        <div className="space-y-0.5">
+                          <p className="font-medium text-red-600">Reset System Settings</p>
+                          <div className="text-sm text-red-500">
+                            Reset all settings to default values
+                          </div>
+                        </div>
+                        <Button variant="destructive" size="sm" onClick={() => setShowResetDialog(true)}>
+                          Reset to Default
+                        </Button>
+                      </div>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+              <CardFooter className="flex justify-between">
+                <Button variant="outline">
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Reset Changes
+                </Button>
+                <Button onClick={handleSaveSettings} disabled={isSaving}>
+                  {isSaving ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+        </div>
+
+        {/* Dialogs */}
+        <BackupDialog 
+          open={showBackupDialog} 
+          onOpenChange={setShowBackupDialog} 
+          onBackup={handleBackup} 
+        />
+        
+        <ResetSettingsDialog 
+          open={showResetDialog} 
+          onOpenChange={setShowResetDialog} 
+          onReset={handleReset} 
+        />
       </div>
     </DashboardLayout>
   )
 }
+
+export default SettingsPage

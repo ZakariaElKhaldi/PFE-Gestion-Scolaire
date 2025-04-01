@@ -150,6 +150,88 @@ class UserController {
       });
     }
   }
+
+  /**
+   * Get user profile
+   */
+  async getProfile(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({
+          error: true,
+          message: 'Unauthorized',
+        });
+      }
+      
+      const user = await userService.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({
+          error: true,
+          message: 'User not found',
+        });
+      }
+      
+      res.status(200).json({
+        error: false,
+        data: { user },
+        message: 'Profile retrieved successfully',
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        error: true,
+        message: error.message || 'Failed to retrieve profile',
+      });
+    }
+  }
+
+  /**
+   * Update user profile
+   */
+  async updateProfile(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({
+          error: true,
+          message: 'Unauthorized',
+        });
+      }
+      
+      // Only allow certain fields to be updated via profile
+      const { firstName, lastName, phoneNumber, bio } = req.body;
+      
+      const profileData = {
+        firstName,
+        lastName,
+        phoneNumber,
+        bio
+      };
+      
+      const user = await userService.updateUser(userId, profileData);
+      
+      if (!user) {
+        return res.status(404).json({
+          error: true,
+          message: 'User not found or could not be updated',
+        });
+      }
+      
+      res.status(200).json({
+        error: false,
+        data: { user },
+        message: 'Profile updated successfully',
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        error: true,
+        message: error.message || 'Failed to update profile',
+      });
+    }
+  }
 }
 
 export const userController = new UserController(); 

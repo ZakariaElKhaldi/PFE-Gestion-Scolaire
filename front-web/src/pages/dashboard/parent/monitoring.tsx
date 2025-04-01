@@ -1,340 +1,543 @@
-import { DashboardLayout } from '../../../components/dashboard/layout/dashboard-layout';
-import { StudentMonitoring } from '../../../components/dashboard/parent/student-monitoring';
-import { UserResponse } from '../../../types/auth';
-import { useState } from "react";
-import { Calendar as CalendarIcon, Search, Download, Clock, CheckCircle, XCircle, BookOpen, GraduationCap, FileText } from "lucide-react";
-import { format } from "date-fns";
+import { useState, useEffect } from 'react';
+import { ParentLayout } from '../../../components/dashboard/layout/parent-layout';
+import { User } from '../../../types/auth';
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle 
+} from '../../../components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../../components/ui/select';
+import { Button } from '../../../components/ui/button';
+import { Progress } from '../../../components/ui/progress';
+import { Badge } from '../../../components/ui/badge';
+import { toast } from 'react-hot-toast';
+import { 
+  GraduationCap, 
+  Calendar, 
+  Book, 
+  Clock, 
+  LineChart, 
+  Bell, 
+  CheckCircle2,
+  XCircle,
+  AlertCircle
+} from 'lucide-react';
+import { parentService } from '../../../services/parent-service';
 
 interface ParentMonitoringPageProps {
-  user: UserResponse;
+  user: User;
 }
 
-interface Student {
+interface Child {
   id: string;
   name: string;
   grade: string;
-  attendanceRate: number;
-  currentGPA: number;
-  totalAssignments: number;
-  completedAssignments: number;
+  profileImage?: string;
 }
 
-interface AttendanceRecord {
-  id: string;
-  date: string;
+interface CourseProgress {
   courseId: string;
   courseName: string;
-  status: "present" | "absent" | "late" | "excused";
-  timeIn?: string;
-  timeOut?: string;
-  notes?: string;
+  progress: number;
+  grade: string | number;
+  lastActivity: string;
+  teacher: string;
 }
 
-/**
- * Safely parse a date string and return a formatted string
- * If the date is invalid, returns today's date in YYYY-MM-DD format
- */
-function safeParseDate(dateString: string): string {
-  try {
-    const date = new Date(dateString);
-    
-    // Check if date is valid
-    if (isNaN(date.getTime())) {
-      console.warn('Invalid date encountered:', dateString);
-      return format(new Date(), 'yyyy-MM-dd');
-    }
-    
-    return format(date, 'yyyy-MM-dd');
-  } catch (error) {
-    console.error('Error parsing date:', error);
-    return format(new Date(), 'yyyy-MM-dd');
-  }
+interface RecentActivity {
+  id: string;
+  type: 'assignment' | 'attendance' | 'grade' | 'behavior' | 'payment';
+  title: string;
+  description: string;
+  timestamp: string;
+  status?: 'positive' | 'negative' | 'neutral';
 }
 
-// Mock data for demonstration
-const mockStudentData = [
-  {
-    id: 'student1',
-    name: 'Emma Johnson',
-    class: 'Grade 10-A',
-    grades: [
-      { subject: 'Mathematics', grade: 85, date: '2025-02-15', teacher: 'Mr. Smith' },
-      { subject: 'Science', grade: 92, date: '2025-02-10', teacher: 'Mrs. Davis' },
-      { subject: 'History', grade: 78, date: '2025-02-05', teacher: 'Mr. Wilson' },
-      { subject: 'English', grade: 88, date: '2025-01-28', teacher: 'Ms. Brown' },
-      { subject: 'Computer Science', grade: 95, date: '2025-01-20', teacher: 'Mr. Taylor' },
-    ],
-    attendance: [
-      { date: '2025-02-20', status: 'present' as const, subject: 'All Day' },
-      { date: '2025-02-19', status: 'present' as const, subject: 'All Day' },
-      { date: '2025-02-18', status: 'late' as const, subject: 'Morning Session' },
-      { date: '2025-02-17', status: 'present' as const, subject: 'All Day' },
-      { date: '2025-02-16', status: 'absent' as const, subject: 'All Day' },
-    ],
-    assignments: [
-      { title: 'Math Problem Set', subject: 'Mathematics', dueDate: '2025-03-01', status: 'pending' as const },
-      { title: 'Science Lab Report', subject: 'Science', dueDate: '2025-02-25', status: 'completed' as const },
-      { title: 'History Essay', subject: 'History', dueDate: '2025-02-20', status: 'completed' as const },
-      { title: 'English Book Review', subject: 'English', dueDate: '2025-02-15', status: 'completed' as const },
-      { title: 'Programming Project', subject: 'Computer Science', dueDate: '2025-03-10', status: 'pending' as const },
-    ],
-  },
-  {
-    id: 'student2',
-    name: 'Alex Johnson',
-    class: 'Grade 8-B',
-    grades: [
-      { subject: 'Mathematics', grade: 75, date: '2025-02-15', teacher: 'Mrs. Clark' },
-      { subject: 'Science', grade: 82, date: '2025-02-10', teacher: 'Mr. Lewis' },
-      { subject: 'History', grade: 88, date: '2025-02-05', teacher: 'Ms. Anderson' },
-      { subject: 'English', grade: 79, date: '2025-01-28', teacher: 'Mr. Roberts' },
-      { subject: 'Art', grade: 95, date: '2025-01-20', teacher: 'Ms. White' },
-    ],
-    attendance: [
-      { date: '2025-02-20', status: 'present' as const, subject: 'All Day' },
-      { date: '2025-02-19', status: 'present' as const, subject: 'All Day' },
-      { date: '2025-02-18', status: 'present' as const, subject: 'All Day' },
-      { date: '2025-02-17', status: 'absent' as const, subject: 'All Day' },
-      { date: '2025-02-16', status: 'absent' as const, subject: 'All Day' },
-    ],
-    assignments: [
-      { title: 'Math Worksheet', subject: 'Mathematics', dueDate: '2025-03-01', status: 'pending' as const },
-      { title: 'Science Experiment', subject: 'Science', dueDate: '2025-02-25', status: 'pending' as const },
-      { title: 'History Timeline', subject: 'History', dueDate: '2025-02-20', status: 'completed' as const },
-      { title: 'Grammar Exercises', subject: 'English', dueDate: '2025-02-15', status: 'completed' as const },
-      { title: 'Art Portfolio', subject: 'Art', dueDate: '2025-03-10', status: 'overdue' as const },
-    ],
-  },
-];
+interface UpcomingEvent {
+  id: string;
+  title: string;
+  date: string;
+  type: 'exam' | 'assignment' | 'event' | 'holiday';
+}
 
-const students: Student[] = [
-  {
-    id: "s1",
-    name: "John Smith",
-    grade: "10th Grade",
-    attendanceRate: 95,
-    currentGPA: 3.8,
-    totalAssignments: 45,
-    completedAssignments: 42
-  },
-  {
-    id: "s2",
-    name: "Emma Johnson",
-    grade: "8th Grade",
-    attendanceRate: 92,
-    currentGPA: 3.6,
-    totalAssignments: 38,
-    completedAssignments: 35
-  }
-];
-
-const attendanceRecords: AttendanceRecord[] = [
-  {
-    id: "a1",
-    date: "2025-03-07",
-    courseId: "c1",
-    courseName: "Mathematics 101",
-    status: "present",
-    timeIn: "08:00",
-    timeOut: "09:30"
-  },
-  {
-    id: "a2",
-    date: "2025-03-07",
-    courseId: "c2",
-    courseName: "Physics 201",
-    status: "late",
-    timeIn: "10:15",
-    timeOut: "11:45",
-    notes: "Late due to doctor's appointment"
-  }
-];
-
-const getStatusColor = (status: AttendanceRecord["status"]) => {
-  switch (status) {
-    case "present":
-      return "text-green-600 bg-green-100";
-    case "absent":
-      return "text-red-600 bg-red-100";
-    case "late":
-      return "text-yellow-600 bg-yellow-100";
-    case "excused":
-      return "text-blue-600 bg-blue-100";
-    default:
-      return "text-gray-600 bg-gray-100";
-  }
-};
-
-const getStatusIcon = (status: AttendanceRecord["status"]) => {
-  switch (status) {
-    case "present":
-      return <CheckCircle className="h-5 w-5" />;
-    case "absent":
-      return <XCircle className="h-5 w-5" />;
-    case "late":
-      return <Clock className="h-5 w-5" />;
-    case "excused":
-      return <CalendarIcon className="h-5 w-5" />;
-    default:
-      return <CalendarIcon className="h-5 w-5" />;
-  }
-};
+interface ChildMonitoringData {
+  child: Child;
+  attendance: {
+    present: number;
+    absent: number;
+    late: number;
+    excused: number;
+    total: number;
+  };
+  courseProgress: CourseProgress[];
+  recentActivities: RecentActivity[];
+  upcomingEvents: UpcomingEvent[];
+  performanceTrend: {
+    subject: string;
+    currentGrade: number;
+    previousGrade: number;
+    changeDirection: 'up' | 'down' | 'stable';
+  }[];
+}
 
 export function ParentMonitoringPage({ user }: ParentMonitoringPageProps) {
-  const [selectedStudent, setSelectedStudent] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedChild, setSelectedChild] = useState<string>('');
+  const [children, setChildren] = useState<Child[]>([]);
+  const [monitoringData, setMonitoringData] = useState<ChildMonitoringData | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const handleDownloadReport = (studentId: string, reportType: string) => {
-    // In a real application, this would generate a PDF or other report format
-    console.log(`Downloading ${reportType} report for student ${studentId}`);
-    alert(`Report for ${mockStudentData.find(s => s.id === studentId)?.name} has been downloaded.`);
+  // Fetch children list on component mount
+  useEffect(() => {
+    const fetchChildren = async () => {
+      try {
+        const childrenData = await parentService.getChildren();
+        setChildren(childrenData);
+        // Select first child by default if available
+        if (childrenData.length > 0) {
+          setSelectedChild(childrenData[0].id);
+        }
+      } catch (error) {
+        console.error('Failed to fetch children:', error);
+        toast.error('Failed to load children data');
+      }
+    };
+
+    fetchChildren();
+  }, []);
+
+  // Fetch monitoring data for selected child
+  useEffect(() => {
+    if (!selectedChild) return;
+
+    const fetchMonitoringData = async () => {
+      setLoading(true);
+      try {
+        const data = await parentService.getChildMonitoringData(selectedChild);
+        setMonitoringData(data);
+      } catch (error) {
+        console.error('Failed to fetch monitoring data:', error);
+        toast.error('Failed to load monitoring data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMonitoringData();
+  }, [selectedChild]);
+
+  const handleChildChange = (childId: string) => {
+    setSelectedChild(childId);
   };
 
+  const getStatusIcon = (status?: string) => {
+    if (status === 'positive') return <CheckCircle2 className="h-5 w-5 text-green-500" />;
+    if (status === 'negative') return <XCircle className="h-5 w-5 text-red-500" />;
+    return <AlertCircle className="h-5 w-5 text-yellow-500" />;
+  };
+
+  const getEventIcon = (type: string) => {
+    switch (type) {
+      case 'exam':
+        return <Book className="h-5 w-5 text-red-500" />;
+      case 'assignment':
+        return <GraduationCap className="h-5 w-5 text-blue-500" />;
+      case 'event':
+        return <Calendar className="h-5 w-5 text-purple-500" />;
+      case 'holiday':
+        return <Bell className="h-5 w-5 text-green-500" />;
+    default:
+        return <Calendar className="h-5 w-5 text-gray-500" />;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  if (loading && !monitoringData) {
+    return (
+      <ParentLayout user={user}>
+        <div className="p-6 flex justify-center items-center min-h-[80vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      </ParentLayout>
+    );
+  }
+
   return (
-    <DashboardLayout user={user}>
+    <ParentLayout user={user}>
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Student Monitoring</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Monitor your children's academic progress and attendance
-            </p>
+            <p className="text-sm text-gray-500">Track your child's academic progress and activities</p>
           </div>
-          <button
-            onClick={() => handleDownloadReport('student1', 'progress')}
-            className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            <Download className="h-4 w-4" />
-            Download Report
-          </button>
-        </div>
-
-        {/* Student Selector */}
-        <div className="flex gap-4">
-          <select
-            className="rounded-lg border border-gray-300 py-2 px-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            value={selectedStudent}
-            onChange={(e) => setSelectedStudent(e.target.value)}
-          >
-            <option value="all">All Students</option>
-            {students.map(student => (
-              <option key={student.id} value={student.id}>{student.name}</option>
-            ))}
-          </select>
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search records..."
-                className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+          <div className="w-64">
+            <Select value={selectedChild} onValueChange={handleChildChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a child" />
+              </SelectTrigger>
+              <SelectContent>
+                {children.map((child) => (
+                  <SelectItem key={child.id} value={child.id}>
+                    {child.name} - {child.grade}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        {/* Student Cards */}
-        <div className="grid gap-6 md:grid-cols-2">
-          {students.map(student => (
-            <div key={student.id} className="rounded-lg border bg-white p-6">
-              <div className="flex items-center justify-between mb-4">
+        {monitoringData && (
+          <Tabs defaultValue="overview">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="academics">Academics</TabsTrigger>
+              <TabsTrigger value="attendance">Attendance</TabsTrigger>
+              <TabsTrigger value="activities">Activities</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="overview" className="space-y-6 mt-6">
+              {/* Student Info Card */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle>Student Information</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-4">
+                    <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
+                      {monitoringData.child.profileImage ? (
+                        <img 
+                          src={monitoringData.child.profileImage} 
+                          alt={monitoringData.child.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <GraduationCap className="h-8 w-8 text-gray-400" />
+                      )}
+                    </div>
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">{student.name}</h2>
-                  <p className="text-sm text-gray-500">{student.grade}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`rounded-full px-3 py-1 text-sm font-medium ${
-                    student.attendanceRate >= 90 ? "bg-green-100 text-green-600" :
-                    student.attendanceRate >= 80 ? "bg-yellow-100 text-yellow-600" :
-                    "bg-red-100 text-red-600"
-                  }`}>
-                    {student.attendanceRate}% Attendance
-                  </span>
+                      <h3 className="text-lg font-semibold">{monitoringData.child.name}</h3>
+                      <p className="text-sm text-gray-500">{monitoringData.child.grade}</p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <Badge variant="outline">Student ID: {monitoringData.child.id}</Badge>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="rounded-lg bg-blue-100 p-2">
-                    <GraduationCap className="h-5 w-5 text-blue-600" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Quick Stats */}
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {Math.round((monitoringData.attendance.present / monitoringData.attendance.total) * 100)}%
+                    </div>
+                    <Progress 
+                      value={(monitoringData.attendance.present / monitoringData.attendance.total) * 100} 
+                      className="h-2 mt-2"
+                    />
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Average Grade</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {monitoringData.courseProgress.reduce((sum, course) => sum + Number(course.grade), 0) / 
+                        monitoringData.courseProgress.length}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      Across all courses
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Upcoming Tests</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {monitoringData.upcomingEvents.filter(event => event.type === 'exam').length}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      In the next 30 days
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Course Completion</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {Math.round(monitoringData.courseProgress.reduce((sum, course) => sum + course.progress, 0) / 
+                        monitoringData.courseProgress.length)}%
+                    </div>
+                    <Progress 
+                      value={monitoringData.courseProgress.reduce((sum, course) => sum + course.progress, 0) / 
+                        monitoringData.courseProgress.length} 
+                      className="h-2 mt-2"
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Recent Activities */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Activities</CardTitle>
+                  <CardDescription>Latest updates on your child's academic journey</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {monitoringData.recentActivities.slice(0, 5).map((activity) => (
+                      <div key={activity.id} className="flex items-start gap-4 border-b pb-4 last:border-0">
+                        <div className="mt-1">{getStatusIcon(activity.status)}</div>
+                  <div>
+                          <h4 className="font-medium">{activity.title}</h4>
+                          <p className="text-sm text-gray-500">{activity.description}</p>
+                          <div className="text-xs text-gray-400 mt-1">{formatDate(activity.timestamp)}</div>
+                  </div>
+                </div>
+                    ))}
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button variant="outline" className="w-full">View All Activities</Button>
+                </CardFooter>
+              </Card>
+
+              {/* Upcoming Events */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Upcoming Events</CardTitle>
+                  <CardDescription>Important dates and deadlines</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {monitoringData.upcomingEvents.slice(0, 4).map((event) => (
+                      <div key={event.id} className="flex items-start gap-4">
+                        <div className="rounded-md bg-gray-50 p-2">
+                          {getEventIcon(event.type)}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-500">GPA</p>
-                    <p className="text-lg font-semibold text-gray-900">{student.currentGPA}</p>
+                          <h4 className="font-medium">{event.title}</h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Clock className="h-4 w-4 text-gray-400" />
+                            <span className="text-sm text-gray-500">{formatDate(event.date)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button variant="outline" className="w-full">View Full Calendar</Button>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="academics" className="space-y-6 mt-6">
+              {/* Course Progress */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Course Progress</CardTitle>
+                  <CardDescription>Current performance in all subjects</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {monitoringData.courseProgress.map((course) => (
+                      <div key={course.courseId} className="space-y-2">
+                        <div className="flex justify-between">
+                          <div>
+                            <h4 className="font-medium">{course.courseName}</h4>
+                            <p className="text-sm text-gray-500">Teacher: {course.teacher}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-lg font-bold">{course.grade}</span>
+                            <p className="text-xs text-gray-500">Current Grade</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="rounded-lg bg-purple-100 p-2">
-                    <BookOpen className="h-5 w-5 text-purple-600" />
+                          <Progress value={course.progress} className="h-2 flex-grow" />
+                          <span className="text-sm font-medium">{course.progress}%</span>
+                        </div>
+                        <p className="text-xs text-gray-500">Last activity: {formatDate(course.lastActivity)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Performance Trend */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Performance Trend</CardTitle>
+                  <CardDescription>Grade changes compared to previous period</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {monitoringData.performanceTrend.map((trend, index) => (
+                      <div key={index} className="flex items-center justify-between border-b pb-3 last:border-0">
+                        <div>
+                          <h4 className="font-medium">{trend.subject}</h4>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <div className="text-sm text-gray-500">Previous: {trend.previousGrade}</div>
+                            <div className="font-bold">Current: {trend.currentGrade}</div>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Courses</p>
-                    <p className="text-lg font-semibold text-gray-900">6</p>
+                            {trend.changeDirection === 'up' && (
+                              <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
+                                <LineChart className="h-4 w-4 text-green-600" />
+                              </div>
+                            )}
+                            {trend.changeDirection === 'down' && (
+                              <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center">
+                                <LineChart className="h-4 w-4 text-red-600" />
+                              </div>
+                            )}
+                            {trend.changeDirection === 'stable' && (
+                              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                <LineChart className="h-4 w-4 text-blue-600" />
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="rounded-lg bg-orange-100 p-2">
-                    <FileText className="h-5 w-5 text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Assignments</p>
-                    <p className="text-lg font-semibold text-gray-900">
-                      {student.completedAssignments}/{student.totalAssignments}
-                    </p>
-                  </div>
+                            )}
                 </div>
               </div>
             </div>
           ))}
         </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-        {/* Today's Attendance */}
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Today's Attendance</h2>
-          <div className="space-y-4">
-            {attendanceRecords.map((record) => (
-              <div key={record.id} className="rounded-lg border bg-white p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`rounded-lg p-3 ${getStatusColor(record.status)}`}>
-                      {getStatusIcon(record.status)}
+            <TabsContent value="attendance" className="space-y-6 mt-6">
+              {/* Attendance Summary Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Attendance Summary</CardTitle>
+                  <CardDescription>Overview of attendance records</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    <div className="rounded-lg border p-3 text-center">
+                      <div className="text-sm font-medium text-gray-500">Present</div>
+                      <div className="mt-1 text-2xl font-bold text-green-600">{monitoringData.attendance.present}</div>
+                      <div className="text-xs text-gray-500">days</div>
                     </div>
-                    <div>
-                      <h3 className="font-medium text-gray-900">{record.courseName}</h3>
-                      <div className="mt-1 flex items-center gap-4 text-sm text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <CalendarIcon className="h-4 w-4" />
-                          {format(new Date(record.date), "MMM d, yyyy")}
-                        </span>
-                        {record.timeIn && record.timeOut && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-4 w-4" />
-                            {record.timeIn} - {record.timeOut}
-                          </span>
-                        )}
+                    <div className="rounded-lg border p-3 text-center">
+                      <div className="text-sm font-medium text-gray-500">Absent</div>
+                      <div className="mt-1 text-2xl font-bold text-red-600">{monitoringData.attendance.absent}</div>
+                      <div className="text-xs text-gray-500">days</div>
+                    </div>
+                    <div className="rounded-lg border p-3 text-center">
+                      <div className="text-sm font-medium text-gray-500">Late</div>
+                      <div className="mt-1 text-2xl font-bold text-yellow-600">{monitoringData.attendance.late}</div>
+                      <div className="text-xs text-gray-500">days</div>
                       </div>
-                      {record.notes && (
-                        <p className="mt-1 text-sm text-gray-600">{record.notes}</p>
-                      )}
+                    <div className="rounded-lg border p-3 text-center">
+                      <div className="text-sm font-medium text-gray-500">Excused</div>
+                      <div className="mt-1 text-2xl font-bold text-blue-600">{monitoringData.attendance.excused}</div>
+                      <div className="text-xs text-gray-500">days</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`rounded-full px-3 py-1 text-sm font-medium ${getStatusColor(record.status)}`}>
-                      {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
-                    </span>
+
+                  <div className="mt-6">
+                    <h4 className="text-sm font-medium mb-3">Attendance Distribution</h4>
+                    <div className="h-8 w-full rounded-full overflow-hidden bg-gray-200 flex">
+                      <div 
+                        className="bg-green-500 h-full" 
+                        style={{ width: `${(monitoringData.attendance.present / monitoringData.attendance.total) * 100}%` }}
+                      ></div>
+                      <div 
+                        className="bg-yellow-500 h-full" 
+                        style={{ width: `${(monitoringData.attendance.late / monitoringData.attendance.total) * 100}%` }}
+                      ></div>
+                      <div 
+                        className="bg-blue-500 h-full" 
+                        style={{ width: `${(monitoringData.attendance.excused / monitoringData.attendance.total) * 100}%` }}
+                      ></div>
+                      <div 
+                        className="bg-red-500 h-full" 
+                        style={{ width: `${(monitoringData.attendance.absent / monitoringData.attendance.total) * 100}%` }}
+                      ></div>
+                    </div>
+                    <div className="flex justify-between mt-2 text-xs">
+                      <div className="flex items-center gap-1">
+                        <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                        <span>Present</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="h-3 w-3 rounded-full bg-yellow-500"></div>
+                        <span>Late</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="h-3 w-3 rounded-full bg-blue-500"></div>
+                        <span>Excused</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="h-3 w-3 rounded-full bg-red-500"></div>
+                        <span>Absent</span>
+                      </div>
+                    </div>
                   </div>
+                </CardContent>
+                <CardFooter>
+                  <Button variant="outline" className="w-full">Request Attendance Report</Button>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="activities" className="space-y-6 mt-6">
+              {/* All Activities */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>All Activities</CardTitle>
+                  <CardDescription>Comprehensive list of all student activities</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {monitoringData.recentActivities.map((activity) => (
+                      <div key={activity.id} className="flex items-start gap-4 border-b pb-4 last:border-0">
+                        <div className="mt-1">{getStatusIcon(activity.status)}</div>
+                        <div>
+                          <h4 className="font-medium">{activity.title}</h4>
+                          <p className="text-sm text-gray-500">{activity.description}</p>
+                          <div className="text-xs text-gray-400 mt-1">{formatDate(activity.timestamp)}</div>
                 </div>
               </div>
             ))}
           </div>
-        </div>
-
-        <StudentMonitoring 
-          students={mockStudentData}
-          onDownloadReport={handleDownloadReport}
-        />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
-    </DashboardLayout>
+    </ParentLayout>
   );
 }
+
+// Make sure we also export as default for compatibility
+export default ParentMonitoringPage;

@@ -15,6 +15,9 @@ export interface User {
   updatedAt: string;
   password: string; // Only used for database, never returned to client
   bio?: string;
+  emailVerified?: boolean; // Whether the user's email has been verified
+  accountLocked?: boolean; // Whether the account is locked due to suspicious activity
+  accountSuspended?: boolean; // Whether the account has been suspended by an admin
 }
 
 export interface UserResponse {
@@ -61,6 +64,7 @@ export interface JwtPayload {
   role: UserRole;
   firstName: string;
   lastName: string;
+  studentId?: string; // Optional student ID for student users
 }
 
 // Extend Express Request type to include user property

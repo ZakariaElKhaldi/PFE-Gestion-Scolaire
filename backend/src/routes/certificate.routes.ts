@@ -10,7 +10,7 @@ router.use(authenticate);
 // Student routes - for viewing their own certificates
 router.get('/student', authorize(['student']), (req: Request, res: Response, next: NextFunction) => {
   try {
-    certificateController.getStudentCertificates(req, res);
+    certificateController.getStudentCertificates(req, res, next);
   } catch (error) {
     next(error);
   }
@@ -18,7 +18,7 @@ router.get('/student', authorize(['student']), (req: Request, res: Response, nex
 
 router.get('/student/:id', authorize(['student']), (req: Request, res: Response, next: NextFunction) => {
   try {
-    certificateController.getCertificate(req, res);
+    certificateController.getCertificate(req, res, next);
   } catch (error) {
     next(error);
   }
@@ -26,7 +26,7 @@ router.get('/student/:id', authorize(['student']), (req: Request, res: Response,
 
 router.get('/download/:id', authorize(['student', 'administrator']), (req: Request, res: Response, next: NextFunction) => {
   try {
-    certificateController.downloadCertificate(req, res);
+    certificateController.downloadCertificate(req, res, next);
   } catch (error) {
     next(error);
   }
@@ -35,7 +35,7 @@ router.get('/download/:id', authorize(['student', 'administrator']), (req: Reque
 // Public verification route - no authentication required
 router.get('/verify/:verificationId', (req: Request, res: Response, next: NextFunction) => {
   try {
-    certificateController.verifyCertificate(req, res);
+    certificateController.verifyCertificate(req, res, next);
   } catch (error) {
     next(error);
   }
@@ -44,7 +44,7 @@ router.get('/verify/:verificationId', (req: Request, res: Response, next: NextFu
 // Admin routes - for managing certificates
 router.get('/admin/student/:studentId', authorize(['administrator']), (req: Request, res: Response, next: NextFunction) => {
   try {
-    certificateController.getStudentCertificatesById(req, res);
+    certificateController.getStudentCertificatesById(req, res, next);
   } catch (error) {
     next(error);
   }
@@ -52,7 +52,7 @@ router.get('/admin/student/:studentId', authorize(['administrator']), (req: Requ
 
 router.post('/admin', authorize(['administrator']), (req: Request, res: Response, next: NextFunction) => {
   try {
-    certificateController.createCertificate(req, res);
+    certificateController.createCertificate(req, res, next);
   } catch (error) {
     next(error);
   }
@@ -60,7 +60,7 @@ router.post('/admin', authorize(['administrator']), (req: Request, res: Response
 
 router.put('/admin/:id', authorize(['administrator']), (req: Request, res: Response, next: NextFunction) => {
   try {
-    certificateController.updateCertificate(req, res);
+    certificateController.updateCertificate(req, res, next);
   } catch (error) {
     next(error);
   }
@@ -68,7 +68,7 @@ router.put('/admin/:id', authorize(['administrator']), (req: Request, res: Respo
 
 router.delete('/admin/:id', authorize(['administrator']), (req: Request, res: Response, next: NextFunction) => {
   try {
-    certificateController.deleteCertificate(req, res);
+    certificateController.deleteCertificate(req, res, next);
   } catch (error) {
     next(error);
   }
@@ -77,7 +77,7 @@ router.delete('/admin/:id', authorize(['administrator']), (req: Request, res: Re
 // Course-related certificate generation
 router.post('/generate/course-completion', authorize(['administrator']), (req: Request, res: Response, next: NextFunction) => {
   try {
-    certificateController.generateCourseCompletionCertificate(req, res);
+    certificateController.generateCourseCompletionCertificate(req, res, next);
   } catch (error) {
     next(error);
   }

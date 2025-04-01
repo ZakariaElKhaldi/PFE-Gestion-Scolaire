@@ -90,12 +90,35 @@ const mockOfficeHours: OfficeHour[] = [
   }
 ];
 
+/**
+ * Sets up Socket.IO server and event handlers
+ * @param httpServer The HTTP server to attach Socket.IO to
+ * @returns The configured Socket.IO server instance
+ */
 export function setupSocketIO(httpServer: http.Server) {
   const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
     cors: {
-      origin: '*', // Allow all origins in development
-      methods: ['GET', 'POST']
-    }
+      origin: [
+        'http://localhost:5173',  // Vite development server
+        'http://localhost:3000',  // Alternate development port
+        'http://127.0.0.1:5173',  // Using IP instead of localhost
+        'http://127.0.0.1:3000'   // Alternate with IP
+      ],
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization']
+    },
+    // Adding transport and connection settings to ensure reliability
+    transports: ['websocket', 'polling'],
+    allowEIO3: true,
+    pingTimeout: 60000,
+    pingInterval: 25000
+  });
+
+  // Debug connection events
+  io.engine.on("connection_error", (err) => {
+    console.log("Connection error:", err.message);
+    console.log("Connection error details:", err.context);
   });
 
   io.on('connection', (socket) => {

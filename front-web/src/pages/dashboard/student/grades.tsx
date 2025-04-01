@@ -1,116 +1,38 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User } from '@/types/auth';
 import { StudentLayout } from '../../../components/dashboard/layout/student-layout';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { Download, TrendingUp, TrendingDown } from 'lucide-react';
+import { Download, TrendingUp, TrendingDown, Minus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { gradesService, CourseGrade, Grade } from '@/services/grades.service';
 
 interface StudentGradesProps {
   user: User;
 }
 
-interface GradeEntry {
-  id: string;
-  type: string;
-  score: number;
-  totalPoints: number;
-  date: string;
-  feedback?: string;
-}
-
-interface CourseGrades {
-  id: string;
-  name: string;
-  teacher: string;
-  currentGrade: number;
-  grades: GradeEntry[];
-  trend?: {
-    direction: 'up' | 'down' | 'stable';
-    value: number;
-  };
-}
-
 export default function StudentGrades({ user }: StudentGradesProps) {
-  // Mock data - replace with actual API call
-  const [courses] = useState<CourseGrades[]>([
-    {
-      id: '1',
-      name: 'Mathematics',
-      teacher: 'Mr. Anderson',
-      currentGrade: 88,
-      trend: { direction: 'up', value: 3.2 },
-      grades: [
-        {
-          id: '1',
-          type: 'Quiz',
-          score: 85,
-          totalPoints: 100,
-          date: '2024-01-15',
-          feedback: 'Good work on algebraic expressions'
-        },
-        {
-          id: '2',
-          type: 'Midterm Exam',
-          score: 92,
-          totalPoints: 100,
-          date: '2024-02-01',
-          feedback: 'Excellent understanding of calculus concepts'
-        },
-        {
-          id: '3',
-          type: 'Homework',
-          score: 88,
-          totalPoints: 100,
-          date: '2024-02-15',
-          feedback: 'Well-organized solutions'
-        }
-      ]
-    },
-    {
-      id: '2',
-      name: 'Physics',
-      teacher: 'Dr. Johnson',
-      currentGrade: 92,
-      trend: { direction: 'up', value: 2.5 },
-      grades: [
-        {
-          id: '4',
-          type: 'Lab Report',
-          score: 95,
-          totalPoints: 100,
-          date: '2024-01-20',
-          feedback: 'Excellent experimental analysis'
-        },
-        {
-          id: '5',
-          type: 'Quiz',
-          score: 88,
-          totalPoints: 100,
-          date: '2024-02-05',
-          feedback: 'Good understanding of mechanics'
-        }
-      ]
-    },
-    {
-      id: '3',
-      name: 'Literature',
-      teacher: 'Ms. Parker',
-      currentGrade: 85,
-      trend: { direction: 'down', value: 1.8 },
-      grades: [
-        {
-          id: '6',
-          type: 'Essay',
-          score: 85,
-          totalPoints: 100,
-          date: '2024-01-25',
-          feedback: 'Good analysis but needs more textual evidence'
-        }
-      ]
-    }
-  ]);
+  const [courses, setCourses] = useState<CourseGrade[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const fetchGrades = async () => {
+      try {
+        setLoading(true);
+        const courseGrades = await gradesService.getGradesByCourse();
+        setCourses(courseGrades);
+      } catch (err) {
+        console.error('Error fetching grades:', err);
+        setError('Failed to load grades. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchGrades();
+  }, []);
 
   const calculateGradeColor = (grade: number) => {
     if (grade >= 90) return 'text-green-600';
@@ -122,6 +44,48 @@ export default function StudentGrades({ user }: StudentGradesProps) {
   const calculateProgress = (score: number, total: number) => {
     return (score / total) * 100;
   };
+
+  if (loading) {
+    return (
+      <StudentLayout user={user}>
+        <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+            <p className="mt-2 text-gray-500">Loading your grades...</p>
+          </div>
+        </div>
+      </StudentLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <StudentLayout user={user}>
+        <div className="p-6">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+            <strong className="font-bold">Error!</strong>
+            <span className="block sm:inline"> {error}</span>
+          </div>
+        </div>
+      </StudentLayout>
+    );
+  }
+
+  if (courses.length === 0) {
+    return (
+      <StudentLayout user={user}>
+        <div className="p-6">
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="bg-gray-100 rounded-full p-4 mb-4">
+              <TrendingUp className="h-8 w-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900">No grades available</h3>
+            <p className="mt-1 text-gray-500">You don't have any graded assignments yet.</p>
+          </div>
+        </div>
+      </StudentLayout>
+    );
+  }
 
   return (
     <StudentLayout user={user}>
@@ -147,18 +111,24 @@ export default function StudentGrades({ user }: StudentGradesProps) {
                     <span className={`font-bold ${calculateGradeColor(course.currentGrade)}`}>
                       {course.currentGrade}%
                     </span>
-                    {course.trend && (
+                    {course.trend ? (
                       <div className={`flex items-center ${
-                        course.trend.direction === 'up' ? 'text-green-600' : 'text-red-600'
+                        course.trend.direction === 'up' 
+                          ? 'text-green-600' 
+                          : course.trend.direction === 'down' 
+                            ? 'text-red-600' 
+                            : 'text-gray-600'
                       }`}>
                         {course.trend.direction === 'up' ? (
                           <TrendingUp className="h-4 w-4" />
-                        ) : (
+                        ) : course.trend.direction === 'down' ? (
                           <TrendingDown className="h-4 w-4" />
+                        ) : (
+                          <Minus className="h-4 w-4" />
                         )}
-                        <span className="text-xs ml-1">{course.trend.value}%</span>
+                        <span className="text-xs ml-1">{course.trend.value > 0 ? course.trend.value : ''}%</span>
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 </div>
                 <p className="text-sm text-gray-500">{course.teacher}</p>
@@ -195,32 +165,40 @@ export default function StudentGrades({ user }: StudentGradesProps) {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b">
-                          <th className="text-left p-2 font-medium text-gray-500">Type</th>
+                          <th className="text-left p-2 font-medium text-gray-500">Assignment</th>
                           <th className="text-left p-2 font-medium text-gray-500">Score</th>
                           <th className="text-left p-2 font-medium text-gray-500">Date</th>
                           <th className="text-left p-2 font-medium text-gray-500">Progress</th>
-                          <th className="text-left p-2 font-medium text-gray-500">Feedback</th>
+                          <th className="text-left p-2 font-medium text-gray-500">Comments</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {course.grades.map((grade) => (
-                          <tr key={grade.id}>
-                            <td className="p-2">{grade.type}</td>
-                            <td className="p-2">
-                              <span className={calculateGradeColor((grade.score / grade.totalPoints) * 100)}>
-                                {grade.score}/{grade.totalPoints}
-                              </span>
+                        {course.grades.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="p-4 text-center text-gray-500">
+                              No grades available for this course yet.
                             </td>
-                            <td className="p-2">{new Date(grade.date).toLocaleDateString()}</td>
-                            <td className="p-2 w-32">
-                              <Progress 
-                                value={calculateProgress(grade.score, grade.totalPoints)} 
-                                className="h-2"
-                              />
-                            </td>
-                            <td className="p-2 text-sm text-gray-600">{grade.feedback}</td>
                           </tr>
-                        ))}
+                        ) : (
+                          course.grades.map((grade) => (
+                            <tr key={grade.id}>
+                              <td className="p-2 font-medium">{grade.assignmentTitle}</td>
+                              <td className="p-2">
+                                <span className={calculateGradeColor((grade.score / grade.totalPoints) * 100)}>
+                                  {grade.score}/{grade.totalPoints}
+                                </span>
+                              </td>
+                              <td className="p-2">{new Date(grade.gradedAt).toLocaleDateString()}</td>
+                              <td className="p-2 w-32">
+                                <Progress 
+                                  value={calculateProgress(grade.score, grade.totalPoints)} 
+                                  className="h-2"
+                                />
+                              </td>
+                              <td className="p-2 text-sm text-gray-600">{grade.comments || 'No comments'}</td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>

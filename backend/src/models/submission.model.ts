@@ -371,8 +371,6 @@ export class SubmissionModel {
   }
 }
 
-export const submissionModel = new SubmissionModel();
-
 // SQL to create the submissions table
 export const createSubmissionsTableSQL = `
   CREATE TABLE IF NOT EXISTS submissions (
@@ -393,4 +391,31 @@ export const createSubmissionsTableSQL = `
     FOREIGN KEY (studentId) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (gradedBy) REFERENCES users(id) ON DELETE SET NULL
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-`; 
+`;
+
+// Initialize the submissions table
+export const initializeSubmissionsTable = async () => {
+  try {
+    console.log('Initializing submissions table');
+    const [result] = await pool.query(createSubmissionsTableSQL);
+    console.log('Submissions table initialized successfully');
+    return true;
+  } catch (error) {
+    console.error('Failed to initialize submissions table:', error);
+    return false;
+  }
+};
+
+// Initialize the table when the model is loaded
+initializeSubmissionsTable()
+  .then(result => {
+    if (result) {
+      console.log('Submissions table ready');
+    }
+  })
+  .catch(err => {
+    console.error('Error during submissions table initialization:', err);
+  });
+
+// Export the singleton instance of SubmissionModel
+export const submissionModel = new SubmissionModel(); 

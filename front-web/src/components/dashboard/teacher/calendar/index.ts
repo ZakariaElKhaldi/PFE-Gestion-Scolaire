@@ -1,3 +1,4 @@
+// Export all calendar components for easier imports
 export { CalendarGrid } from './calendar-grid'
 export { CalendarEventItem } from './calendar-event-item'
 export { EventFormModal } from './event-form-modal'

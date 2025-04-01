@@ -8,6 +8,10 @@ export interface Assignment {
   status: 'draft' | 'published' | 'closed';
   createdAt: string;
   updatedAt: string;
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentType?: string;
+  attachmentSize?: number;
 }
 
 export interface AssignmentWithDetails extends Assignment {

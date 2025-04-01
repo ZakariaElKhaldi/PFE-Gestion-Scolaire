@@ -61,6 +61,7 @@ export interface Message {
   sentAt: string
   readAt?: string
   status: "sent" | "delivered" | "read"
+  isMine?: boolean
 }
 
 export interface Payment {

@@ -36,6 +36,12 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
     // Attach the user information to the request object
     req.user = decoded;
     
+    // For student users, add the studentId field if it's not present
+    if (req.user.role === 'student' && !req.user.studentId) {
+      req.user.studentId = req.user.userId;
+      console.log('Adding missing studentId to student user, using userId:', req.user.userId);
+    }
+    
     next();
   } catch (error) {
     console.error('Authentication error:', error);
