@@ -216,6 +216,11 @@ class AuthService {
     const token = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
     return !!token;
   }
+  
+  async setSessionToken(token: string): Promise<void> {
+    // Set the token in the API client without storing it in AsyncStorage
+    await apiClient.setAuthToken(token);
+  }
 }
 
 export const authService = new AuthService(); 

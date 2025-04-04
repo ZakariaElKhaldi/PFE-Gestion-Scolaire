@@ -1,4 +1,4 @@
-export type UserRole = 'administrator' | 'teacher' | 'student' | 'parent';
+export type UserRole = 'admin' | 'teacher' | 'student' | 'parent';
 
 export interface User {
   id: string;
@@ -6,9 +6,23 @@ export interface User {
   firstName: string;
   lastName: string;
   role: UserRole;
-  profilePicture?: string;
   phoneNumber?: string;
-  studentId?: string;
+  profilePicture?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+}
+
+export interface SignInData {
+  email: string;
+  password: string;
+  rememberMe?: boolean;
 }
 
 export interface SignUpData {
@@ -18,11 +32,8 @@ export interface SignUpData {
   lastName: string;
   role: UserRole;
   phoneNumber?: string;
-}
-
-export interface SignInData {
-  email: string;
-  password: string;
+  parentEmail?: string;
+  studentEmail?: string;
 }
 
 export interface ResetPasswordData {
@@ -40,14 +51,6 @@ export interface UpdateProfileData {
   lastName: string;
   phoneNumber?: string;
   profilePicture?: File;
-}
-
-export interface AuthState {
-  user: User | null;
-  token: string | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  error: string | null;
 }
 
 export interface AuthContextType extends AuthState {

@@ -72,18 +72,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       const response = await authService.signIn(data);
       
+      // Store token based on remember me option
+      if (data.rememberMe) {
+        // If rememberMe is true, store token in AsyncStorage for persistence
+        await AsyncStorage.setItem(AUTH_STORAGE_KEY, response.token);
+      } else {
+        // For session-only authentication, store in memory but not in AsyncStorage
+        // This way the token is available during the session but clears on app close
+        setToken(response.token);
+        // Ensure API client has the token for requests
+        await authService.setSessionToken(response.token);
+      }
+      
       setUser(response.user);
       setToken(response.token);
       
       // Navigate to the appropriate dashboard based on user role
       if (response.user.role === 'administrator') {
-        router.replace('/admin');
+        router.replace('/(app)/admin');
       } else if (response.user.role === 'teacher') {
-        router.replace('/teacher');
+        router.replace('/(app)/teacher');
       } else if (response.user.role === 'student') {
-        router.replace('/student');
+        router.replace('/(app)/student');
       } else if (response.user.role === 'parent') {
-        router.replace('/parent');
+        router.replace('/(app)/parent');
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'An error occurred during sign in');
