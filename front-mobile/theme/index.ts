@@ -16,35 +16,55 @@ export const COLORS = {
     main: '#2196F3',
     dark: '#1976D2',
     contrastText: '#FFFFFF',
+    DEFAULT: '#2196F3',
   },
   secondary: {
     light: '#F3E5F5',
     main: '#9C27B0',
     dark: '#7B1FA2',
     contrastText: '#FFFFFF',
+    DEFAULT: '#9C27B0',
+  },
+  info: {
+    light: '#E8F4FD',
+    main: '#03A9F4',
+    dark: '#0288D1',
+    contrastText: '#FFFFFF',
+    DEFAULT: '#03A9F4',
   },
   error: {
     light: '#FFEBEE',
     main: '#F44336',
     dark: '#D32F2F',
     contrastText: '#FFFFFF',
+    DEFAULT: '#F44336',
   },
   warning: {
     light: '#FFF3E0',
     main: '#FF9800',
     dark: '#F57C00',
     contrastText: 'rgba(0, 0, 0, 0.87)',
+    DEFAULT: '#FF9800',
   },
   success: {
     light: '#E8F5E9',
     main: '#4CAF50',
     dark: '#388E3C',
     contrastText: '#FFFFFF',
+    DEFAULT: '#4CAF50',
+  },
+  danger: {
+    light: '#FFEBEE',
+    main: '#F44336',
+    dark: '#D32F2F',
+    contrastText: '#FFFFFF',
+    DEFAULT: '#F44336',
   },
   surface: {
     light: '#FFFFFF',
     main: '#F5F5F5',
     dark: '#121212',
+    DEFAULT: '#F5F5F5',
   },
   grey: {
     50: '#FAFAFA',
@@ -61,12 +81,16 @@ export const COLORS = {
   background: {
     light: '#FFFFFF',
     default: '#F5F5F5',
+    DEFAULT: '#F5F5F5',
     dark: '#121212',
+    main: '#F5F5F5',
   },
   text: {
     primary: 'rgba(0, 0, 0, 0.87)',
     secondary: 'rgba(0, 0, 0, 0.6)',
     disabled: 'rgba(0, 0, 0, 0.38)',
+    tertiary: 'rgba(0, 0, 0, 0.45)',
+    DEFAULT: 'rgba(0, 0, 0, 0.87)',
   },
   divider: 'rgba(0, 0, 0, 0.12)',
 };
@@ -225,6 +249,23 @@ export const ANIMATION = {
     easeOut: 'ease-out',
     easeIn: 'ease-in',
   },
+};
+
+export const FONT_SIZES = {
+  xs: 12,
+  sm: 14,
+  md: 16,
+  lg: 18,
+  xl: 20,
+  xxl: 24,
+  xxxl: 32,
+};
+
+export const FONT_WEIGHTS = {
+  normal: '400',
+  medium: '500',
+  semibold: '600',
+  bold: '700',
 };
 
 // Navigation theme

@@ -12,12 +12,18 @@ export type AppRoutePath =
   | 'payments'
   | 'attendance'
   | 'support'
-  | 'profile'
   | 'children'
   | 'students'
   | 'assignments'
   | 'materials'
-  | 'messages';
+  | 'grades'
+  | 'schedule'
+  | 'certificates'
+  | 'library'
+  | 'feedback'
+  | 'notifications'
+  | 'messages'
+  | 'ai-assistant';
 
 export type RoleType = 'admin' | 'teacher' | 'student' | 'parent';
 

@@ -88,14 +88,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(response.token);
       
       // Navigate to the appropriate dashboard based on user role
-      if (response.user.role === 'administrator') {
-        router.replace('/(app)/admin');
+      if (response.user.role === 'admin') {
+        router.replace('/(app)/admin/dashboard');
       } else if (response.user.role === 'teacher') {
-        router.replace('/(app)/teacher');
+        router.replace('/(app)/teacher/dashboard');
       } else if (response.user.role === 'student') {
-        router.replace('/(app)/student');
+        router.replace('/(app)/student/dashboard');
       } else if (response.user.role === 'parent') {
-        router.replace('/(app)/parent');
+        router.replace('/(app)/parent/dashboard');
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'An error occurred during sign in');

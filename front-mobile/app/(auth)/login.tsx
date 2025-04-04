@@ -92,22 +92,6 @@ export default function LoginScreen() {
       setNetworkError('');
       setSuccessMessage('');
       
-      // Test API connection first
-      try {
-        const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api'}/health`, {
-          method: 'GET',
-          cache: 'no-cache',
-        });
-        
-        if (!response.ok) {
-          setNetworkError('Cannot connect to the server. Please check if the backend is running.');
-          return;
-        }
-      } catch (err) {
-        setNetworkError('Network error: Unable to connect to the server. Please check your internet connection.');
-        return;
-      }
-      
       await signIn({ email, password, rememberMe });
     } catch (err) {
       console.error('Login error:', err);

@@ -17,6 +17,7 @@ import { scale, verticalScale } from '../../utils/responsive';
 import { NAVIGATION_THEME } from '../../navigation/constants';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../components/auth/AuthProvider';
+import { authService } from '../../services/auth';
 
 type ResetStage = 'request' | 'verifyCode' | 'resetPassword' | 'success';
 
@@ -31,7 +32,7 @@ export default function ForgotPasswordScreen() {
   const [networkError, setNetworkError] = useState('');
   
   const router = useRouter();
-  const { isLoading, error, clearError } = useAuth();
+  const { isLoading, error, clearError, resetPassword } = useAuth();
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -53,24 +54,8 @@ export default function ForgotPasswordScreen() {
         return;
       }
 
-      // Test API connection first
-      try {
-        const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api'}/health`, {
-          method: 'GET',
-          cache: 'no-cache',
-        });
-        
-        if (!response.ok) {
-          setNetworkError('Cannot connect to the server. Please check if the backend is running.');
-          return;
-        }
-      } catch (err) {
-        setNetworkError('Network error: Unable to connect to the server. Please check your internet connection.');
-        return;
-      }
-
-      // TODO: Implement API call to request password reset
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
+      // Use authService to request password reset
+      await resetPassword({ email });
       
       setStage('verifyCode');
     } catch (err) {
@@ -94,9 +79,7 @@ export default function ForgotPasswordScreen() {
         return;
       }
 
-      // TODO: Implement API call to verify code
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
-      
+      // Verification is handled by the backend, move to the next stage
       setStage('resetPassword');
     } catch (err) {
       console.error('Verification error:', err);
@@ -124,8 +107,12 @@ export default function ForgotPasswordScreen() {
         return;
       }
 
-      // TODO: Implement API call to reset password
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
+      // Call the updatePassword function with the verification code and new password
+      await authService.updatePassword({
+        token: verificationCode,
+        newPassword,
+        confirmPassword
+      });
       
       setStage('success');
     } catch (err) {
@@ -317,32 +304,32 @@ export default function ForgotPasswordScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.content}>
-            <Pressable
-              style={styles.backButton}
-              onPress={() => router.back()}
-            >
-              <Ionicons
-                name="arrow-back"
-                size={24}
-                color={NAVIGATION_THEME.colors.onSurface}
-              />
-            </Pressable>
+      >
+        <View style={styles.content}>
+          <Pressable
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color={NAVIGATION_THEME.colors.onSurface}
+            />
+          </Pressable>
 
-            <View style={styles.header}>
-              <View style={styles.iconContainer}>
+          <View style={styles.header}>
+            <View style={styles.iconContainer}>
                 <Ionicons name="lock-open-outline" size={48} color={NAVIGATION_THEME.colors.onSurface} />
-              </View>
+            </View>
               <Text variant="h1" style={styles.title}>Forgot Password</Text>
-              <Text variant="body" style={styles.subtitle}>
+            <Text variant="body" style={styles.subtitle}>
                 {stage === 'success' ? 
                   'Your password has been reset' : 
                   'Reset your password to regain access'}
-              </Text>
-            </View>
+            </Text>
+          </View>
 
-            <Card variant="elevated" style={styles.formCard}>
+          <Card variant="elevated" style={styles.formCard}>
               {/* Progress Steps (not shown for success stage) */}
               {stage !== 'success' && (
                 <View style={styles.progressContainer}>
@@ -399,11 +386,11 @@ export default function ForgotPasswordScreen() {
                     {networkError || error}
                   </Text>
                 </View>
-              )}
+            )}
 
               {renderStageContent()}
-            </Card>
-          </View>
+          </Card>
+        </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>

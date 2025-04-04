@@ -222,7 +222,7 @@ export default function MessagesScreen() {
   const renderMessageItem = ({ item }: { item: Message }) => {
     const isMine = item.senderId === user.id;
     
-  return (
+    return (
       <View style={[styles.messageContainer, isMine ? styles.myMessage : styles.theirMessage]}>
         <View style={[styles.messageBubble, isMine ? styles.myMessageBubble : styles.theirMessageBubble]}>
           <Text style={styles.messageText}>{item.content}</Text>
@@ -323,7 +323,7 @@ export default function MessagesScreen() {
           <Text style={styles.emptyStateText}>No messages yet</Text>
           <Text style={styles.emptyStateSubtext}>
             Start the conversation by sending a message below
-        </Text>
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
   },
   emptyStateSubtext: {
     fontSize: 14,
-    color: COLORS.text.secondary,
+    color: COLORS.text.tertiary,
     marginTop: SPACING.xs,
     textAlign: 'center',
   },
@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
   },
   messageTime: {
     fontSize: 12,
-    color: COLORS.text.secondary,
+    color: COLORS.text.tertiary,
     alignSelf: 'flex-end',
     marginTop: 4,
   },

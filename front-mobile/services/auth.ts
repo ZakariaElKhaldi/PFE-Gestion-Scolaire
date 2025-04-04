@@ -11,7 +11,7 @@ const MOCK_USERS = [
     password: 'password',
     firstName: 'Admin',
     lastName: 'User',
-    role: 'administrator',
+    role: 'admin',
   },
   {
     id: '2',
@@ -44,27 +44,40 @@ class AuthService {
   private readonly basePath = '/auth';
 
   async signIn(data: SignInData): Promise<{ user: User; token: string }> {
+    console.log(`Auth Service: signIn attempt for ${data.email}`);
+    console.log(`Backend enabled: ${FEATURES.enableBackend}`);
+    
     try {
+      console.log('Attempting API auth...');
       const { data: response } = await apiClient.post<{ user: User; token: string }>(
         `${this.basePath}/login`,
         data
       );
+      
+      console.log('API auth successful');
       
       // Store the token
       await apiClient.setAuthToken(response.token);
       
       return response;
     } catch (error) {
-      if (!FEATURES.enableBackend) {
+      console.log(`Auth error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // Check if we should use mock data
+      if (error instanceof Error && error.message === 'MOCK_DATA') {
+        console.log('Falling back to mock authentication');
+        
         // Mock authentication for development
         const user = MOCK_USERS.find(
           (u) => u.email === data.email && u.password === data.password
         );
         
         if (!user) {
+          console.log('Mock auth failed: Invalid credentials');
           throw new Error('Invalid email or password');
         }
         
+        console.log(`Mock auth successful for ${user.email}`);
         const { password, ...userWithoutPassword } = user;
         const token = `mock_token_${Date.now()}`;
         
@@ -76,6 +89,9 @@ class AuthService {
           token,
         };
       }
+      
+      // If it's any other error, rethrow it
+      console.error('Authentication failed:', error);
       throw error;
     }
   }
@@ -183,7 +199,7 @@ class AuthService {
           email: 'admin@example.com',
           firstName: 'Admin',
           lastName: 'User',
-          role: 'administrator',
+          role: 'admin',
         };
       }
       return null;
@@ -205,7 +221,7 @@ class AuthService {
           email: 'admin@example.com',
           firstName: 'Updated',
           lastName: 'User',
-          role: 'administrator',
+          role: 'admin',
         };
       }
       throw error;

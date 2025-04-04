@@ -5,20 +5,22 @@ import { NAVIGATION_GROUPS, NAVIGATION_THEME } from '../../../navigation/constan
 import { usePathname } from 'expo-router';
 import { Platform, useWindowDimensions } from 'react-native';
 import { HeaderBar } from '../../../components/navigation/HeaderBar';
+import { NavigationContainer } from '@react-navigation/native';
 
-// Import screen components
+// Import screen components - Make sure they all exist
 import Dashboard from './dashboard';
 import Classes from './classes';
 import Documents from './documents';
-import Students from './students';
+import Students from './students/index';
 import Assignments from './assignments';
 import Materials from './materials';
 import Messages from './messages';
-import Attendance from './attendance'; // Import Attendance screen component
+import Attendance from './attendance';
+import Profile from './profile';
 
 const Drawer = createDrawerNavigator();
 
-// Screen component mapping
+// Screen component mapping - Make sure all components are imported and available
 const SCREEN_COMPONENTS: Record<string, React.ComponentType<any>> = {
   dashboard: Dashboard,
   classes: Classes,
@@ -27,7 +29,8 @@ const SCREEN_COMPONENTS: Record<string, React.ComponentType<any>> = {
   assignments: Assignments,
   materials: Materials,
   messages: Messages,
-  attendance: Attendance, // Add Attendance screen component
+  attendance: Attendance,
+  profile: Profile,
 };
 
 export default function TeacherLayout() {
@@ -38,8 +41,15 @@ export default function TeacherLayout() {
   // Determine if we should use permanent drawer based on screen width
   const isPermanentDrawer = width >= 1024;
   
+  // Extract the active route from the pathname
+  const activeRouteName = pathname.split('/').pop() || 'dashboard';
+  
   return (
+    // Use key to force recreate the navigator when active route changes
+    // This helps sync Expo Router's location with React Navigation
     <Drawer.Navigator
+      id={undefined}
+      key={activeRouteName}
       screenOptions={({ route }) => ({
         header: () => {
           const routeConfig = allRoutes.find(r => r.path === route.name);
@@ -67,22 +77,29 @@ export default function TeacherLayout() {
         <DrawerContent
           role="teacher"
           groups={NAVIGATION_GROUPS.teacher}
-          activeRoute={pathname.split('/').pop() || ''}
+          activeRoute={activeRouteName}
           onClose={props.navigation.closeDrawer}
         />
       )}
+      initialRouteName={activeRouteName}
     >
-      {allRoutes.map((route) => (
-        <Drawer.Screen
-          key={route.path}
-          name={route.path}
-          component={SCREEN_COMPONENTS[route.path]}
-          options={{
-            title: route.name,
-            drawerItemStyle: { display: 'none' },
-          }}
-        />
-      ))}
+      {allRoutes.map((route) => {
+        // Only add routes that have a matching component
+        if (SCREEN_COMPONENTS[route.path]) {
+          return (
+            <Drawer.Screen
+              key={route.path}
+              name={route.path}
+              component={SCREEN_COMPONENTS[route.path]}
+              options={{
+                title: route.name,
+                drawerItemStyle: { display: 'none' },
+              }}
+            />
+          );
+        }
+        return null;
+      })}
     </Drawer.Navigator>
   );
 }

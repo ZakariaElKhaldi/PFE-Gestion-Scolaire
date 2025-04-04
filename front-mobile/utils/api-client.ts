@@ -43,8 +43,13 @@ export class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
-    // If backend is disabled, throw an error that will be caught by the service
+    // Enhanced logging for debugging
+    console.log(`API Request: ${options.method || 'GET'} ${endpoint}`);
+    console.log(`Backend enabled: ${FEATURES.enableBackend}`);
+    
+    // If backend is disabled, throw a specific error that will be caught by the service
     if (!FEATURES.enableBackend) {
+      console.log('Using mock data (backend disabled)');
       throw new Error('MOCK_DATA');
     }
 
@@ -52,6 +57,8 @@ export class ApiClient {
     const headers = await this.getHeaders();
 
     try {
+      console.log(`Fetching from: ${url}`);
+      
       const response = await fetch(url, {
         ...options,
         headers: {
@@ -60,9 +67,19 @@ export class ApiClient {
         },
       });
 
+      console.log(`Response status: ${response.status}`);
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'An error occurred');
+        let errorMessage = 'An error occurred';
+        try {
+          const error = await response.json();
+          errorMessage = error.message || 'An error occurred';
+        } catch (e) {
+          // If there's an error parsing the JSON, use the status text
+          errorMessage = `${response.status}: ${response.statusText}`;
+        }
+        console.error(`API Error: ${errorMessage}`);
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -72,7 +89,9 @@ export class ApiClient {
         if (error.message === 'MOCK_DATA') {
           throw error; // Let the service handle mock data
         }
-        throw new Error(error.message);
+        // Enhanced error logging
+        console.error(`API Request Error: ${error.message}`);
+        throw new Error(`API Request Failed: ${error.message}`);
       }
       throw new Error('An unknown error occurred');
     }

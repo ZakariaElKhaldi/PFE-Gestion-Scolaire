@@ -76,7 +76,7 @@ export default function SignupScreen() {
     // Validate fields based on current step
     if (currentStep === 1) {
       // Account info validation
-      if (!formData.email.trim()) {
+    if (!formData.email.trim()) {
         setNetworkError('Email address is required');
         return;
       }
@@ -86,7 +86,7 @@ export default function SignupScreen() {
         return;
       }
       
-      if (!formData.password.trim()) {
+    if (!formData.password.trim()) {
         setNetworkError('Password is required');
         return;
       }
@@ -163,22 +163,6 @@ export default function SignupScreen() {
       clearError();
       setNetworkError('');
       
-      // Test API connection first
-      try {
-        const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api'}/health`, {
-          method: 'GET',
-          cache: 'no-cache',
-        });
-        
-        if (!response.ok) {
-          setNetworkError('Cannot connect to the server. Please check if the backend is running.');
-          return;
-        }
-      } catch (err) {
-        setNetworkError('Network error: Unable to connect to the server. Please check your internet connection.');
-        return;
-      }
-
       // Prepare the data for signup
       const signupData = {
         email: formData.email,
@@ -328,54 +312,54 @@ export default function SignupScreen() {
               {/* Step 1: Account Info */}
               {currentStep === 1 && (
                 <View style={styles.stepContainer}>
-                  <Input
-                    label="Email Address"
-                    value={formData.email}
-                    onChangeText={(text) => updateFormData('email', text)}
-                    placeholder="Enter your email"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    startIcon={<Ionicons name="mail-outline" size={20} color={NAVIGATION_THEME.colors.onSurfaceVariant} />}
-                  />
+              <Input
+                label="Email Address"
+                value={formData.email}
+                onChangeText={(text) => updateFormData('email', text)}
+                placeholder="Enter your email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                startIcon={<Ionicons name="mail-outline" size={20} color={NAVIGATION_THEME.colors.onSurfaceVariant} />}
+              />
 
-                  <Input
-                    label="Password"
-                    value={formData.password}
-                    onChangeText={(text) => updateFormData('password', text)}
-                    placeholder="Create a password"
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                    startIcon={<Ionicons name="lock-closed-outline" size={20} color={NAVIGATION_THEME.colors.onSurfaceVariant} />}
-                    endIcon={
-                      <Pressable onPress={() => setShowPassword(!showPassword)}>
-                        <Ionicons
-                          name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                          size={20}
-                          color={NAVIGATION_THEME.colors.onSurfaceVariant}
-                        />
-                      </Pressable>
-                    }
-                    style={styles.input}
-                  />
+              <Input
+                label="Password"
+                value={formData.password}
+                onChangeText={(text) => updateFormData('password', text)}
+                placeholder="Create a password"
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                startIcon={<Ionicons name="lock-closed-outline" size={20} color={NAVIGATION_THEME.colors.onSurfaceVariant} />}
+                endIcon={
+                  <Pressable onPress={() => setShowPassword(!showPassword)}>
+                    <Ionicons
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color={NAVIGATION_THEME.colors.onSurfaceVariant}
+                    />
+                  </Pressable>
+                }
+                style={styles.input}
+              />
 
-                  <Input
-                    label="Confirm Password"
-                    value={formData.confirmPassword}
-                    onChangeText={(text) => updateFormData('confirmPassword', text)}
-                    placeholder="Confirm your password"
-                    secureTextEntry={!showConfirmPassword}
-                    autoCapitalize="none"
-                    startIcon={<Ionicons name="lock-closed-outline" size={20} color={NAVIGATION_THEME.colors.onSurfaceVariant} />}
-                    endIcon={
-                      <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                        <Ionicons
-                          name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
-                          size={20}
-                          color={NAVIGATION_THEME.colors.onSurfaceVariant}
-                        />
-                      </Pressable>
-                    }
-                    style={styles.input}
+              <Input
+                label="Confirm Password"
+                value={formData.confirmPassword}
+                onChangeText={(text) => updateFormData('confirmPassword', text)}
+                placeholder="Confirm your password"
+                secureTextEntry={!showConfirmPassword}
+                autoCapitalize="none"
+                startIcon={<Ionicons name="lock-closed-outline" size={20} color={NAVIGATION_THEME.colors.onSurfaceVariant} />}
+                endIcon={
+                  <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                    <Ionicons
+                      name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color={NAVIGATION_THEME.colors.onSurfaceVariant}
+                    />
+                  </Pressable>
+                }
+                style={styles.input}
                   />
 
                   <Button
@@ -439,9 +423,9 @@ export default function SignupScreen() {
                       style={styles.backButtonNav}
                       variant="outlined"
                       size="large"
-                    />
-                    
-                    <Button
+              />
+
+              <Button
                       title="Continue"
                       onPress={goToNextStep}
                       style={styles.continueButtonNav}
@@ -543,7 +527,7 @@ export default function SignupScreen() {
                     ) : (
                       <Button
                         title={isLoading ? "" : "Sign Up"}
-                        onPress={handleSignup}
+                onPress={handleSignup}
                         style={styles.continueButtonNav}
                         size="large"
                         disabled={isLoading}
@@ -584,9 +568,9 @@ export default function SignupScreen() {
                       onPress={goToPreviousStep}
                       style={styles.backButtonNav}
                       variant="outlined"
-                      size="large"
-                    />
-                    
+                size="large"
+              />
+
                     <Button
                       title={isLoading ? "" : "Sign Up"}
                       onPress={handleSignup}
@@ -605,14 +589,14 @@ export default function SignupScreen() {
               )}
 
               {currentStep === 1 && (
-                <Pressable 
-                  style={styles.loginLink}
-                  onPress={() => router.push('/login')}
-                >
-                  <Text variant="body2" style={styles.loginText}>
-                    Already have an account? <Text style={styles.loginTextHighlight}>Sign In</Text>
-                  </Text>
-                </Pressable>
+              <Pressable 
+                style={styles.loginLink}
+                onPress={() => router.push('/login')}
+              >
+                <Text variant="body2" style={styles.loginText}>
+                  Already have an account? <Text style={styles.loginTextHighlight}>Sign In</Text>
+                </Text>
+              </Pressable>
               )}
             </Card>
           </View>

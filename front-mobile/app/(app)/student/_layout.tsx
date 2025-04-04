@@ -3,24 +3,31 @@ import { createDrawerNavigator } from '@react-navigation/drawer';
 import { DrawerContent } from '../../../components/navigation/DrawerContent';
 import { NAVIGATION_GROUPS } from '../../../navigation/constants';
 import { usePathname } from 'expo-router';
-import { Platform, useWindowDimensions, View, StyleSheet } from 'react-native';
+import { Platform, useWindowDimensions, View, StyleSheet, Text } from 'react-native';
 import { HeaderBar } from '../../../components/navigation/HeaderBar';
 import { COLORS, SPACING, SHADOWS } from '../../../theme';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// Import screen components
+// Import existing screen components that are kept
 import Dashboard from './dashboard';
 import Courses from './courses';
-import Documents from './documents';
-import Payments from './payments';
-import PaymentMethods from './payment-methods';
-import Profile from './profile';
 import Assignments from './assignments';
+import Attendance from './attendance';
 import Materials from './materials';
+import Payments from './payments'; // Kept payments
+import Documents from './documents';
+import Support from './support';
+
+// Import NEW screen components
+import Grades from './grades';
+import Schedule from './schedule';
+import Certificates from './certificates';
+import Library from './library';
+import Feedback from './feedback';
+import Notifications from './notifications';
 import Messages from './messages';
-import Attendance from './attendance'; // Import Attendance screen component
-import Support from './support'; // Import Support screen component
+import AIAssistant from './ai-assistant';
 
 const Drawer = createDrawerNavigator();
 
@@ -28,15 +35,20 @@ const Drawer = createDrawerNavigator();
 const SCREEN_COMPONENTS: Record<string, React.ComponentType<any>> = {
   dashboard: Dashboard,
   courses: Courses,
-  documents: Documents,
-  payments: Payments,
-  'payment-methods': PaymentMethods,
-  profile: Profile,
   assignments: Assignments,
+  grades: Grades,
+  schedule: Schedule,
+  attendance: Attendance,
   materials: Materials,
+  library: Library,
   messages: Messages,
-  attendance: Attendance, // Add Attendance screen component
-  support: Support, // Add Support screen component
+  feedback: Feedback,
+  documents: Documents,
+  certificates: Certificates,
+  payments: Payments,
+  notifications: Notifications,
+  support: Support,
+  'ai-assistant': AIAssistant,
 };
 
 export default function StudentLayout() {
@@ -52,6 +64,7 @@ export default function StudentLayout() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar style="auto" />
       <Drawer.Navigator
+        id={undefined}
         screenOptions={({ route }) => ({
           header: () => {
             const routeConfig = allRoutes.find(r => r.path === route.name);
@@ -95,7 +108,7 @@ export default function StudentLayout() {
           <Drawer.Screen
             key={route.path}
             name={route.path}
-            component={SCREEN_COMPONENTS[route.path]}
+            component={SCREEN_COMPONENTS[route.path] || (() => <View><Text>Screen not found</Text></View>)}
             options={{
               title: route.name,
             }}

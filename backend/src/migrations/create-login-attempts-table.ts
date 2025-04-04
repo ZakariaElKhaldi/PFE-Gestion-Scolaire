@@ -11,14 +11,17 @@ export async function createLoginAttemptsTable(): Promise<void> {
     logger.info('Starting migration: Creating login_attempts table');
     
     // Check if table already exists
+    /* // Temporarily disable internal check to force execution based on migrations table
     const [tables] = await connection.execute(
       `SHOW TABLES LIKE 'login_attempts'`
     );
     
     if (Array.isArray(tables) && tables.length > 0) {
-      logger.info('Migration already applied. login_attempts table already exists.');
-      return;
+      logger.info('Internal check skipped: Assuming migration needs to run based on tracking table.');
+      // logger.info('Migration already applied. login_attempts table already exists.');
+      // return;
     }
+    */
     
     // Create the table
     await connection.execute(`
@@ -34,7 +37,7 @@ export async function createLoginAttemptsTable(): Promise<void> {
         INDEX (ipAddress),
         INDEX (attemptTime)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-    `);
+    `); // Ensure comment is outside the template literal
     
     logger.info('Successfully created login_attempts table');
   } catch (error) {
@@ -44,4 +47,4 @@ export async function createLoginAttemptsTable(): Promise<void> {
     connection.release();
     logger.info('Database connection released');
   }
-} 
+}
