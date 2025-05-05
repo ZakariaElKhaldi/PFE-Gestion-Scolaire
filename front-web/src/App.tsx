@@ -16,75 +16,75 @@ import { isValidUser, getDashboardUrl, isTokenExpired, checkStudentId } from './
 import { initializeAuth } from './lib/api-client';
 
 // Admin Pages
-import { AdminHomePage } from '@/pages/dashboard/admin/home';
-import { UsersPage } from '@/pages/dashboard/admin/users';
-import { ClassesPage } from '@/pages/dashboard/admin/classes';
-import { CoursesPage } from '@/pages/dashboard/admin/courses';
-import { AnalyticsPage } from '@/pages/dashboard/admin/analytics';
-import EventsPage from '@/pages/dashboard/admin/events';
-import { NotificationsPage as AdminNotificationsPage } from '@/pages/dashboard/admin/notifications';
-import { SettingsPage as AdminSettingsPage } from '@/pages/dashboard/admin/settings';
-import { DepartmentsPage } from '@/pages/dashboard/admin/departments';
-import { ReportsPage } from '@/pages/dashboard/admin/reports';
-import { FinancePage } from '@/pages/dashboard/admin/finance';
+import { AdminHomePage } from '@/pages/admin/home';
+import { UsersPage } from '@/pages/admin/users';
+import { ClassesPage } from '@/pages/admin/classes';
+import { CoursesPage } from '@/pages/admin/courses';
+import { AnalyticsPage } from '@/pages/admin/analytics';
+import EventsPage from '@/pages/admin/events';
+import { NotificationsPage as AdminNotificationsPage } from '@/pages/admin/notifications';
+import { SettingsPage as AdminSettingsPage } from '@/pages/admin/settings';
+import { DepartmentsPage } from '@/pages/admin/departments';
+import { ReportsPage } from '@/pages/admin/reports';
+import { FinancePage } from '@/pages/admin/finance';
 
 // Student Pages
-import StudentDashboard from './pages/dashboard/student';
-import StudentCourses from './pages/dashboard/student/courses';
-import StudentMaterials from './pages/dashboard/student/materials';
-import StudentLibrary from './pages/dashboard/student/library';
-import StudentCertificates from './pages/dashboard/student/certificates';
-import StudentAttendance from './pages/dashboard/student/attendance';
-import StudentPayments from './pages/dashboard/student/payments';
-import StudentDocuments from './pages/dashboard/student/documents';
-import StudentAssignments from './pages/dashboard/student/assignments';
-import StudentSupport from './pages/dashboard/student/support';
-import StudentFeedback from './pages/dashboard/student/feedback';
-import StudentSchedule from './pages/dashboard/student/schedule';
-import StudentGrades from './pages/dashboard/student/grades';
-import { NotificationsPage as StudentNotificationsPage } from './pages/dashboard/student/notifications';
+import StudentDashboard from './pages/student';
+import StudentCourses from './pages/student/courses';
+import StudentMaterials from './pages/student/materials';
+import StudentLibrary from './pages/student/library';
+import StudentCertificates from './pages/student/certificates';
+import StudentAttendance from './pages/student/attendance';
+import StudentPayments from './pages/student/payments';
+import StudentDocuments from './pages/student/documents';
+import StudentAssignments from './pages/student/assignments';
+import StudentSupport from './pages/student/support';
+import StudentFeedback from './pages/student/feedback';
+import StudentSchedule from './pages/student/schedule';
+import StudentGrades from './pages/student/grades';
+import { NotificationsPage as StudentNotificationsPage } from './pages/student/notifications';
 
 // Teacher Pages
-import TeacherDashboard from './pages/dashboard/teacher';
-import TeacherClasses from './pages/dashboard/teacher/classes';
-import TeacherMaterials from './pages/dashboard/teacher/materials';
-import TeacherStudents from './pages/dashboard/teacher/students';
-import TeacherAttendance from './pages/dashboard/teacher/attendance';
-import TeacherGradingPage from './pages/dashboard/teacher/grading';
-import TeacherAssignments from './pages/dashboard/teacher/assignments';
-import TeacherMessages from './pages/dashboard/teacher/messages';
-import TeacherDocuments from './pages/dashboard/teacher/documents';
-import TeacherCalendar from './pages/dashboard/teacher/calendar';
-import TeacherAnalytics from './pages/dashboard/teacher/analytics';
-import TeacherGrades from './pages/dashboard/teacher/grades';
-import TeacherCurriculum from './pages/dashboard/teacher/curriculum';
-import { TeacherSchedule } from './pages/dashboard/teacher/schedule';
-import { TeacherFeedbackPage } from './pages/dashboard/teacher/feedback';
-import { TeacherReports } from './pages/dashboard/teacher/reports';
-import { NotificationsPage as TeacherNotificationsPage } from './pages/dashboard/teacher/notifications';
+import TeacherDashboard from './pages/teacher';
+import TeacherClasses from './pages/teacher/classes';
+import TeacherMaterials from './pages/teacher/materials';
+import TeacherStudents from './pages/teacher/students';
+import TeacherAttendance from './pages/teacher/attendance';
+import TeacherGradingPage from './pages/teacher/grading';
+import TeacherAssignments from './pages/teacher/assignments';
+import TeacherMessages from './pages/teacher/messages';
+import TeacherDocuments from './pages/teacher/documents';
+import TeacherCalendar from './pages/teacher/calendar';
+import TeacherAnalytics from './pages/teacher/analytics';
+import TeacherGrades from './pages/teacher/grades';
+import TeacherCurriculum from './pages/teacher/curriculum';
+import { TeacherSchedule } from './pages/teacher/schedule';
+import { TeacherFeedbackPage } from './pages/teacher/feedback';
+import { TeacherReports } from './pages/teacher/reports';
+import { NotificationsPage as TeacherNotificationsPage } from './pages/teacher/notifications';
 
 // Parent Pages
-import ParentDashboard from './pages/dashboard/parent';
-import ParentChildren from './pages/dashboard/parent/children';
-import ParentProgress from './pages/dashboard/parent/progress';
-import {ParentMonitoringPage} from './pages/dashboard/parent/monitoring';
-import ParentMessages from './pages/dashboard/parent/messages';
-import ParentPayments from './pages/dashboard/parent/payments';
-import ParentDocuments from './pages/dashboard/parent/documents';
-import ParentAttendance from './pages/dashboard/parent/attendance';
-import ParentGrades from './pages/dashboard/parent/grades';
-import ParentSchedule from './pages/dashboard/parent/schedule';
-import ParentFeedback from './pages/dashboard/parent/feedback';
-import { NotificationsPage as ParentNotificationsPage } from './pages/dashboard/parent/notifications';
+import ParentDashboard from './pages/parent';
+import ParentChildren from './pages/parent/children';
+import ParentProgress from './pages/parent/progress';
+import {ParentMonitoringPage} from './pages/parent/monitoring';
+import ParentMessages from './pages/parent/messages';
+import ParentPayments from './pages/parent/payments';
+import ParentDocuments from './pages/parent/documents';
+import ParentAttendance from './pages/parent/attendance';
+import ParentGrades from './pages/parent/grades';
+import ParentSchedule from './pages/parent/schedule';
+import ParentFeedback from './pages/parent/feedback';
+import { NotificationsPage as ParentNotificationsPage } from './pages/parent/notifications';
 
 // Shared Pages
-import { SharedNotificationsPage } from './pages/dashboard/shared/notifications';
-import ProfilePage from './pages/dashboard/profile';
-import SettingsPage from './pages/dashboard/settings';
-import { ContactPage } from './pages/dashboard/shared/contact';
-import { ForumPage } from './pages/dashboard/shared/forum';
-import { CreatePostPage } from './pages/dashboard/shared/forum/create';
-import { PostPage } from './pages/dashboard/shared/forum/post';
+import { SharedNotificationsPage } from './pages/shared/notifications';
+import ProfilePage from './pages/profile';
+import SettingsPage from './pages/settings';
+import { ContactPage } from './pages/shared/contact';
+import { ForumPage } from './pages/shared/forum';
+import { CreatePostPage } from './pages/shared/forum/create';
+import { PostPage } from './pages/shared/forum/post';
 
 import { UserResponse, UserRole } from '@/types/auth';
 
