@@ -290,6 +290,16 @@ export const NAVIGATION_GROUPS: Record<RoleType, NavigationGroup[]> = {
           icon: 'clipboard',
         },
         {
+          name: 'Grades',
+          path: 'grades',
+          icon: 'school',
+        },
+        {
+          name: 'Schedule',
+          path: 'schedule',
+          icon: 'calendar-number',
+        },
+        {
           name: 'Attendance',
           path: 'attendance',
           icon: 'calendar',
@@ -300,9 +310,24 @@ export const NAVIGATION_GROUPS: Record<RoleType, NavigationGroup[]> = {
           icon: 'folder',
         },
         {
+          name: 'Library',
+          path: 'library',
+          icon: 'library',
+        },
+        {
+          name: 'AI Assistant',
+          path: 'ai-assistant',
+          icon: 'sparkles',
+        },
+        {
           name: 'Messages',
           path: 'messages',
           icon: 'chatbubbles',
+        },
+        {
+          name: 'Feedback',
+          path: 'feedback',
+          icon: 'megaphone-outline',
         },
         {
           name: 'Documents',
@@ -310,12 +335,22 @@ export const NAVIGATION_GROUPS: Record<RoleType, NavigationGroup[]> = {
           icon: 'document-text',
         },
         {
+          name: 'Certificates',
+          path: 'certificates',
+          icon: 'ribbon',
+        },
+        {
           name: 'Payments',
           path: 'payments',
           icon: 'card',
         },
         {
-          name: 'Support', // Add Support route
+          name: 'Notifications',
+          path: 'notifications',
+          icon: 'notifications',
+        },
+        {
+          name: 'Support',
           path: 'support',
           icon: 'help-circle',
         },

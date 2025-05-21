@@ -1,32 +1,43 @@
-import { query } from '../config/db';
-import { logger } from '../utils/logger';
+import { QueryInterface } from 'sequelize';
+import { logger } from '../utils/logger'; // Assuming logger path
+import { query } from '../config/db'; // Assuming db utility path
 
-/**
- * Migration to create the departments table
- */
-export async function createDepartmentsTable(): Promise<void> {
-  logger.db('Creating departments table if it does not exist');
-  
-  const sql = `
-    CREATE TABLE IF NOT EXISTS departments (
-      id VARCHAR(36) PRIMARY KEY,
-      name VARCHAR(100) NOT NULL,
-      code VARCHAR(10) NOT NULL UNIQUE,
-      headId VARCHAR(36) DEFAULT NULL,
-      description TEXT NOT NULL,
-      established DATE NOT NULL,
-      status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
-      createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      CONSTRAINT fk_department_head FOREIGN KEY (headId) REFERENCES users(id) ON DELETE SET NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-  `;
-  
-  try {
-    await query(sql);
-    logger.db('Departments table created or already exists');
+const migrationName = 'create-departments-table';
+
+export async function up(queryInterface: QueryInterface): Promise<void> {
+    logger.info(`[${migrationName}] Starting migration to create Departments table with consolidated schema...`);
+    try {
+        await query(`
+            CREATE TABLE IF NOT EXISTS "Departments" (
+                "departmentId" VARCHAR(36) PRIMARY KEY,
+                "name" VARCHAR(100) NOT NULL UNIQUE,
+                "description" TEXT,
+                "headId" VARCHAR(36),
+                "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                "deletedAt" TIMESTAMP,
+                CONSTRAINT "fk_departments_head"
+                    FOREIGN KEY ("headId")
+                    REFERENCES "Users"("userId")
+                    ON DELETE SET NULL
+            );
+        `);
+        logger.info(`[${migrationName}] Table "Departments" created successfully or already exists with the new schema.`);
+        logger.info(`[${migrationName}] Migration completed successfully.`);
+    } catch (error) {
+        logger.error(`[${migrationName}] Error during migration:`, error);
+        throw error;
+    }
+}
+
+export async function down(queryInterface: QueryInterface): Promise<void> {
+    logger.info(`[${migrationName}] Reverting migration...`);
+    try {
+        await query(`DROP TABLE IF EXISTS "Departments";`);
+        logger.info(`[${migrationName}] Table "Departments" dropped successfully.`);
+        logger.info(`[${migrationName}] Reversion completed successfully.`);
   } catch (error) {
-    logger.error('Failed to create departments table', error);
-    throw error;
-  }
-} 
+        logger.error(`[${migrationName}] Error during reversion:`, error);
+        throw error;
+    }
+}

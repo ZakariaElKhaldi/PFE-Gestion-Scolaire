@@ -33,10 +33,19 @@
     "plugins": [
       "expo-router"
     ],
-    "scheme": "school-management",
+    "scheme": "schoolmanagement",
     "experiments": {
       "typedRoutes": true,
       "tsconfigPaths": true
-    }
+    },
+    "sdkVersion": "52.0.0",
+    "updates": {
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/your-project-id"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "newArchEnabled": true
   }
 }

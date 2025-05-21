@@ -5,6 +5,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -16,12 +18,18 @@ import { scale, verticalScale } from '../../utils/responsive';
 import { NAVIGATION_THEME } from '../../navigation/constants';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../components/auth/AuthProvider';
+import { Checkbox } from '../../components/ui/Checkbox';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [currentStep, setCurrentStep] = useState(1);
+  const [networkError, setNetworkError] = useState('');
+  const totalSteps = 2;
+  
   const router = useRouter();
   const params = useLocalSearchParams();
   const { signIn, isLoading, error, clearError } = useAuth();
@@ -33,14 +41,61 @@ export default function LoginScreen() {
     }
   }, [params]);
 
-  const handleLogin = async () => {
-    if (!email.trim() || !password.trim()) {
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const goToNextStep = () => {
+    if (currentStep === 1) {
+      // Validate email and password fields
+      if (!email.trim()) {
+        clearError();
+        setNetworkError('Email address is required');
+        return;
+      }
+      
+      if (!validateEmail(email)) {
+        clearError();
+        setNetworkError('Please enter a valid email address');
+        return;
+      }
+      
+      if (!password.trim()) {
+        clearError();
+        setNetworkError('Password is required');
+        return;
+      }
+      
+      if (password.length < 6) {
+        clearError();
+        setNetworkError('Password must be at least 6 characters');
+        return;
+      }
+      
+      // Clear any errors and proceed to next step
       clearError();
-      setSuccessMessage('');
-      return;
+      setNetworkError('');
+      setCurrentStep(2);
     }
-    
-    await signIn({ email, password });
+  };
+  
+  const goToPreviousStep = () => {
+    clearError();
+    setNetworkError('');
+    setCurrentStep(1);
+  };
+
+  const handleLogin = async () => {
+    try {
+      clearError();
+      setNetworkError('');
+      setSuccessMessage('');
+      
+      await signIn({ email, password, rememberMe });
+    } catch (err) {
+      console.error('Login error:', err);
+    }
   };
 
   return (
@@ -52,98 +107,189 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="school-outline" size={48} color={NAVIGATION_THEME.colors.onSurface} />
-            </View>
-            <Text variant="h1" style={styles.title}>Welcome Back</Text>
-            <Text variant="body" style={styles.subtitle}>
-              Sign in to continue to your account
-            </Text>
-          </View>
-
-          <Card variant="elevated" style={styles.formCard}>
-            {successMessage ? (
-              <View style={styles.successMessage}>
-                <Text variant="body2" style={styles.successMessageText}>
-                  {successMessage}
-                </Text>
+        <ScrollView contentContainerStyle={styles.scrollContainer}>
+          <View style={styles.content}>
+            <View style={styles.header}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="school-outline" size={48} color={NAVIGATION_THEME.colors.onSurface} />
               </View>
-            ) : null}
+              <Text variant="h1" style={styles.title}>Welcome Back</Text>
+              <Text variant="body" style={styles.subtitle}>
+                Sign in to continue to your account
+              </Text>
+            </View>
 
-            <Input
-              label="Email Address"
-              value={email}
-              onChangeText={text => {
-                setEmail(text);
-                clearError();
-                setSuccessMessage('');
-              }}
-              placeholder="Enter your email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              startIcon={<Ionicons name="mail-outline" size={20} color={NAVIGATION_THEME.colors.onSurfaceVariant} />}
-              error={error}
-            />
-
-            <Input
-              label="Password"
-              value={password}
-              onChangeText={text => {
-                setPassword(text);
-                clearError();
-                setSuccessMessage('');
-              }}
-              placeholder="Enter your password"
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              startIcon={<Ionicons name="lock-closed-outline" size={20} color={NAVIGATION_THEME.colors.onSurfaceVariant} />}
-              endIcon={
-                <Pressable onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons
-                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color={NAVIGATION_THEME.colors.onSurfaceVariant}
+            <Card variant="elevated" style={styles.formCard}>
+              {/* Progress Bar */}
+              <View style={styles.progressContainer}>
+                <View style={styles.progressLabelContainer}>
+                  <Text variant="caption" style={styles.progressLabel}>
+                    {currentStep === 1 ? 'Enter Credentials' : 'Confirm Details'}
+                  </Text>
+                  <Text variant="caption" style={styles.progressCount}>
+                    {currentStep}/{totalSteps}
+                  </Text>
+                </View>
+                <View style={styles.progressBar}>
+                  <View 
+                    style={[
+                      styles.progressFill, 
+                      { width: `${(currentStep / totalSteps) * 100}%` }
+                    ]} 
                   />
+                </View>
+              </View>
+
+              {/* Error Message */}
+              {(error || networkError) && (
+                <View style={styles.errorContainer}>
+                  <Ionicons name="alert-circle" size={20} color="#FF3B30" />
+                  <Text variant="body2" style={styles.errorText}>
+                    {networkError || error}
+                  </Text>
+                </View>
+              )}
+
+              {/* Success Message */}
+              {successMessage ? (
+                <View style={styles.successMessage}>
+                  <Ionicons name="checkmark-circle" size={20} color={NAVIGATION_THEME.colors.primary} />
+                  <Text variant="body2" style={styles.successMessageText}>
+                    {successMessage}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Step 1: Enter Credentials */}
+              {currentStep === 1 && (
+                <View style={styles.stepContainer}>
+                  <Input
+                    label="Email Address"
+                    value={email}
+                    onChangeText={text => {
+                      setEmail(text);
+                      clearError();
+                      setNetworkError('');
+                      setSuccessMessage('');
+                    }}
+                    placeholder="Enter your email"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    startIcon={<Ionicons name="mail-outline" size={20} color={NAVIGATION_THEME.colors.onSurfaceVariant} />}
+                  />
+
+                  <Input
+                    label="Password"
+                    value={password}
+                    onChangeText={text => {
+                      setPassword(text);
+                      clearError();
+                      setNetworkError('');
+                      setSuccessMessage('');
+                    }}
+                    placeholder="Enter your password"
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    startIcon={<Ionicons name="lock-closed-outline" size={20} color={NAVIGATION_THEME.colors.onSurfaceVariant} />}
+                    endIcon={
+                      <Pressable onPress={() => setShowPassword(!showPassword)}>
+                        <Ionicons
+                          name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                          size={20}
+                          color={NAVIGATION_THEME.colors.onSurfaceVariant}
+                        />
+                      </Pressable>
+                    }
+                    style={styles.passwordInput}
+                  />
+
+                  <Button
+                    title="Continue"
+                    onPress={goToNextStep}
+                    style={styles.continueButton}
+                    size="large"
+                  />
+                </View>
+              )}
+
+              {/* Step 2: Confirm Details */}
+              {currentStep === 2 && (
+                <View style={styles.stepContainer}>
+                  <View style={styles.confirmationContainer}>
+                    <Text variant="h3" style={styles.confirmationTitle}>
+                      Sign In Details
+                    </Text>
+                    
+                    <View style={styles.confirmationItem}>
+                      <Text variant="body" style={styles.confirmationLabel}>Email:</Text>
+                      <Text variant="body2" style={styles.confirmationValue}>{email}</Text>
+                    </View>
+                    
+                    <View style={styles.confirmationItem}>
+                      <Text variant="body" style={styles.confirmationLabel}>Password:</Text>
+                      <Text variant="body2" style={styles.confirmationValue}>••••••••</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.checkboxContainer}>
+                    <Checkbox
+                      checked={rememberMe}
+                      onCheckedChange={setRememberMe}
+                      label="Remember Me"
+                    />
+                  </View>
+
+                  <View style={styles.buttonContainer}>
+                    <Button
+                      title="Back"
+                      onPress={goToPreviousStep}
+                      style={styles.backButton}
+                      variant="outlined"
+                      size="large"
+                    />
+                    
+                    <Button
+                      title={isLoading ? "" : "Sign In"}
+                      onPress={handleLogin}
+                      style={styles.loginButton}
+                      size="large"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator color={NAVIGATION_THEME.colors.background} />
+                      ) : (
+                        "Sign In"
+                      )}
+                    </Button>
+                  </View>
+                </View>
+              )}
+
+              <View style={styles.footer}>
+                <Pressable onPress={() => router.push('/forgot-password')}>
+                  <Text variant="body2" style={styles.forgotPassword}>
+                    Forgot Password?
+                  </Text>
                 </Pressable>
-              }
-              style={styles.passwordInput}
-              error={error}
-            />
+              </View>
 
-            <Button
-              title="Sign In"
-              onPress={handleLogin}
-              loading={isLoading}
-              style={styles.loginButton}
-              size="large"
-            />
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text variant="body2" style={styles.dividerText}>or</Text>
+                <View style={styles.dividerLine} />
+              </View>
 
-            <View style={styles.footer}>
-              <Pressable onPress={() => router.push('/forgot-password')}>
-                <Text variant="body2" style={styles.forgotPassword}>
-                  Forgot Password?
+              <Pressable 
+                style={styles.createAccount}
+                onPress={() => router.push('/signup')}
+              >
+                <Text variant="body2" style={styles.createAccountText}>
+                  Don't have an account? <Text style={styles.signUpLink}>Sign Up</Text>
                 </Text>
               </Pressable>
-            </View>
-
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text variant="body2" style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <Pressable 
-              style={styles.createAccount}
-              onPress={() => router.push('/signup')}
-            >
-              <Text variant="body2" style={styles.createAccountText}>
-                Don't have an account? <Text style={styles.signUpLink}>Sign Up</Text>
-              </Text>
-            </Pressable>
-          </Card>
-        </View>
+            </Card>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>
   );
@@ -156,14 +302,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   content: {
-    flex: 1,
     padding: scale(24),
     justifyContent: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: verticalScale(32),
+    marginBottom: verticalScale(24),
   },
   iconContainer: {
     width: scale(80),
@@ -187,30 +336,121 @@ const styles = StyleSheet.create({
     padding: scale(24),
     borderRadius: scale(16),
   },
+  progressContainer: {
+    marginBottom: verticalScale(24),
+  },
+  progressLabelContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: verticalScale(8),
+  },
+  progressLabel: {
+    color: NAVIGATION_THEME.colors.onSurfaceVariant,
+  },
+  progressCount: {
+    color: NAVIGATION_THEME.colors.onSurfaceVariant,
+  },
+  progressBar: {
+    height: verticalScale(4),
+    backgroundColor: NAVIGATION_THEME.colors.surfaceVariant,
+    borderRadius: scale(2),
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: NAVIGATION_THEME.colors.primary,
+    borderRadius: scale(2),
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEEEE',
+    padding: scale(12),
+    borderRadius: scale(8),
+    marginBottom: verticalScale(16),
+  },
+  errorText: {
+    color: '#FF3B30',
+    marginLeft: scale(8),
+    flex: 1,
+  },
+  successMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E6F2EA',
+    padding: scale(12),
+    borderRadius: scale(8),
+    marginBottom: verticalScale(16),
+  },
+  successMessageText: {
+    color: NAVIGATION_THEME.colors.primary,
+    marginLeft: scale(8),
+    flex: 1,
+  },
+  stepContainer: {
+    gap: verticalScale(16),
+  },
   passwordInput: {
-    marginTop: verticalScale(16),
+    marginTop: 0,
+  },
+  continueButton: {
+    marginTop: verticalScale(8),
+  },
+  confirmationContainer: {
+    backgroundColor: NAVIGATION_THEME.colors.surfaceVariant,
+    padding: scale(16),
+    borderRadius: scale(8),
+    marginBottom: verticalScale(8),
+  },
+  confirmationTitle: {
+    color: NAVIGATION_THEME.colors.onSurface,
+    marginBottom: verticalScale(16),
+    textAlign: 'center',
+  },
+  confirmationItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: verticalScale(8),
+    paddingBottom: verticalScale(8),
+    borderBottomWidth: 1,
+    borderBottomColor: NAVIGATION_THEME.colors.outline,
+  },
+  confirmationLabel: {
+    color: NAVIGATION_THEME.colors.onSurfaceVariant,
+  },
+  confirmationValue: {
+    color: NAVIGATION_THEME.colors.onSurface,
+    fontWeight: '500',
+  },
+  checkboxContainer: {
+    marginBottom: verticalScale(16),
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    gap: scale(12),
+  },
+  backButton: {
+    flex: 1,
   },
   loginButton: {
-    marginTop: verticalScale(24),
+    flex: 2,
   },
   footer: {
     alignItems: 'center',
-    marginTop: verticalScale(16),
+    marginTop: verticalScale(24),
   },
   forgotPassword: {
-    color: NAVIGATION_THEME.colors.onSurface,
-    fontWeight: '500',
+    color: NAVIGATION_THEME.colors.primary,
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: verticalScale(24),
-    marginBottom: verticalScale(24),
+    marginVertical: verticalScale(24),
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: NAVIGATION_THEME.colors.outlineVariant,
+    backgroundColor: NAVIGATION_THEME.colors.outline,
   },
   dividerText: {
     color: NAVIGATION_THEME.colors.onSurfaceVariant,
@@ -223,18 +463,7 @@ const styles = StyleSheet.create({
     color: NAVIGATION_THEME.colors.onSurfaceVariant,
   },
   signUpLink: {
-    color: NAVIGATION_THEME.colors.onSurface,
+    color: NAVIGATION_THEME.colors.primary,
     fontWeight: '600',
-  },
-  successMessage: {
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-    padding: scale(12),
-    borderRadius: scale(8),
-    marginBottom: verticalScale(16),
-    borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50',
-  },
-  successMessageText: {
-    color: '#2E7D32',
   },
 });

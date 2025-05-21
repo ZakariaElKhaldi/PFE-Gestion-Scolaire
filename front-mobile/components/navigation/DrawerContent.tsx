@@ -10,7 +10,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, TYPOGRAPHY, SPACING, BORDER_RADIUS } from '../../theme';
 import { NavigationGroup } from '../../navigation/types';
-import { useNavigation, DrawerActions } from '@react-navigation/native';
+import { useAuth } from '../auth/AuthProvider';
 
 type FontWeight = '400' | '500' | '600' | '700' | 'normal' | 'bold';
 
@@ -28,16 +28,40 @@ export const DrawerContent: React.FC<DrawerContentProps> = ({
   onClose,
 }) => {
   const router = useRouter();
-  const navigation = useNavigation();
+  const { signOut } = useAuth();
 
   const handleNavigation = (path: string) => {
-    // @ts-ignore - navigation type mismatch
-    navigation.navigate(path);
-    navigation.dispatch(DrawerActions.closeDrawer());
+    try {
+      let targetPath: string;
+      
+      // Check if it's the special profile path
+      if (path === 'profile') {
+        targetPath = '/(app)/profile';
+      } else {
+        // Otherwise, assume it's relative to the current role context
+        targetPath = `./${path}`;
+      }
+
+      // Use Expo Router for navigation
+      // Use type assertion to bypass strict type checking for dynamic/conditional paths
+      router.push(targetPath as any); 
+
+      // Use the onClose prop (passed from DrawerNavigator) to close the drawer
+      onClose(); 
+    } catch (error) {
+      console.error('Drawer navigation error:', error);
+      // Attempt to close drawer even on error using onClose prop
+      onClose();
+    }
   };
 
-  const handleLogout = () => {
-    router.replace('/auth/login');
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Logout error:', error);
+      router.replace('/login');
+    }
   };
 
   const renderItem = (route: { name: string; path: string; icon?: string }) => {
@@ -89,6 +113,32 @@ export const DrawerContent: React.FC<DrawerContentProps> = ({
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
+        <TouchableOpacity
+          style={[
+            styles.item,
+            activeRoute === 'profile' && styles.activeItem,
+          ]}
+          onPress={() => handleNavigation('profile')}
+        >
+          <Ionicons
+            name={'person-circle-outline'}
+            size={24}
+            color={activeRoute === 'profile' ? COLORS.primary.main : COLORS.grey[600]}
+            style={styles.icon}
+          />
+          <Text
+            style={[
+              styles.itemText,
+              activeRoute === 'profile' && styles.activeItemText,
+            ]}
+            numberOfLines={1}
+          >
+            My Profile
+          </Text>
+          {activeRoute === 'profile' && (
+            <View style={styles.activeIndicator} />
+          )}
+        </TouchableOpacity>
         {groups.map((group, index) => (
           <View key={index} style={styles.group}>
             {group.name && (

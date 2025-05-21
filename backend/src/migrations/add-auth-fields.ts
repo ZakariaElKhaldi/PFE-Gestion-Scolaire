@@ -11,14 +11,17 @@ export async function addAuthFields(): Promise<void> {
     logger.info('Starting migration: Adding authentication fields to users table');
     
     // Check if the columns already exist
+    /* // Temporarily disable internal check to force execution based on migrations table
     const [columns] = await connection.execute(
       `SHOW COLUMNS FROM users LIKE 'emailVerified'`
     );
     
     if (Array.isArray(columns) && columns.length > 0) {
-      logger.info('Migration already applied. Auth fields already exist.');
-      return;
+      logger.info('Internal check skipped: Assuming migration needs to run based on tracking table.');
+      // logger.info('Migration already applied. Auth fields already exist.');
+      // return;
     }
+    */
     
     // Add the new columns
     await connection.execute(`

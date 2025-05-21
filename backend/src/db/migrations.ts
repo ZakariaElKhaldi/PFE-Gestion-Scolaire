@@ -18,6 +18,8 @@ import { createMaterialsTable } from '../migrations/create-materials-table';
 import { createFeedbackTable } from '../migrations/create-feedback-table';
 import { createParentChildTable } from '../migrations/create-parent-child-table';
 import { createMessagesTable } from '../migrations/create-messages-table';
+import { addAuthFields } from '../migrations/add-auth-fields';
+import { createLoginAttemptsTable } from '../migrations/create-login-attempts-table';
 
 interface Migration {
   name: string;
@@ -52,6 +54,18 @@ const migrations: Migration[] = [
     execute: createUsersTable
   },
   {
+    name: 'add_auth_fields',
+    description: 'Adds authentication-related fields to the users table',
+    priority: 6,
+    execute: addAuthFields
+  },
+  {
+    name: 'create_login_attempts_table',
+    description: 'Creates the login_attempts table for security tracking',
+    priority: 7,
+    execute: createLoginAttemptsTable
+  },
+  {
     name: 'create_departments_table',
     description: 'Creates the departments table',
     priority: 5,
@@ -60,7 +74,7 @@ const migrations: Migration[] = [
   {
     name: 'create_courses_table',
     description: 'Creates the courses table',
-    priority: 8,
+    priority: 10,
     execute: createCoursesTable
   },
   {
@@ -265,4 +279,4 @@ if (require.main === module) {
       logger.error('Migration script failed', error);
       process.exit(1);
     });
-} 
+}

@@ -5,18 +5,17 @@ module.exports = function (api) {
     plugins: [
       'react-native-reanimated/plugin',
       'nativewind/babel',
-      'expo-router/babel',
       [
         'module-resolver',
         {
           root: ['.'],
           alias: {
-            '@': './src',
-            '@components': './src/components',
+            '@': './',
+            '@components': './components',
             '@screens': './app',
-            '@hooks': './src/hooks',
-            '@constants': './src/constants',
-            '@types': './src/types',
+            '@hooks': './hooks',
+            '@constants': './utils/constants',
+            '@types': './types',
           },
         },
       ],
