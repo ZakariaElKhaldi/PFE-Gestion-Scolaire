@@ -1,32 +1,51 @@
-import { query } from '../config/db';
-import { logger } from '../utils/logger';
+import { QueryInterface } from 'sequelize';
+import { logger } from '../utils/logger'; // Assuming logger path
+import { query } from '../config/db'; // Assuming db utility path
 
-/**
- * Migration to create the classes table
- */
-export async function createClassesTable(): Promise<void> {
-  logger.db('Creating classes table if it does not exist');
-  
-  const sql = `
-    CREATE TABLE IF NOT EXISTS classes (
-      id VARCHAR(36) PRIMARY KEY,
-      courseId VARCHAR(36) NOT NULL,
-      teacherId VARCHAR(36) NOT NULL,
-      room VARCHAR(50) NOT NULL,
-      capacity INT NOT NULL DEFAULT 30,
-      status ENUM('active', 'cancelled', 'completed') NOT NULL DEFAULT 'active',
-      createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      CONSTRAINT fk_class_course FOREIGN KEY (courseId) REFERENCES courses(id) ON DELETE CASCADE,
-      CONSTRAINT fk_class_teacher FOREIGN KEY (teacherId) REFERENCES users(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
-  `;
-  
-  try {
-    await query(sql);
-    logger.db('Classes table created or already exists');
-  } catch (error) {
-    logger.error('Failed to create classes table', error);
-    throw error;
-  }
-} 
+const migrationName = 'create-classes-table';
+
+export async function up(queryInterface: QueryInterface): Promise<void> {
+    logger.info(`[${migrationName}] Starting migration to create Classes table with consolidated schema...`);
+    try {
+        await query(`
+            CREATE TABLE IF NOT EXISTS "Classes" (
+                "classId" VARCHAR(36) PRIMARY KEY,
+                "courseId" VARCHAR(36) NOT NULL,
+                "teacherId" VARCHAR(36),
+                "name" VARCHAR(100) NOT NULL,
+                "roomNumber" VARCHAR(50),
+                "startDate" DATE,
+                "endDate" DATE,
+                "maxCapacity" INTEGER,
+                "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                "deletedAt" TIMESTAMP,
+                CONSTRAINT "fk_classes_course"
+                    FOREIGN KEY ("courseId")
+                    REFERENCES "Courses"("courseId")
+                    ON DELETE CASCADE,
+                CONSTRAINT "fk_classes_teacher"
+                    FOREIGN KEY ("teacherId")
+                    REFERENCES "Users"("userId")
+                    ON DELETE SET NULL
+            );
+        `);
+        logger.info(`[${migrationName}] Table "Classes" created successfully or already exists with the new schema.`);
+        logger.info(`[${migrationName}] Migration completed successfully.`);
+    } catch (error) {
+        logger.error(`[${migrationName}] Error during migration:`, error);
+        throw error;
+    }
+}
+
+export async function down(queryInterface: QueryInterface): Promise<void> {
+    logger.info(`[${migrationName}] Reverting migration...`);
+    try {
+        await query(`DROP TABLE IF EXISTS "Classes";`);
+        logger.info(`[${migrationName}] Table "Classes" dropped successfully.`);
+        logger.info(`[${migrationName}] Reversion completed successfully.`);
+    } catch (error) {
+        logger.error(`[${migrationName}] Error during reversion:`, error);
+        throw error;
+    }
+}
