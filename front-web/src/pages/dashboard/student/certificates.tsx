@@ -74,11 +74,22 @@ export default function StudentCertificates({ user }: StudentCertificatesProps) 
   };
 
   // Handle certificate download
-  const handleDownload = (id: string) => {
+  const handleDownload = async (id: string) => {
     try {
-      // Create a link and trigger a download
-      const url = certificateService.getDownloadUrl(id);
-      window.open(url, '_blank');
+      const blob = await certificateService.downloadCertificate(id);
+      
+      const url = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `certificate-${id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Certificate downloaded successfully');
     } catch (error) {
       console.error("Failed to download certificate:", error);
       toast.error("Failed to download certificate. Please try again later.");

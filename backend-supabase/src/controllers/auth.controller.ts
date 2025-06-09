@@ -1,8 +1,9 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { authService } from '../services/auth.service';
 import { ApiError } from '../utils/ApiError';
 import { logger } from '../utils/logger';
 import { SignInData, SignUpData } from '../types/auth';
+import { supabaseAdmin } from '../config/supabase';
 
 class AuthController {
   /**
@@ -36,6 +37,43 @@ class AuthController {
         res.status(500).json({
           error: true,
           message: 'Failed to register user'
+        });
+      }
+    }
+  }
+
+  /**
+   * Verify user email
+   */
+  async verifyEmail(req: Request, res: Response): Promise<void> {
+    try {
+      const { token } = req.query;
+      
+      if (!token || typeof token !== 'string') {
+        throw ApiError.badRequest('Verification token is required');
+      }
+      
+      const success = await authService.verifyEmail(token);
+      
+      if (success) {
+        res.status(200).json({
+          error: false,
+          message: 'Email verified successfully'
+        });
+      } else {
+        throw ApiError.badRequest('Failed to verify email');
+      }
+    } catch (error) {
+      if (error instanceof ApiError) {
+        res.status(error.statusCode).json({
+          error: true,
+          message: error.message
+        });
+      } else {
+        logger.error('Email verification error:', error);
+        res.status(500).json({
+          error: true,
+          message: 'Failed to verify email'
         });
       }
     }
@@ -181,6 +219,72 @@ class AuthController {
           message: 'Failed to reset password'
         });
       }
+    }
+  }
+
+  /**
+   * Verify parent connection
+   */
+  async verifyParentConnection(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { invitationId, studentId } = req.params;
+      
+      if (!invitationId && !studentId) {
+        throw ApiError.badRequest('Invalid verification data');
+      }
+      
+      // Handle verification based on which ID is provided
+      if (invitationId) {
+        const { data, error } = await supabaseAdmin
+          .from('parent_invitations')
+          .update({ 
+            status: 'verified',
+            verified_at: new Date().toISOString() 
+          })
+          .eq('id', invitationId)
+          .select('*')
+          .single();
+          
+        if (error || !data) {
+          throw ApiError.badRequest('Invalid or expired invitation');
+        }
+        
+        return res.status(200).json({
+          success: true,
+          message: 'Parent invitation verified successfully',
+          data: {
+            invitationId,
+            studentId: data.student_id,
+            status: 'verified'
+          }
+        });
+      }
+      
+      if (studentId) {
+        const { data, error } = await supabaseAdmin
+          .from('parent_student_relationships')
+          .update({ 
+            status: 'verified',
+            verified_at: new Date().toISOString() 
+          })
+          .eq('student_id', studentId)
+          .select('*');
+          
+        if (error || !data || data.length === 0) {
+          throw ApiError.badRequest('Invalid parent-student connection');
+        }
+        
+        return res.status(200).json({
+          success: true,
+          message: 'Parent-student connection verified successfully',
+          data: {
+            studentId,
+            status: 'verified'
+          }
+        });
+      }
+    } catch (error) {
+      next(error);
     }
   }
 }

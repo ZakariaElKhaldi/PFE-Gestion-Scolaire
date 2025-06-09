@@ -17,33 +17,35 @@ class UserModel {
         .eq('email', email)
         .single();
       
-      if (error) {
-        logger.error('Error finding user by email:', error);
+      if (error || !data) {
         return null;
       }
       
-      if (!data) return null;
-      
-      // Map snake_case DB fields to camelCase properties
-      return {
-        id: data.id,
-        email: data.email,
-        password: data.password,
-        firstName: data.first_name,
-        lastName: data.last_name,
-        role: data.role,
-        profilePictureUrl: data.profile_picture_url,
-        phoneNumber: data.phone_number,
-        lastLogin: data.last_login ? new Date(data.last_login) : undefined,
-        isActive: data.is_active,
-        isVerified: data.is_verified,
-        resetPasswordToken: data.reset_password_token,
-        resetPasswordExpires: data.reset_password_expires ? new Date(data.reset_password_expires) : undefined,
-        createdAt: new Date(data.created_at),
-        updatedAt: new Date(data.updated_at)
-      };
+      return this.mapDbUserToUser(data);
     } catch (error) {
-      logger.error('Error in findByEmail:', error);
+      logger.error('Error finding user by email:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Find user by Supabase Auth user ID
+   */
+  async findBySupabaseUserId(supabaseUserId: string): Promise<User | null> {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('users')
+        .select('*')
+        .eq('supabase_user_id', supabaseUserId)
+        .single();
+      
+      if (error || !data) {
+        return null;
+      }
+      
+      return this.mapDbUserToUser(data);
+    } catch (error) {
+      logger.error('Error finding user by Supabase user ID:', error);
       return null;
     }
   }
@@ -100,6 +102,8 @@ class UserModel {
     lastName: string;
     role: UserRole;
     phoneNumber?: string;
+    verificationToken?: string;
+    supabaseUserId?: string;
   }): Promise<string> {
     try {
       // Hash password
@@ -122,6 +126,8 @@ class UserModel {
           phone_number: userData.phoneNumber || null,
           is_active: true,
           is_verified: false,
+          verification_token: userData.verificationToken || null,
+          supabase_user_id: userData.supabaseUserId || null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -278,6 +284,27 @@ class UserModel {
    */
   async verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
     return bcrypt.compare(plainPassword, hashedPassword);
+  }
+
+  private mapDbUserToUser(data: any): User | null {
+    // Map snake_case DB fields to camelCase properties
+    return {
+      id: data.id,
+      email: data.email,
+      password: data.password,
+      firstName: data.first_name,
+      lastName: data.last_name,
+      role: data.role,
+      profilePictureUrl: data.profile_picture_url,
+      phoneNumber: data.phone_number,
+      lastLogin: data.last_login ? new Date(data.last_login) : undefined,
+      isActive: data.is_active,
+      isVerified: data.is_verified,
+      resetPasswordToken: data.reset_password_token,
+      resetPasswordExpires: data.reset_password_expires ? new Date(data.reset_password_expires) : undefined,
+      createdAt: new Date(data.created_at),
+      updatedAt: new Date(data.updated_at)
+    };
   }
 }
 

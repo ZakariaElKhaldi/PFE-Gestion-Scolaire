@@ -673,16 +673,9 @@ export const SignUpPage = () => {
                     Back
                   </button>
               <button
-                type="button" 
+                type="button"
                 disabled={isLoading}
-                onClick={async () => {
-                  console.log('Create Account button clicked manually');
-                  const formData = getValues();
-                  const isValid = await trigger();
-                  if (isValid) {
-                    onSubmit(formData);
-                  }
-                }}
+                onClick={handleFinalSubmit}
                 className={`flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary ${
                   isLoading ? 'opacity-50 cursor-not-allowed' : ''
                 }`}

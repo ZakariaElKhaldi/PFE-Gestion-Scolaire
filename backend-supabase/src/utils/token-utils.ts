@@ -2,6 +2,7 @@ import jwt, { Secret } from 'jsonwebtoken';
 import { config } from '../config';
 import { ApiError } from './ApiError';
 import { UserRole, JwtPayload } from '../types/auth';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Generate JWT token for a user
@@ -23,6 +24,14 @@ export const generateToken = (userId: string, role: UserRole): string => {
   } catch (error) {
     throw ApiError.internal('Failed to generate authentication token');
   }
+};
+
+/**
+ * Generate a verification token for email verification
+ */
+export const generateVerificationToken = (): string => {
+  // Using UUID v4 for secure random token
+  return uuidv4();
 };
 
 /**

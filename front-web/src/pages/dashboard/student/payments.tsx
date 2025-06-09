@@ -31,16 +31,18 @@ export function StudentPayments({ user }: StudentPaymentsProps) {
         const summary = await paymentService.getPaymentSummary();
         setPaymentSummary(summary);
 
-        // Fetch payment history
-        const paymentHistory = await paymentService.getPaymentHistory();
+        // Fetch payment history - using the new method name
+        const paymentHistory = await paymentService.getPayments({
+          studentId: user.id
+        });
         setPayments(paymentHistory);
 
         // Fetch invoices
-        const invoiceList = await paymentService.getInvoices();
+        const invoiceList = await paymentService.getInvoices(user.id);
         setInvoices(invoiceList);
 
         // Fetch payment methods
-        const methods = await paymentService.getPaymentMethods();
+        const methods = await paymentService.getPaymentMethods(user.id);
         setPaymentMethods(methods);
       } catch (error) {
         console.error('Error fetching payment data:', error);
@@ -51,11 +53,17 @@ export function StudentPayments({ user }: StudentPaymentsProps) {
     };
 
     fetchPaymentData();
-  }, []);
+  }, [user.id]);
 
   const handlePaymentComplete = async (paymentData: ProcessPaymentRequest) => {
     try {
-      await paymentService.processPayment(paymentData);
+      // Add student ID to payment data
+      const paymentRequest = {
+        ...paymentData,
+        studentId: user.id
+      };
+      
+      await paymentService.processPayment(paymentRequest);
       
       toast.success('Payment processed successfully');
       
@@ -63,14 +71,16 @@ export function StudentPayments({ user }: StudentPaymentsProps) {
       const summary = await paymentService.getPaymentSummary();
       setPaymentSummary(summary);
       
-      const paymentHistory = await paymentService.getPaymentHistory();
+      const paymentHistory = await paymentService.getPayments({
+        studentId: user.id
+      });
       setPayments(paymentHistory);
       
-      const invoiceList = await paymentService.getInvoices();
+      const invoiceList = await paymentService.getInvoices(user.id);
       setInvoices(invoiceList);
       
-    setShowPaymentForm(false);
-    setActiveTab('history');
+      setShowPaymentForm(false);
+      setActiveTab('history');
     } catch (error) {
       console.error('Payment processing error:', error);
       toast.error('Payment processing failed. Please try again.');
@@ -99,6 +109,59 @@ export function StudentPayments({ user }: StudentPaymentsProps) {
     } catch (error) {
       console.error('Error downloading invoice:', error);
       toast.error('Failed to download invoice. Please try again.');
+    }
+  };
+
+  // Add payment method handler
+  const handleAddPaymentMethod = async (methodData: any) => {
+    try {
+      await paymentService.addPaymentMethod({
+        ...methodData,
+        studentId: user.id
+      });
+      
+      toast.success('Payment method added successfully');
+      
+      // Refresh payment methods
+      const methods = await paymentService.getPaymentMethods(user.id);
+      setPaymentMethods(methods);
+      
+      setActiveTab('methods');
+    } catch (error) {
+      console.error('Error adding payment method:', error);
+      toast.error('Failed to add payment method. Please try again.');
+    }
+  };
+
+  // Delete payment method handler
+  const handleDeletePaymentMethod = async (methodId: string) => {
+    try {
+      await paymentService.deletePaymentMethod(methodId);
+      
+      toast.success('Payment method deleted successfully');
+      
+      // Refresh payment methods
+      const methods = await paymentService.getPaymentMethods(user.id);
+      setPaymentMethods(methods);
+    } catch (error) {
+      console.error('Error deleting payment method:', error);
+      toast.error('Failed to delete payment method. Please try again.');
+    }
+  };
+
+  // Set default payment method handler
+  const handleSetDefaultPaymentMethod = async (methodId: string) => {
+    try {
+      await paymentService.setDefaultPaymentMethod(methodId);
+      
+      toast.success('Default payment method updated');
+      
+      // Refresh payment methods
+      const methods = await paymentService.getPaymentMethods(user.id);
+      setPaymentMethods(methods);
+    } catch (error) {
+      console.error('Error setting default payment method:', error);
+      toast.error('Failed to update default payment method. Please try again.');
     }
   };
 
@@ -400,18 +463,7 @@ export function StudentPayments({ user }: StudentPaymentsProps) {
                                 <Button 
                                   variant="outline" 
                                   size="sm"
-                                  onClick={async () => {
-                                    try {
-                                      await paymentService.setDefaultPaymentMethod(method.id);
-                                      // Refresh payment methods
-                                      const methods = await paymentService.getPaymentMethods();
-                                      setPaymentMethods(methods);
-                                      toast.success('Default payment method updated');
-                                    } catch (error) {
-                                      console.error('Error setting default payment method:', error);
-                                      toast.error('Failed to update default payment method');
-                                    }
-                                  }}
+                                  onClick={() => handleSetDefaultPaymentMethod(method.id)}
                                 >
                                   Set Default
                                 </Button>
@@ -419,18 +471,7 @@ export function StudentPayments({ user }: StudentPaymentsProps) {
                               <Button 
                                 variant="outline" 
                                 size="sm"
-                                onClick={async () => {
-                                  try {
-                                    await paymentService.deletePaymentMethod(method.id);
-                                    // Refresh payment methods
-                                    const methods = await paymentService.getPaymentMethods();
-                                    setPaymentMethods(methods);
-                                    toast.success('Payment method deleted');
-                                  } catch (error) {
-                                    console.error('Error deleting payment method:', error);
-                                    toast.error('Failed to delete payment method');
-                                  }
-                                }}
+                                onClick={() => handleDeletePaymentMethod(method.id)}
                               >
                                 Delete
                               </Button>

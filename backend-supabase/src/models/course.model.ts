@@ -14,6 +14,7 @@ export interface Course {
   code: string;
   description?: string;
   credits: number;
+  price?: number;
   departmentId?: string;
   teacherId?: string;
   startDate?: Date;
@@ -29,6 +30,7 @@ export interface CourseInput {
   code: string;
   description?: string;
   credits?: number;
+  price?: number;
   departmentId?: string;
   teacherId?: string;
   startDate?: string;
@@ -76,6 +78,7 @@ class CourseModel {
         code: data.code,
         description: data.description,
         credits: data.credits,
+        price: data.price,
         departmentId: data.department_id,
         teacherId: data.teacher_id,
         startDate: data.start_date ? new Date(data.start_date) : undefined,
@@ -177,6 +180,7 @@ class CourseModel {
         code: course.code,
         description: course.description,
         credits: course.credits,
+        price: course.price,
         departmentId: course.department_id,
         teacherId: course.teacher_id,
         startDate: course.start_date ? new Date(course.start_date) : undefined,
@@ -208,6 +212,7 @@ class CourseModel {
           code: courseData.code,
           description: courseData.description || null,
           credits: courseData.credits || 1,
+          price: courseData.price || null,
           department_id: courseData.departmentId || null,
           teacher_id: courseData.teacherId || null,
           start_date: courseData.startDate || null,
@@ -231,6 +236,7 @@ class CourseModel {
         code: data.code,
         description: data.description,
         credits: data.credits,
+        price: data.price,
         departmentId: data.department_id,
         teacherId: data.teacher_id,
         startDate: data.start_date ? new Date(data.start_date) : undefined,
@@ -258,6 +264,7 @@ class CourseModel {
       if (courseData.code !== undefined) dbData.code = courseData.code;
       if (courseData.description !== undefined) dbData.description = courseData.description;
       if (courseData.credits !== undefined) dbData.credits = courseData.credits;
+      if (courseData.price !== undefined) dbData.price = courseData.price;
       if (courseData.departmentId !== undefined) dbData.department_id = courseData.departmentId;
       if (courseData.teacherId !== undefined) dbData.teacher_id = courseData.teacherId;
       if (courseData.startDate !== undefined) dbData.start_date = courseData.startDate;
@@ -286,6 +293,7 @@ class CourseModel {
         code: data.code,
         description: data.description,
         credits: data.credits,
+        price: data.price,
         departmentId: data.department_id,
         teacherId: data.teacher_id,
         startDate: data.start_date ? new Date(data.start_date) : undefined,

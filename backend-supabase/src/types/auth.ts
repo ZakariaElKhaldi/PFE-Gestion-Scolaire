@@ -27,6 +27,7 @@ export interface User {
   updatedAt: Date;
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
+  verificationToken?: string;
 }
 
 /**
@@ -73,6 +74,10 @@ export interface SignUpData {
   lastName: string;
   role: UserRole;
   phoneNumber?: string;
+  parentEmail?: string;
+  parentFirstName?: string;
+  parentLastName?: string;
+  studentEmail?: string;
 }
 
 /**

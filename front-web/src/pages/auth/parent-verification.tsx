@@ -7,14 +7,14 @@ import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-export const VerifyEmailPage = () => {
+export const ParentVerificationPage = () => {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [message, setMessage] = useState('Verifying your email...');
+  const [message, setMessage] = useState('Verifying parent connection...');
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    const verifyEmail = async () => {
+    const verifyParentConnection = async () => {
       try {
         const params = new URLSearchParams(location.search);
         const token = params.get('token');
@@ -25,32 +25,32 @@ export const VerifyEmailPage = () => {
           return;
         }
 
-        const response = await axios.get(`${API_BASE_URL}/auth/verify-email?token=${token}`);
+        const response = await axios.get(`${API_BASE_URL}/auth/verify-parent?token=${token}`);
         
         if (response.data && !response.data.error) {
           setStatus('success');
-          setMessage('Your email has been successfully verified!');
+          setMessage('Parent connection has been successfully verified!');
         } else {
           setStatus('error');
-          setMessage(response.data.message || 'Failed to verify your email. Please try again.');
+          setMessage(response.data.message || 'Failed to verify parent connection. Please try again.');
         }
       } catch (error: any) {
         setStatus('error');
         setMessage(
           error.response?.data?.message || 
-          'Failed to verify your email. The verification link may have expired.'
+          'Failed to verify parent connection. The verification link may have expired.'
         );
       }
     };
 
-    verifyEmail();
+    verifyParentConnection();
   }, [location.search]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Email Verification
+          Parent Verification
         </h2>
       </div>
 
@@ -75,7 +75,7 @@ export const VerifyEmailPage = () => {
               
               <div className="text-center mt-6">
                 <p className="text-sm text-gray-600 mb-4">
-                  You can now sign in to your account.
+                  You can now sign in to your account to access your child's information.
                 </p>
                 <Button
                   onClick={() => navigate('/auth/sign-in')}
@@ -117,4 +117,4 @@ export const VerifyEmailPage = () => {
   );
 };
 
-export default VerifyEmailPage;
+export default ParentVerificationPage; 

@@ -8,7 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "seed-db": "node scripts/seed-database.js"
+    "seed-db": "node scripts/seed-database.js",
+    "test": "vitest run src/tests/enrollment-service.test.ts src/tests/payment-service.test.ts src/tests/certificate-service.test.ts",
+    "test:watch": "vitest",
+    "test:all": "vitest run"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -74,6 +77,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
     "@types/node": "^22.13.4",
     "@types/react": "^19.0.8",
     "@types/react-big-calendar": "^1.16.1",
@@ -83,8 +88,11 @@
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.18",
     "globals": "^15.14.0",
+    "jsdom": "^26.1.0",
+    "msw": "^2.10.2",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.22.0",
-    "vite": "^6.1.0"
+    "vite": "^6.1.0",
+    "vitest": "^3.2.3"
   }
 }

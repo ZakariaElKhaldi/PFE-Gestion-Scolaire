@@ -3,31 +3,18 @@ import { User } from "../../../types/auth"
 import { StudentLayout } from "../../../components/dashboard/layout/student-layout"
 import { CourseRegistrationModal } from "../../../components/dashboard/student/course-registration-modal"
 import { BookOpen, Clock, Users, Plus, Search, CheckCircle, AlertCircle, FileText, GraduationCap, TrendingUp, Book, Video } from "lucide-react"
-import { studentService, StudentCourseFilters } from "../../../services/student-service"
+import { studentService } from "../../../services/student-service"
 import { toast } from "react-hot-toast"
+import { enrollmentService, Enrollment } from "../../../services/enrollment-service"
+import { courseService, Course } from "../../../services/course-service"
 
 interface StudentCoursesProps {
   user: User
 }
 
-interface Course {
-  id: string
-  code: string
-  name: string
-  description: string
-  instructor: string
-  credits: number
-  schedule: {
-    day: string
-    time: string
-    room: string
-  }[]
-  prerequisites: string[]
-  capacity: number
-  enrolled: number
-  status: 'active' | 'completed' | 'not_started'
+interface StudentCourse extends Course {
   progress?: number
-  grade?: number
+  grade?: string
   materials?: {
     type: 'document' | 'video' | 'assignment'
     title: string
@@ -46,146 +33,178 @@ interface Course {
     date: string
     description: string
   }[]
+  enrollment?: Enrollment
 }
 
 export default function StudentCourses({ user }: StudentCoursesProps) {
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedStatus, setSelectedStatus] = useState<Course["status"] | "all">("all")
+  const [selectedStatus, setSelectedStatus] = useState<"active" | "completed" | "dropped" | "all">("all")
   const [showRegistrationModal, setShowRegistrationModal] = useState(false)
   const [view, setView] = useState<"grid" | "calendar">("grid")
   const [loading, setLoading] = useState(true)
-  const [courses, setCourses] = useState<Course[]>([])
+  const [courses, setCourses] = useState<StudentCourse[]>([])
   const [availableCourses, setAvailableCourses] = useState<Course[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([])
 
   useEffect(() => {
-    const fetchCourses = async (filterOptions: StudentCourseFilters = {}) => {
+    const fetchData = async () => {
       setLoading(true)
       setError(null)
       
       try {
-        const data = await studentService.getStudentCourses(filterOptions)
+        // Fetch student enrollments
+        const enrollmentsData = await enrollmentService.getStudentEnrollments(user.id);
+        setEnrollments(enrollmentsData);
         
-        // Transform API data to match our Course interface
-        const transformedCourses: Course[] = data.map(course => ({
-          id: course.id,
-          code: course.code,
-          name: course.name,
-          description: course.description,
-          instructor: course.teacherId || 'Unknown Instructor', // Default since teacher name is not provided
-          credits: course.credits,
-          schedule: [], // This would need to be populated from a separate API call if needed
-          prerequisites: [], // This would need to be populated from a separate API call if needed
-          capacity: 30, // Default capacity
-          enrolled: 0, // Default enrolled count
-          status: course.status as Course["status"],
-          progress: 65, // Placeholder - would need to be calculated from actual progress data
-          grade: 85 // Placeholder - would need to be calculated from actual grade data
-        }))
+        // Fetch course details for each enrollment
+        const coursesData: StudentCourse[] = [];
         
-        setCourses(transformedCourses)
+        for (const enrollment of enrollmentsData) {
+          if (enrollment.courseId) {
+            try {
+              const course = await courseService.getCourse(enrollment.courseId);
+              
+              // Combine course data with enrollment data
+              coursesData.push({
+                ...course,
+                enrollment: enrollment,
+                progress: 65, // Placeholder - would need to be calculated from actual progress data
+                grade: enrollment.grade || 'N/A'
+              });
+            } catch (courseError) {
+              console.error(`Failed to fetch course ${enrollment.courseId}:`, courseError);
+            }
+          }
+        }
+        
+        setCourses(coursesData);
       } catch (error) {
-        console.error("Failed to fetch courses:", error)
-        setError("Failed to load courses. Please try again later.")
+        console.error("Failed to fetch courses:", error);
+        setError("Failed to load courses. Please try again later.");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchCourses({
-      status: selectedStatus === 'all' ? undefined : selectedStatus,
-      search: searchQuery || undefined
-    })
-  }, [searchQuery, selectedStatus])
+    fetchData();
+  }, [user.id]);
 
-  // This would be replaced with an actual API call to get available courses
+  // Fetch available courses for registration
   useEffect(() => {
     const fetchAvailableCourses = async () => {
-      // Placeholder - would be replaced with an actual API call
-      setAvailableCourses([
-        {
-          id: "c4",
-          code: "CHEM201",
-          name: "Organic Chemistry",
-          description: "Study of organic compounds and their reactions.",
-          instructor: "Dr. Robert Wilson",
-          credits: 4,
-          schedule: [
-            { day: "Tuesday", time: "11:00 AM", room: "Lab 201" },
-            { day: "Thursday", time: "11:00 AM", room: "Lab 201" }
-          ],
-          prerequisites: ["CHEM101"],
-          capacity: 25,
-          enrolled: 18,
-          status: "active"
-        },
-        {
-          id: "c5",
-          code: "BIO101",
-          name: "Introduction to Biology",
-          description: "Basic principles of biology and life sciences.",
-          instructor: "Dr. Lisa Martinez",
-          credits: 3,
-          schedule: [
-            { day: "Monday", time: "9:00 AM", room: "Room 305" },
-            { day: "Wednesday", time: "9:00 AM", room: "Room 305" }
-          ],
-          prerequisites: [],
-          capacity: 35,
-          enrolled: 28,
-          status: "active"
-        }
-      ])
-    }
+      try {
+        // Get all courses
+        const allCourses = await courseService.getCourses();
+        
+        // Filter out courses the student is already enrolled in
+        const enrolledCourseIds = enrollments.map(e => e.courseId);
+        const availableCoursesList = allCourses.filter(
+          course => !enrolledCourseIds.includes(course.id)
+        );
+        
+        setAvailableCourses(availableCoursesList);
+      } catch (error) {
+        console.error("Failed to fetch available courses:", error);
+        toast.error("Failed to load available courses. Please try again later.");
+      }
+    };
 
-    fetchAvailableCourses()
-  }, [])
+    if (enrollments.length > 0) {
+      fetchAvailableCourses();
+    }
+  }, [enrollments]);
 
   const filteredCourses = courses.filter(course => {
     const matchesSearch = 
       course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      course.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      course.instructor.toLowerCase().includes(searchQuery.toLowerCase())
+      course.code.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesStatus = selectedStatus === "all" || course.status === selectedStatus
+    const courseStatus = course.enrollment?.status || 'active';
+    const matchesStatus = selectedStatus === "all" || courseStatus === selectedStatus;
     
-    return matchesSearch && matchesStatus
-  })
+    return matchesSearch && matchesStatus;
+  });
 
-  const totalCredits = courses.reduce((sum, course) => sum + course.credits, 0)
+  const totalCredits = courses.reduce((sum, course) => sum + course.credits, 0);
   const completedCredits = courses
-    .filter(course => course.status === "completed")
-    .reduce((sum, course) => sum + course.credits, 0)
-  const averageGPA = courses
-    .filter(course => course.grade !== undefined)
-    .reduce((sum, course) => sum + (course.grade || 0), 0) / 
-    courses.filter(course => course.grade !== undefined).length || 0
+    .filter(course => course.enrollment?.status === "completed")
+    .reduce((sum, course) => sum + course.credits, 0);
 
-  const getStatusColor = (status: Course["status"]) => {
+  // Calculate GPA from grades (assuming grades are letter grades or percentages)
+  const calculateGPA = (courses: StudentCourse[]) => {
+    const coursesWithGrades = courses.filter(course => course.grade && course.grade !== 'N/A');
+    
+    if (coursesWithGrades.length === 0) return 0;
+    
+    let totalPoints = 0;
+    let totalCredits = 0;
+    
+    for (const course of coursesWithGrades) {
+      let gradePoints = 0;
+      
+      // Convert letter grade or percentage to grade points
+      if (course.grade) {
+        if (course.grade === 'A' || course.grade === 'A+') gradePoints = 4.0;
+        else if (course.grade === 'A-') gradePoints = 3.7;
+        else if (course.grade === 'B+') gradePoints = 3.3;
+        else if (course.grade === 'B') gradePoints = 3.0;
+        else if (course.grade === 'B-') gradePoints = 2.7;
+        else if (course.grade === 'C+') gradePoints = 2.3;
+        else if (course.grade === 'C') gradePoints = 2.0;
+        else if (course.grade === 'C-') gradePoints = 1.7;
+        else if (course.grade === 'D+') gradePoints = 1.3;
+        else if (course.grade === 'D') gradePoints = 1.0;
+        else if (course.grade === 'F') gradePoints = 0.0;
+        else {
+          // Try to parse as percentage
+          const percentage = parseFloat(course.grade);
+          if (!isNaN(percentage)) {
+            if (percentage >= 90) gradePoints = 4.0;
+            else if (percentage >= 80) gradePoints = 3.0;
+            else if (percentage >= 70) gradePoints = 2.0;
+            else if (percentage >= 60) gradePoints = 1.0;
+            else gradePoints = 0.0;
+          }
+        }
+      }
+      
+      totalPoints += gradePoints * course.credits;
+      totalCredits += course.credits;
+    }
+    
+    return totalCredits > 0 ? (totalPoints / totalCredits).toFixed(2) : "0.00";
+  };
+  
+  const averageGPA = calculateGPA(courses);
+
+  const getStatusColor = (status: Enrollment['status']) => {
     switch (status) {
       case "active":
         return "text-blue-600 bg-blue-50"
       case "completed":
         return "text-green-600 bg-green-50"
-      case "not_started":
+      case "dropped":
         return "text-gray-600 bg-gray-50"
+      default:
+        return "text-blue-600 bg-blue-50"
     }
   }
 
-  const getStatusIcon = (status: Course["status"]) => {
+  const getStatusIcon = (status: Enrollment['status']) => {
     switch (status) {
       case "active":
         return <Clock className="h-5 w-5" />
       case "completed":
         return <CheckCircle className="h-5 w-5" />
-      case "not_started":
+      case "dropped":
         return <AlertCircle className="h-5 w-5" />
       default:
         return <BookOpen className="h-5 w-5" />
     }
   }
 
-  const getAssignmentTypeIcon = (course: Course) => {
+  const getAssignmentTypeIcon = (course: StudentCourse) => {
     if (!course.nextAssignment) return null
 
     switch (course.nextAssignment.type) {
@@ -208,30 +227,69 @@ export default function StudentCourses({ user }: StudentCoursesProps) {
 
   const handleCourseRegistration = async (courseIds: string[]) => {
     try {
-      // This would be replaced with actual API calls to enroll in courses
-      toast.success("Successfully enrolled in selected courses")
+      setShowRegistrationModal(false);
       
-      // For now, just add the selected courses from availableCourses to courses
-      const newCourses = courseIds
-        .map(id => {
-          const course = availableCourses.find(c => c.id === id)
-          if (!course) return null
-          
-          const newCourse: Course = {
-            ...course,
-            status: "not_started",
-            progress: 0
+      if (courseIds.length === 0) {
+        return;
+      }
+      
+      // Show loading toast
+      const loadingToast = toast.loading(`Enrolling in ${courseIds.length} course(s)...`);
+      
+      // Enroll in each selected course
+      let successCount = 0;
+      
+      for (const courseId of courseIds) {
+        try {
+          await enrollmentService.createEnrollment({
+            studentId: user.id,
+            courseId: courseId
+          });
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to enroll in course ${courseId}:`, error);
+        }
+      }
+      
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+      
+      if (successCount > 0) {
+        toast.success(`Successfully enrolled in ${successCount} course(s)`);
+        
+        // Refresh enrollments and courses
+        const updatedEnrollments = await enrollmentService.getStudentEnrollments(user.id);
+        setEnrollments(updatedEnrollments);
+        
+        // Fetch updated course details
+        const updatedCourses: StudentCourse[] = [];
+        
+        for (const enrollment of updatedEnrollments) {
+          if (enrollment.courseId) {
+            try {
+              const course = await courseService.getCourse(enrollment.courseId);
+              
+              updatedCourses.push({
+                ...course,
+                enrollment: enrollment,
+                progress: 65, // Placeholder
+                grade: enrollment.grade || 'N/A'
+              });
+            } catch (courseError) {
+              console.error(`Failed to fetch course ${enrollment.courseId}:`, courseError);
+            }
           }
-          return newCourse
-        })
-        .filter((course): course is NonNullable<typeof course> => course !== null)
-
-      setCourses(prev => [...prev, ...newCourses])
+        }
+        
+        setCourses(updatedCourses);
+      } else {
+        toast.error("Failed to enroll in any courses. Please try again.");
+      }
     } catch (error) {
-      console.error("Failed to enroll in courses:", error)
-      toast.error("Failed to enroll in courses. Please try again later.")
+      console.error("Course registration error:", error);
+      toast.error("Failed to register for courses. Please try again later.");
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -295,7 +353,7 @@ export default function StudentCourses({ user }: StudentCoursesProps) {
               <GraduationCap className="h-5 w-5 text-blue-600" />
             </div>
             <p className="mt-2 text-2xl font-semibold text-gray-900">
-              {averageGPA.toFixed(2)}
+              {averageGPA}
             </p>
           </div>
           <div className="rounded-lg border bg-white p-4">
@@ -304,7 +362,7 @@ export default function StudentCourses({ user }: StudentCoursesProps) {
               <BookOpen className="h-5 w-5 text-green-600" />
             </div>
             <p className="mt-2 text-2xl font-semibold text-gray-900">
-              {courses.filter(c => c.status === "active").length}
+              {courses.filter(c => c.enrollment?.status === "active").length}
             </p>
           </div>
           <div className="rounded-lg border bg-white p-4">
@@ -342,13 +400,13 @@ export default function StudentCourses({ user }: StudentCoursesProps) {
             </div>
             <select
               value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value as Course["status"] | "all")}
+              onChange={(e) => setSelectedStatus(e.target.value as "active" | "completed" | "dropped" | "all")}
               className="rounded-lg border border-gray-300 py-2 px-3 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="all">All Statuses</option>
               <option value="active">Active</option>
               <option value="completed">Completed</option>
-              <option value="not_started">Not Started</option>
+              <option value="dropped">Dropped</option>
             </select>
           </div>
         </div>
@@ -398,14 +456,14 @@ export default function StudentCourses({ user }: StudentCoursesProps) {
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-500">{course.code}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(course.status)}`}>
-                        {course.status.replace("_", " ").charAt(0).toUpperCase() + course.status.slice(1)}
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(course.enrollment?.status)}`}>
+                        {course.enrollment?.status.replace("_", " ").charAt(0).toUpperCase() + course.enrollment?.status.slice(1)}
                       </span>
                     </div>
                     <h3 className="font-medium text-gray-900">{course.name}</h3>
                     <p className="text-sm text-gray-500">{course.instructor}</p>
                   </div>
-                  {getStatusIcon(course.status)}
+                  {getStatusIcon(course.enrollment?.status)}
                 </div>
 
                 {course.progress !== undefined && (

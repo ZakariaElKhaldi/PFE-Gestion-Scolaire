@@ -1,22 +1,6 @@
 import { useState } from "react";
 import { X } from "lucide-react";
-
-interface Course {
-  id: string;
-  code: string;
-  name: string;
-  description: string;
-  instructor: string;
-  credits: number;
-  schedule: {
-    day: string;
-    time: string;
-    room: string;
-  }[];
-  prerequisites: string[];
-  capacity: number;
-  enrolled: number;
-}
+import { Course } from "../../../services/course-service";
 
 interface CourseRegistrationModalProps {
   isOpen: boolean;
@@ -38,8 +22,7 @@ export function CourseRegistrationModal({
 
   const filteredCourses = availableCourses.filter(course =>
     course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    course.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    course.instructor.toLowerCase().includes(searchQuery.toLowerCase())
+    course.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleToggleCourse = (courseId: string) => {
@@ -98,28 +81,21 @@ export function CourseRegistrationModal({
                     <h3 className="font-medium text-gray-900">{course.name}</h3>
                     <span className="text-sm text-gray-500">({course.code})</span>
                   </div>
-                  <p className="text-sm text-gray-500">{course.instructor}</p>
+                  <p className="text-sm text-gray-500">{course.teacherId}</p>
                   <p className="mt-1 text-sm text-gray-600">{course.description}</p>
                   <div className="mt-2 flex flex-wrap gap-4 text-sm text-gray-500">
                     <span>{course.credits} Credits</span>
-                    <span>{course.enrolled}/{course.capacity} Enrolled</span>
-                    {course.prerequisites.length > 0 && (
-                      <span>Prerequisites: {course.prerequisites.join(", ")}</span>
-                    )}
-                  </div>
-                  <div className="mt-2">
-                    <h4 className="text-sm font-medium text-gray-900">Schedule:</h4>
-                    <div className="mt-1 space-y-1">
-                      {course.schedule.map((slot, index) => (
-                        <p key={index} className="text-sm text-gray-500">
-                          {slot.day} at {slot.time} in {slot.room}
-                        </p>
-                      ))}
-                    </div>
+                    <span>{course.maxStudents ? `0/${course.maxStudents} Enrolled` : 'Unlimited Enrollment'}</span>
                   </div>
                 </div>
               </div>
             ))}
+            
+            {filteredCourses.length === 0 && (
+              <div className="py-8 text-center">
+                <p className="text-gray-500">No courses found matching your search criteria.</p>
+              </div>
+            )}
           </div>
         </div>
 
