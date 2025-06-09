@@ -22,7 +22,26 @@ class UserModel {
         return null;
       }
       
-      return data as User;
+      if (!data) return null;
+      
+      // Map snake_case DB fields to camelCase properties
+      return {
+        id: data.id,
+        email: data.email,
+        password: data.password,
+        firstName: data.first_name,
+        lastName: data.last_name,
+        role: data.role,
+        profilePictureUrl: data.profile_picture_url,
+        phoneNumber: data.phone_number,
+        lastLogin: data.last_login ? new Date(data.last_login) : undefined,
+        isActive: data.is_active,
+        isVerified: data.is_verified,
+        resetPasswordToken: data.reset_password_token,
+        resetPasswordExpires: data.reset_password_expires ? new Date(data.reset_password_expires) : undefined,
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at)
+      };
     } catch (error) {
       logger.error('Error in findByEmail:', error);
       return null;
@@ -45,7 +64,26 @@ class UserModel {
         return null;
       }
       
-      return data as User;
+      if (!data) return null;
+      
+      // Map snake_case DB fields to camelCase properties
+      return {
+        id: data.id,
+        email: data.email,
+        password: data.password,
+        firstName: data.first_name,
+        lastName: data.last_name,
+        role: data.role,
+        profilePictureUrl: data.profile_picture_url,
+        phoneNumber: data.phone_number,
+        lastLogin: data.last_login ? new Date(data.last_login) : undefined,
+        isActive: data.is_active,
+        isVerified: data.is_verified,
+        resetPasswordToken: data.reset_password_token,
+        resetPasswordExpires: data.reset_password_expires ? new Date(data.reset_password_expires) : undefined,
+        createdAt: new Date(data.created_at),
+        updatedAt: new Date(data.updated_at)
+      };
     } catch (error) {
       logger.error('Error in findById:', error);
       return null;
@@ -146,6 +184,92 @@ class UserModel {
     } catch (error) {
       logger.error('Error in findAll:', error);
       return [];
+    }
+  }
+
+  /**
+   * Update user
+   */
+  async update(id: string, userData: Partial<Omit<User, 'id' | 'password' | 'email' | 'role' | 'createdAt' | 'updatedAt'>>): Promise<boolean> {
+    try {
+      // Convert camelCase to snake_case for database
+      const dbData: Record<string, any> = {};
+      
+      if (userData.firstName !== undefined) dbData.first_name = userData.firstName;
+      if (userData.lastName !== undefined) dbData.last_name = userData.lastName;
+      if (userData.profilePictureUrl !== undefined) dbData.profile_picture_url = userData.profilePictureUrl;
+      if (userData.phoneNumber !== undefined) dbData.phone_number = userData.phoneNumber;
+      if (userData.isActive !== undefined) dbData.is_active = userData.isActive;
+      if (userData.isVerified !== undefined) dbData.is_verified = userData.isVerified;
+      
+      // Add updated_at timestamp
+      dbData.updated_at = new Date().toISOString();
+      
+      const { error } = await supabaseAdmin
+        .from('users')
+        .update(dbData)
+        .eq('id', id);
+      
+      if (error) {
+        logger.error('Error updating user:', error);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      logger.error('Error in update:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Update user password
+   */
+  async updatePassword(id: string, newPassword: string): Promise<boolean> {
+    try {
+      // Hash the new password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+      
+      const { error } = await supabaseAdmin
+        .from('users')
+        .update({
+          password: hashedPassword,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+      
+      if (error) {
+        logger.error('Error updating password:', error);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      logger.error('Error in updatePassword:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Delete user
+   */
+  async delete(id: string): Promise<boolean> {
+    try {
+      const { error } = await supabaseAdmin
+        .from('users')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        logger.error('Error deleting user:', error);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      logger.error('Error in delete:', error);
+      return false;
     }
   }
 

@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+import jwt, { Secret } from 'jsonwebtoken';
 import { config } from '../config';
 import { ApiError } from './ApiError';
 import { UserRole, JwtPayload } from '../types/auth';
@@ -8,12 +8,14 @@ import { UserRole, JwtPayload } from '../types/auth';
  */
 export const generateToken = (userId: string, role: UserRole): string => {
   try {
+    const payload: JwtPayload = {
+      userId,
+      role,
+    };
+    
     return jwt.sign(
-      {
-        userId,
-        role,
-      },
-      config.jwt.secret as jwt.Secret,
+      payload,
+      config.jwt.secret as Secret,
       {
         expiresIn: config.jwt.expiresIn,
       }
@@ -28,7 +30,7 @@ export const generateToken = (userId: string, role: UserRole): string => {
  */
 export const verifyToken = (token: string): JwtPayload => {
   try {
-    return jwt.verify(token, config.jwt.secret as jwt.Secret) as JwtPayload;
+    return jwt.verify(token, config.jwt.secret as Secret) as JwtPayload;
   } catch (error: any) {
     if (error.name === 'TokenExpiredError') {
       throw ApiError.unauthorized('Token expired');

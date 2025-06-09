@@ -7,7 +7,7 @@ import { config } from './config';
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
 
 // Import routes
-import authRoutes from './routes/auth.routes';
+import routes from './routes';
 
 // Initialize Express app
 const app: Express = express();
@@ -56,10 +56,8 @@ app.get('/', (_req, res) => {
   res.send('School Management API is running');
 });
 
-// Register routes
-app.use('/api/auth', authRoutes);
-// Add other routes here as they are implemented
-// app.use('/api/users', userRoutes);
+// Register all API routes
+app.use('/api', routes);
 
 // 404 handler
 app.use(notFoundHandler);
