@@ -1,0 +1,42 @@
+{
+  "name": "backend-supabase",
+  "version": "1.0.0",
+  "main": "dist/server.js",
+  "scripts": {
+    "start": "node dist/server.js",
+    "dev": "cross-env NODE_ENV=development ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "migrations": "ts-node src/db/migrations.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "School Management System backend using Supabase",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.8",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-validator": "^7.2.1",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/cors": "^2.8.16",
+    "@types/express": "^4.17.20",
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/morgan": "^1.9.10",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^20.3.1",
+    "@types/uuid": "^10.0.0",
+    "cross-env": "^7.0.3",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.2"
+  }
+}
