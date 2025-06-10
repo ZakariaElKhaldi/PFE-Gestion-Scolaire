@@ -50,4 +50,4 @@ router.use('/certificates', certificateRoutes);
 // Parent routes
 router.use('/parent', parentRoutes);
 
-export default router; 
+export default router;

@@ -129,3 +129,13 @@ export const sendNotFound = (
 ): Response<ErrorResponse> => {
   return sendError(res, message, 404);
 }; 
+
+// ... votre code existant ...
+
+export const sendServerError = (res: Response, message: string = 'Internal Server Error') => {
+  return res.status(500).json({
+    success: false,
+    message,
+    error: 'SERVER_ERROR'
+  });
+};

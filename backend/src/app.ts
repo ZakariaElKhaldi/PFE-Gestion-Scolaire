@@ -13,6 +13,7 @@ import assignmentRoutes from './routes/assignment.routes';
 import documentRoutes from './routes/document.routes';
 import { ensureUploadDirectories } from './services/file-upload.service';
 import dotenv from 'dotenv';
+import parentRoutes from './routes/parent.routes';
 
 // Import error handling middleware
 import { errorHandler, notFoundHandler } from './middlewares/error.middleware';
@@ -55,6 +56,7 @@ app.get('/version', (_req: Request, res: Response) => {
 app.use('/api', routes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/parent', parentRoutes);
 
 // Register routes
 import authRoutes from './routes/auth.routes';
