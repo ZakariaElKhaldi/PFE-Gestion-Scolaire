@@ -47,17 +47,21 @@ export function StudentPayments({ user }: StudentPaymentsProps) {
         // Fetch payment summary
         const summary = await paymentService.getPaymentSummary();
         setPaymentSummary(summary);
+        console.log('Payment summary:', summary);
 
         // Fetch payment history
         const paymentHistory = await paymentService.getPaymentHistory();
+        console.log('Payment history:', paymentHistory);
         setPayments(paymentHistory);
 
         // Fetch invoices
         const invoiceList = await paymentService.getInvoices();
+        console.log('Invoices:', invoiceList);
         setInvoices(invoiceList);
 
         // Fetch payment methods
         const methods = await paymentService.getPaymentMethods();
+        console.log('Payment methods:', methods);
         setPaymentMethods(methods);
       } catch (error) {
         console.error('Error fetching payment data:', error);

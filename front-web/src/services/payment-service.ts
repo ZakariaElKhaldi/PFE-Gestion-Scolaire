@@ -173,8 +173,15 @@ class PaymentService {
         }
       }
       
-      const response = await apiClient.get<{ data: Payment[] }>(url);
-      return response.data.data || [];
+      const response = await apiClient.get<{ data?: Payment[]; payments?: Payment[] }>(url);
+      
+      // Handle different response formats
+      if (response.data.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      } else if (response.data.payments && Array.isArray(response.data.payments)) {
+        return response.data.payments;
+      }
+      return [];
     } catch (error) {
       console.error('Error fetching payment history:', error);
       // Return mock data on error
@@ -312,8 +319,15 @@ class PaymentService {
         url += `?limit=${limit}`;
       }
       
-      const response = await apiClient.get<{ data: Invoice[] }>(url);
-      return response.data.data || [];
+      const response = await apiClient.get<{ data?: Invoice[]; invoices?: Invoice[] }>(url);
+      
+      // Handle different response formats
+      if (response.data.data && Array.isArray(response.data.data)) {
+        return response.data.data;
+      } else if (response.data.invoices && Array.isArray(response.data.invoices)) {
+        return response.data.invoices;
+      }
+      return [];
     } catch (error) {
       console.error('Error fetching invoices:', error);
       // Return mock data on error
