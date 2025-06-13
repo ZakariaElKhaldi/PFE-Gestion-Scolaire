@@ -269,11 +269,36 @@ export class PaymentModel {
         paymentDate DATETIME,
         createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (studentId) REFERENCES users(id) ON DELETE CASCADE
+        INDEX idx_student_id (studentId),
+        CONSTRAINT fk_payments_student FOREIGN KEY (studentId) REFERENCES users(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `;
     
-    await pool.query(query);
+    try {
+      await pool.query(query);
+      console.log('Payments table created or already exists');
+    } catch (error) {
+      console.error('Error creating payments table:', error);
+      // If table exists but with wrong structure, try to recreate it with correct structure
+      try {
+        console.log('Attempting to fix payments table...');
+        // First check if the table exists
+        const [tables] = await pool.query<RowDataPacket[]>("SHOW TABLES LIKE 'payments'");
+        if (tables.length > 0) {
+          // Drop dependent tables first
+          await pool.query('DROP TABLE IF EXISTS payment_methods');
+          await pool.query('DROP TABLE IF EXISTS invoices');
+          await pool.query('DROP TABLE IF EXISTS payments');
+          console.log('Dropped existing payments tables');
+          // Now recreate with correct structure
+          await pool.query(query);
+          console.log('Payments table recreated successfully');
+        }
+      } catch (recreateError) {
+        console.error('Failed to fix payments table:', recreateError);
+        throw recreateError;
+      }
+    }
   }
 
   /**
@@ -294,12 +319,19 @@ export class PaymentModel {
         paidDate DATETIME,
         createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (paymentId) REFERENCES payments(id) ON DELETE CASCADE,
-        FOREIGN KEY (studentId) REFERENCES users(id) ON DELETE CASCADE
+        INDEX idx_payment_id (paymentId),
+        INDEX idx_student_id (studentId),
+        CONSTRAINT fk_invoices_payment FOREIGN KEY (paymentId) REFERENCES payments(id) ON DELETE CASCADE,
+        CONSTRAINT fk_invoices_student FOREIGN KEY (studentId) REFERENCES users(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `;
     
-    await pool.query(query);
+    try {
+      await pool.query(query);
+      console.log('Invoices table created or already exists');
+    } catch (error) {
+      console.error('Error creating invoices table:', error);
+    }
   }
 
   /**
@@ -316,11 +348,17 @@ export class PaymentModel {
         isDefault BOOLEAN NOT NULL DEFAULT FALSE,
         createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (studentId) REFERENCES users(id) ON DELETE CASCADE
+        INDEX idx_student_id (studentId),
+        CONSTRAINT fk_payment_methods_student FOREIGN KEY (studentId) REFERENCES users(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `;
     
-    await pool.query(query);
+    try {
+      await pool.query(query);
+      console.log('Payment methods table created or already exists');
+    } catch (error) {
+      console.error('Error creating payment methods table:', error);
+    }
   }
 
   /**

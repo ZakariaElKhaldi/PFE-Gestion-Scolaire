@@ -23,6 +23,9 @@ import { createLoginAttemptsTable } from '../migrations/create-login-attempts-ta
 import { updateEmailVerifiedDefault } from '../migrations/update-emailVerified-default';
 import { up as addProfileFeatures, down as removeProfileFeatures, name as profileFeaturesName } from '../migrations/add-profile-features';
 import { createCertificatesTable } from '../migrations/create-certificates-table';
+import { createPaymentsTable } from '../migrations/create-payments-table';
+import { createPaymentMethodsTable } from '../migrations/create-payment-methods-table';
+import { createInvoicesTable } from '../migrations/create-invoices-table';
 
 interface Migration {
   name: string;
@@ -175,6 +178,24 @@ const migrations: Migration[] = [
     description: 'Creates the certificates table and required directories',
     priority: 60,
     execute: createCertificatesTable
+  },
+  {
+    name: 'create_payments_table',
+    description: 'Creates the payments table for payment processing',
+    priority: 65,
+    execute: createPaymentsTable
+  },
+  {
+    name: 'create_payment_methods_table',
+    description: 'Creates the payment methods table for storing payment methods',
+    priority: 70,
+    execute: createPaymentMethodsTable
+  },
+  {
+    name: 'create_invoices_table',
+    description: 'Creates the invoices table for payment invoices',
+    priority: 75,
+    execute: createInvoicesTable
   }
   // Add more migrations here
 ];
