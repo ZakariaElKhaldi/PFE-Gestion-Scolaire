@@ -20,6 +20,8 @@ import { createParentChildTable } from '../migrations/create-parent-child-table'
 import { createMessagesTable } from '../migrations/create-messages-table';
 import { addAuthFields } from '../migrations/add-auth-fields';
 import { createLoginAttemptsTable } from '../migrations/create-login-attempts-table';
+import { updateEmailVerifiedDefault } from '../migrations/update-emailVerified-default';
+import { up as addProfileFeatures, down as removeProfileFeatures, name as profileFeaturesName } from '../migrations/add-profile-features';
 
 interface Migration {
   name: string;
@@ -64,6 +66,18 @@ const migrations: Migration[] = [
     description: 'Creates the login_attempts table for security tracking',
     priority: 7,
     execute: createLoginAttemptsTable
+  },
+  {
+    name: 'update_emailVerified_default',
+    description: 'Updates emailVerified field to TRUE for all users',
+    priority: 8,
+    execute: updateEmailVerifiedDefault
+  },
+  {
+    name: profileFeaturesName,
+    description: 'Adds profile features (profilePicture and bio) to users table',
+    priority: 9,
+    execute: addProfileFeatures
   },
   {
     name: 'create_departments_table',

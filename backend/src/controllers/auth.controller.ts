@@ -18,7 +18,7 @@ const LOCK_DURATION_MINUTES = 15;
 
 // Define User interface to match what's expected by userModel.createWithConnection
 interface User {
-  id: number;
+  id: string;
   email: string;
   password: string;
   firstName: string;
@@ -27,7 +27,9 @@ interface User {
   phoneNumber?: string;
   createdAt: string;
   updatedAt: string;
-  emailVerified: boolean;
+  emailVerified?: boolean;
+  accountLocked?: boolean;
+  accountSuspended?: boolean;
 }
 
 // Define RelationshipType enum for parent relationship service
@@ -346,27 +348,7 @@ class AuthController {
       
       logger.info(`User found: ${user.id} with role ${user.role}, checking password...`);
       
-      // Check if account is locked
-      if (user.accountLocked) {
-        logger.warn(`Login denied: Account locked for user ${user.id}`);
-        return res.status(403).json({
-          error: true,
-          message: 'Your account has been locked due to suspicious activity. Please contact support.',
-          code: 'ACCOUNT_LOCKED'
-        });
-      }
-      
-      // Check if account is suspended
-      if (user.accountSuspended) {
-        logger.warn(`Login denied: Account suspended for user ${user.id}`);
-        return res.status(403).json({
-          error: true,
-          message: 'Your account has been suspended. Please contact support.',
-          code: 'ACCOUNT_SUSPENDED'
-        });
-      }
-      
-      // Check if email is verified
+      // Check if email is verified - if not explicitly set to false, assume it's verified (true)
       if (user.emailVerified === false) {
         logger.warn(`Login denied: Email not verified for user ${user.id}`);
         return res.status(403).json({
@@ -376,16 +358,48 @@ class AuthController {
         });
       }
       
-      // Validate password
-      const isPasswordValid = await bcrypt.compare(password, user.password);
+      // Check if account is locked (only if explicitly set to true)
+      if (user.accountLocked === true) {
+        logger.warn(`Login denied: Account locked for user ${user.id}`);
+        return res.status(403).json({
+          error: true,
+          message: 'Your account has been locked due to suspicious activity. Please contact support.',
+          code: 'ACCOUNT_LOCKED'
+        });
+      }
       
-      if (!isPasswordValid) {
-        logger.warn(`Login failed: Invalid password for user ${user.id}`);
-        // Use generic message to prevent account enumeration
-        return res.status(401).json({ 
-          error: true, 
-          message: 'Invalid email or password',
-          code: 'INVALID_CREDENTIALS'
+      // Check if account is suspended (only if explicitly set to true)
+      if (user.accountSuspended === true) {
+        logger.warn(`Login denied: Account suspended for user ${user.id}`);
+        return res.status(403).json({
+          error: true,
+          message: 'Your account has been suspended. Please contact support.',
+          code: 'ACCOUNT_SUSPENDED'
+        });
+      }
+      
+      // Validate password
+      try {
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        
+        if (!isPasswordValid) {
+          logger.warn(`Login failed: Invalid password for user ${user.id}`);
+          // Record failed login attempt
+          await loginAttemptsService.recordAttempt(email, req.ip || 'unknown');
+          
+          // Use generic message to prevent account enumeration
+          return res.status(401).json({ 
+            error: true, 
+            message: 'Invalid email or password',
+            code: 'INVALID_CREDENTIALS'
+          });
+        }
+      } catch (passwordError) {
+        logger.error(`Password comparison error for user ${user.id}:`, passwordError);
+        return res.status(500).json({
+          error: true,
+          message: 'Authentication error. Please try again later.',
+          code: 'INTERNAL_SERVER_ERROR'
         });
       }
       

@@ -14,7 +14,7 @@ const checkDbAvailability = () => {
 // Course types
 export interface Course {
   id: string;
-  name: string;
+  title: string;
   code: string;
   description: string;
   teacherId: string;
@@ -38,7 +38,7 @@ class CourseModel {
     const query = `
       CREATE TABLE IF NOT EXISTS courses (
         id VARCHAR(36) PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
+        title VARCHAR(255) NOT NULL,
         code VARCHAR(50) NOT NULL UNIQUE,
         description TEXT,
         teacherId VARCHAR(36) NOT NULL,
@@ -81,7 +81,7 @@ class CourseModel {
       }
       
       if (filters.search) {
-        conditions.push('(name LIKE ? OR code LIKE ? OR description LIKE ?)');
+        conditions.push('(title LIKE ? OR code LIKE ? OR description LIKE ?)');
         const searchParam = `%${filters.search}%`;
         params.push(searchParam, searchParam, searchParam);
       }
@@ -91,7 +91,7 @@ class CourseModel {
       }
     }
     
-    query += ' ORDER BY startDate DESC';
+    query += ' ORDER BY createdAt DESC';
     
     const [rows] = await pool.query<CourseRow[]>(query, params);
     return rows;
@@ -127,14 +127,14 @@ class CourseModel {
     
     const query = `
       INSERT INTO courses (
-        id, name, code, description, teacherId, 
+        id, title, code, description, teacherId, 
         startDate, endDate, credits, maxStudents, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
     await pool.query<ResultSetHeader>(query, [
       id,
-      courseData.name,
+      courseData.title,
       courseData.code,
       courseData.description,
       courseData.teacherId,
@@ -187,7 +187,7 @@ class CourseModel {
    */
   async getByTeacher(teacherId: string): Promise<Course[]> {
     const [rows] = await pool.query<CourseRow[]>(
-      'SELECT * FROM courses WHERE teacherId = ? ORDER BY startDate DESC',
+      'SELECT * FROM courses WHERE teacherId = ? ORDER BY createdAt DESC',
       [teacherId]
     );
     return rows;
@@ -198,7 +198,7 @@ class CourseModel {
    */
   async getActiveCourses(): Promise<Course[]> {
     const [rows] = await pool.query<CourseRow[]>(
-      'SELECT * FROM courses WHERE status = ? ORDER BY startDate',
+      'SELECT * FROM courses WHERE status = ? ORDER BY createdAt',
       ['active']
     );
     return rows;
@@ -209,7 +209,7 @@ class CourseModel {
    */
   async getUpcomingCourses(): Promise<Course[]> {
     const [rows] = await pool.query<CourseRow[]>(
-      'SELECT * FROM courses WHERE status = ? ORDER BY startDate',
+      'SELECT * FROM courses WHERE status = ? ORDER BY createdAt',
       ['upcoming']
     );
     return rows;
@@ -235,7 +235,7 @@ class CourseModel {
       return [
         {
           id: 'mock-course-1',
-          name: 'Mathematics',
+          title: 'Mathematics',
           code: 'MATH101',
           description: 'Introduction to Mathematics',
           teacherId: teacherId,
@@ -245,7 +245,7 @@ class CourseModel {
         },
         {
           id: 'mock-course-2',
-          name: 'Physics',
+          title: 'Physics',
           code: 'PHYS101',
           description: 'Introduction to Physics',
           teacherId: teacherId,
@@ -262,14 +262,14 @@ class CourseModel {
         FROM courses c
         LEFT JOIN departments d ON c.departmentId = d.id
         WHERE c.teacherId = ?
-        ORDER BY c.name
+        ORDER BY c.title
       `;
       
       const [rows] = await pool.query<RowDataPacket[]>(query, [teacherId]);
       
       return rows.map((row: any) => ({
         id: row.id,
-        name: row.name,
+        title: row.title,
         code: row.code,
         description: row.description,
         teacherId: row.teacherId,
@@ -285,7 +285,7 @@ class CourseModel {
       return [
         {
           id: 'mock-course-1',
-          name: 'Mathematics',
+          title: 'Mathematics',
           code: 'MATH101',
           description: 'Introduction to Mathematics',
           teacherId: teacherId,

@@ -55,7 +55,7 @@ export function ConversationList({
   }
 
   return (
-    <div className="h-full flex flex-col border-r border-gray-200">
+    <div className="h-full flex flex-col bg-white">
       {/* Search bar */}
       <div className="p-3 border-b border-gray-200">
         <div className="relative">
@@ -65,13 +65,13 @@ export function ConversationList({
             placeholder="Search conversations..."
             value={searchQuery}
             onChange={handleSearchChange}
-            className="w-full rounded-full border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-gray-50"
+            className="w-full rounded-full border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
           />
         </div>
       </div>
 
       {/* Conversations list */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto bg-white">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-blue-500"></div>

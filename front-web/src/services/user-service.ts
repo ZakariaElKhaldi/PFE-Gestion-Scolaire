@@ -64,6 +64,43 @@ class UserService {
     return data
   }
 
+  async getUserProfile(id: string) {
+    const { data } = await apiClient.get<User>(`${this.basePath}/${id}`)
+    return data
+  }
+
+  async updateUserProfile(id: string, profileData: any) {
+    const { data } = await apiClient.put<User>(`${this.basePath}/${id}`, profileData)
+    return data
+  }
+
+  async uploadProfilePicture(id: string, file: File) {
+    const formData = new FormData()
+    formData.append('profilePicture', file)
+    
+    const { data } = await apiClient.post<{user: User, profilePicture: string}>(
+      `${this.basePath}/profile/picture`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      }
+    )
+    return data
+  }
+  
+  async changePassword(id: string, currentPassword: string, newPassword: string) {
+    const { data } = await apiClient.post<{ message: string }>(
+      `${this.basePath}/${id}/password`,
+      {
+        currentPassword,
+        newPassword,
+      }
+    )
+    return data
+  }
+
   // Parent-Child Relationships
   async getChildren(parentId: string) {
     const { data } = await apiClient.get<Child[]>(

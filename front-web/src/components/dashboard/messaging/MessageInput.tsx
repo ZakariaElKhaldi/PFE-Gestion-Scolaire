@@ -69,10 +69,10 @@ export function MessageInput({
   }
 
   return (
-    <div className="border-t border-gray-200 bg-white p-3">
+    <div className="bg-white pb-1 px-1">
       {/* AI suggested questions */}
       {isAI && suggestedQuestions.length > 0 && !message && (
-        <div className="mb-3 flex flex-wrap gap-2">
+        <div className="mb-2 flex flex-wrap gap-2">
           {suggestedQuestions.map((question, index) => (
             <button
               key={index}
@@ -86,11 +86,11 @@ export function MessageInput({
         </div>
       )}
       
-      <div className="flex items-end gap-2">
+      <div className="flex items-end rounded-lg border border-gray-300 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 bg-white">
         {/* Attachment button */}
         <button
           type="button"
-          className="p-2 text-gray-500 rounded-full hover:bg-gray-100 transition-colors"
+          className="p-2.5 text-gray-500 hover:text-gray-700"
           disabled={disabled}
         >
           <Paperclip className="h-5 w-5" />
@@ -104,17 +104,10 @@ export function MessageInput({
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={isAI ? "Ask the AI Assistant a question..." : placeholder}
-            className="w-full resize-none rounded-lg border border-gray-300 p-3 pr-10 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 min-h-[40px] max-h-[120px]"
+            className="w-full resize-none p-3 py-2.5 focus:outline-none border-0 min-h-[40px] max-h-[120px]"
             disabled={disabled}
             rows={1}
           />
-          <button
-            type="button"
-            className="absolute right-2 bottom-2 p-1 text-gray-500 rounded-full hover:bg-gray-100"
-            disabled={disabled}
-          >
-            <Smile className="h-5 w-5" />
-          </button>
         </div>
 
         {/* Send button */}
@@ -122,12 +115,12 @@ export function MessageInput({
           type="button"
           onClick={handleSendMessage}
           disabled={disabled || !message.trim()}
-          className={`p-3 rounded-full ${
+          className={`p-2.5 rounded-lg mx-1 ${
             !message.trim() || disabled
-              ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+              ? "text-gray-400 cursor-not-allowed"
               : isAI
-              ? "bg-blue-600 text-white hover:bg-blue-700"
-              : "bg-green-600 text-white hover:bg-green-700"
+              ? "text-blue-600 hover:text-blue-700"
+              : "text-green-600 hover:text-green-700"
           } transition-colors flex-shrink-0`}
         >
           <Send className="h-5 w-5" />

@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import { userService, UserFilters } from '../services/user.service';
+import { saveUploadedFile } from '../utils/file-utils';
+import fs from 'fs';
+import path from 'path';
 
 class UserController {
   /**
@@ -229,6 +232,66 @@ class UserController {
       res.status(500).json({
         error: true,
         message: error.message || 'Failed to update profile',
+      });
+    }
+  }
+
+  /**
+   * Upload user profile picture
+   */
+  async uploadProfilePicture(req: Request, res: Response) {
+    try {
+      const userId = req.user?.userId;
+      
+      if (!userId) {
+        return res.status(401).json({
+          error: true,
+          message: 'Unauthorized',
+        });
+      }
+
+      // Check if file was uploaded
+      if (!req.file) {
+        return res.status(400).json({
+          error: true,
+          message: 'No file uploaded',
+        });
+      }
+
+      // Save the uploaded file
+      const fileInfo = saveUploadedFile(req.file, 'profile');
+      
+      // Update the user's profile picture in the database
+      const user = await userService.updateUser(userId, {
+        profilePicture: fileInfo.url
+      });
+      
+      if (!user) {
+        // Remove the file if user update failed
+        try {
+          fs.unlinkSync(fileInfo.path);
+        } catch (err) {
+          console.error('Error removing file after failed update:', err);
+        }
+
+        return res.status(404).json({
+          error: true,
+          message: 'User not found or could not be updated',
+        });
+      }
+      
+      res.status(200).json({
+        error: false,
+        data: { 
+          user,
+          profilePicture: fileInfo.url
+        },
+        message: 'Profile picture uploaded successfully',
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        error: true,
+        message: error.message || 'Failed to upload profile picture',
       });
     }
   }

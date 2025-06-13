@@ -381,14 +381,41 @@ export class MessageService {
       const userJson = localStorage.getItem('user');
       if (userJson) {
         const user = JSON.parse(userJson);
-        return user.id;
+        if (user && user.id) {
+          return user.id;
+        }
       }
     } catch (e) {
       console.error("Error getting current user ID:", e);
     }
     
-    // Fallback to 'teacher-1' for mock data if no user is found
-    return 'teacher-1';
+    // Get a fallback ID based on user role or default to a generic ID
+    // This is only used for mock data when real user data is not available
+    try {
+      const userJson = localStorage.getItem('user');
+      if (userJson) {
+        const user = JSON.parse(userJson);
+        if (user && user.role) {
+          switch (user.role) {
+            case 'student':
+              return 'student-1';
+            case 'teacher':
+              return 'teacher-1';
+            case 'parent':
+              return 'parent-1';
+            case 'administrator':
+              return 'admin-1';
+            default:
+              return 'user-1';
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error determining fallback user ID:", e);
+    }
+    
+    // Final fallback
+    return 'user-1';
   }
 
   private getMockConversation(userId: string): Message[] {

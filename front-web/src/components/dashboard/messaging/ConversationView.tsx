@@ -74,7 +74,7 @@ export function ConversationView({
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
+    <div className="flex flex-col h-full bg-white">
       {/* Chat header with recipient info */}
       <ChatHeader
         name={recipientName}
@@ -84,7 +84,7 @@ export function ConversationView({
       />
 
       {/* Messages container */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 bg-white">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full">
             <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-300 border-t-blue-500 mb-3"></div>
@@ -205,12 +205,14 @@ export function ConversationView({
       </div>
 
       {/* Message input */}
-      <MessageInput
-        onSendMessage={handleSendMessage}
-        placeholder={`Message ${isAI ? 'AI Assistant' : recipientName}...`}
-        disabled={isLoading}
-        isAI={isAI}
-      />
+      <div className="border-t border-gray-200 p-3">
+        <MessageInput
+          onSendMessage={handleSendMessage}
+          placeholder={`Message ${isAI ? 'AI Assistant' : recipientName}...`}
+          disabled={isLoading}
+          isAI={isAI}
+        />
+      </div>
     </div>
   )
 } 

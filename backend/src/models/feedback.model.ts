@@ -274,7 +274,7 @@ export class FeedbackModel {
         const query = `
           SELECT 
             f.*,
-            c.name as courseName,
+            c.title as courseName,
             u.firstName as teacherFirstName,
             u.lastName as teacherLastName
           FROM 
@@ -374,7 +374,7 @@ export class FeedbackModel {
       const query = `
         SELECT 
           f.*,
-          c.name as courseName,
+          c.title as courseName,
           u.firstName,
           u.lastName
         FROM 
@@ -506,6 +506,7 @@ export class FeedbackModel {
           courseId VARCHAR(36) NOT NULL,
           rating INT NOT NULL,
           comment TEXT NOT NULL,
+          submittedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           status ENUM('pending', 'reviewed') DEFAULT 'pending',
           teacherResponse TEXT,
           teacherResponseDate DATETIME,
@@ -551,7 +552,7 @@ export class FeedbackModel {
       const query = `
         SELECT f.*, 
                u.firstName as studentFirstName, u.lastName as studentLastName,
-               c.name as courseName
+               c.title as courseName
         FROM feedback f
         JOIN users u ON f.studentId = u.id
         JOIN courses c ON f.courseId = c.id

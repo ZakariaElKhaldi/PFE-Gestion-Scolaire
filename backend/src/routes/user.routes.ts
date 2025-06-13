@@ -1,8 +1,46 @@
 import { Router } from 'express';
 import { userController } from '../controllers/user.controller';
 import { authenticate, authorize } from '../middlewares/auth.middleware';
+import multer from 'multer';
+import path from 'path';
+import { Request, Response, NextFunction } from 'express';
 
 const router = Router();
+
+// Configure multer for profile picture uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (extname && mimetype) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files (jpeg, jpg, png, gif) are allowed'));
+    }
+  }
+});
+
+// Handle multer errors
+const handleMulterError = (err: any, req: any, res: any, next: any) => {
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({
+      error: true,
+      message: `File upload error: ${err.message}`,
+    });
+  } else if (err) {
+    return res.status(400).json({
+      error: true,
+      message: err.message,
+    });
+  }
+  next();
+};
 
 /**
  * @swagger
@@ -232,6 +270,39 @@ router.get('/profile', (req, res, next) => {
  */
 router.put('/profile', (req, res, next) => {
   userController.updateProfile(req, res)
+    .catch(next);
+});
+
+/**
+ * @swagger
+ * /users/profile/picture:
+ *   post:
+ *     summary: Upload profile picture
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               profilePicture:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Profile picture uploaded successfully
+ *       400:
+ *         description: Invalid file
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.post('/profile/picture', upload.single('profilePicture'), handleMulterError, (req: Request, res: Response, next: NextFunction) => {
+  userController.uploadProfilePicture(req, res)
     .catch(next);
 });
 

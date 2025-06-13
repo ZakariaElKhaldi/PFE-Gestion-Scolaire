@@ -23,6 +23,9 @@ export interface UserResponse {
   role: UserRole;
   profilePicture?: string;
   phoneNumber?: string;
+  phone?: string;
+  address?: string;
+  bio?: string;
   createdAt?: string;
   updatedAt?: string;
   studentId?: string;

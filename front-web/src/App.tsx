@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import LandingPage from './pages/landing';
 import { SignInPage } from './pages/auth/sign-in';
@@ -43,6 +43,7 @@ import StudentFeedback from './pages/student/feedback';
 import StudentSchedule from './pages/student/schedule';
 import StudentGrades from './pages/student/grades';
 import { NotificationsPage as StudentNotificationsPage } from './pages/student/notifications';
+import StudentMessages from './pages/student/messages';
 
 // Teacher Pages
 import TeacherDashboard from './pages/teacher';
@@ -336,6 +337,7 @@ function App() {
         <Route path="/dashboard/student/schedule" element={<PrivateRoute allowedRoles={['student']}><StudentSchedule user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/student/grades" element={<PrivateRoute allowedRoles={['student']}><StudentGrades user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/student/notifications" element={<PrivateRoute allowedRoles={['student']}><StudentNotificationsPage user={user as UserResponse} /></PrivateRoute>} />
+        <Route path="/dashboard/student/messages" element={<PrivateRoute allowedRoles={['student']}><StudentMessages user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/student/profile" element={<PrivateRoute allowedRoles={['student']}><ProfilePage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/student/settings" element={<PrivateRoute allowedRoles={['student']}><SettingsPage user={user as UserResponse} /></PrivateRoute>} />
         <Route path="/dashboard/student/forum" element={<PrivateRoute allowedRoles={['student']}><ForumPage user={user as UserResponse} /></PrivateRoute>} />

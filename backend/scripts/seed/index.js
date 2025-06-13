@@ -15,6 +15,10 @@ const seedClasses = require('./classes');
 const seedAssignments = require('./assignments');
 const seedAttendance = require('./attendance');
 const seedMaterials = require('./materials');
+const seedDocuments = require('./documents');
+const seedFeedback = require('./feedback');
+const seedLoginAttempts = require('./login_attempts');
+const seedMessages = require('./messages');
 
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../../.env') });
@@ -61,6 +65,18 @@ async function seedAll() {
     await seedMaterials(connection, courseData);
     console.log('✅ Materials created successfully');
     
+    await seedDocuments(connection, userData);
+    console.log('✅ Documents created successfully');
+    
+    await seedFeedback(connection, userData, courseData);
+    console.log('✅ Course feedback created successfully');
+    
+    await seedLoginAttempts(connection, userData);
+    console.log('✅ Login attempts created successfully');
+    
+    await seedMessages(connection, userData);
+    console.log('✅ Messages created successfully');
+    
     await connection.query('SET FOREIGN_KEY_CHECKS = 1');
     
     console.log('\n🎉 Comprehensive seed completed successfully!');
@@ -75,17 +91,31 @@ async function seedAll() {
 }
 
 function displayCredentials(userData) {
-  console.log('\nLogin Credentials:');
-  console.log('- Admin: admin@school.com / password123');
-  console.log('- Teacher 1: teacher@school.com / password123');
-  console.log('- Teacher 2: science.teacher@school.com / password123');
-  console.log(`- Student 1: student@school.com / password123 (ID: ${userData.studentId1})`);
-  console.log('- Student 2: mike.student@school.com / password123');
-  console.log('- Student 3: emma.student@school.com / password123');
-  console.log('- Parent 1: parent@school.com / password123');
-  console.log('- Parent 2: jane.parent@school.com / password123');
+  console.log('\n=== Login Credentials ===');
+  console.log('\n- Administrators:');
+  console.log('  • Admin: admin@school.com / password123');
+  console.log('  • Director: director@school.com / password123');
   
-  console.log('\nCreated Data Summary:');
+  console.log('\n- Teachers:');
+  console.log('  • English Teacher: teacher@school.com / password123');
+  console.log('  • Science Teacher: science.teacher@school.com / password123');
+  console.log('  • Math Teacher: math.teacher@school.com / password123');
+  console.log('  • History Teacher: history.teacher@school.com / password123');
+  
+  console.log('\n- Students:');
+  console.log(`  • Student Johnson: student@school.com / password123 (ID: ${userData.studentId1})`);
+  console.log(`  • Mike Williams: mike.student@school.com / password123 (ID: ${userData.studentId2})`);
+  console.log(`  • Emma Davis: emma.student@school.com / password123 (ID: ${userData.studentId3})`);
+  console.log(`  • Alex Martinez: alex.student@school.com / password123 (ID: ${userData.studentId4})`);
+  console.log(`  • Sophia Brown: sophia.student@school.com / password123 (ID: ${userData.studentId5})`);
+  
+  console.log('\n- Parents:');
+  console.log('  • Robert Johnson: parent@school.com / password123 (Parent of Student Johnson, Guardian of Sophia)');
+  console.log('  • Jane Williams: jane.parent@school.com / password123 (Parent of Mike, Emergency Contact for Emma)');
+  console.log('  • Robert Davis: robert.parent@school.com / password123 (Parent of Emma)');
+  console.log('  • Maria Martinez: maria.parent@school.com / password123 (Parent of Alex)');
+  
+  console.log('\n=== Created Data Summary ===');
   console.log('- 3 Courses: Mathematics, Physics, Chemistry');
   console.log('- 3 Class schedules with weekly sessions');
   console.log('- 4 Assignments across different courses');
@@ -93,6 +123,20 @@ function displayCredentials(userData) {
   console.log('- Attendance records for past 3 weeks');
   console.log('- 5 Course materials');
   console.log('- 2 Student grades');
+  console.log('- 5 Documents (various types)');
+  console.log('- 4 Course feedback entries');
+  console.log('- 4 Login attempt records');
+  console.log('- 6 Messages between users');
+  
+  console.log('\n=== User Relationships ===');
+  console.log('- Parent-Child Relationships: 6 total relationships');
+  console.log('- Primary parent relationships: 4 (one for each family)');
+  console.log('- Cross-family relationships: 2 (guardian, emergency contact)');
+  
+  console.log('\n=== User Profile Features ===');
+  console.log('- Profile Pictures: All users have profile pictures from randomuser.me');
+  console.log('- User Bios: All users have detailed biographical information');
+  console.log('- Contact Information: All users have phone numbers');
 }
 
 // Run the seed function

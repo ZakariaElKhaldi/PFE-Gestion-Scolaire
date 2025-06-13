@@ -22,6 +22,7 @@ class UserModel {
         role ENUM('administrator', 'teacher', 'student', 'parent') NOT NULL,
         profilePicture VARCHAR(255),
         phoneNumber VARCHAR(20),
+        emailVerified BOOLEAN DEFAULT TRUE,
         studentId VARCHAR(50),
         bio TEXT,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -60,6 +61,7 @@ class UserModel {
     lastName: string;
     role: UserRole;
     phoneNumber?: string;
+    emailVerified?: boolean;
   }): Promise<string> {
     // Hash password
     const salt = await bcrypt.genSalt(10);
@@ -70,8 +72,8 @@ class UserModel {
     
     const query = `
       INSERT INTO users (
-        id, email, password, firstName, lastName, role, phoneNumber
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        id, email, password, firstName, lastName, role, phoneNumber, emailVerified
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
     await pool.query<ResultSetHeader>(query, [
@@ -81,7 +83,8 @@ class UserModel {
       userData.firstName,
       userData.lastName,
       userData.role,
-      userData.phoneNumber || null
+      userData.phoneNumber || null,
+      userData.emailVerified !== undefined ? userData.emailVerified : true
     ]);
     
     return id;
@@ -174,8 +177,8 @@ class UserModel {
       const hashedPassword = await this.hashPassword(userData.password);
       
       const query = `
-        INSERT INTO users (id, email, password, firstName, lastName, phoneNumber, role)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (id, email, password, firstName, lastName, phoneNumber, role, emailVerified)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;
       
       await connection.query(query, [
@@ -185,7 +188,8 @@ class UserModel {
         userData.firstName,
         userData.lastName,
         userData.phoneNumber,
-        userData.role
+        userData.role,
+        userData.emailVerified !== undefined ? userData.emailVerified : true
       ]);
       
       // Don't return the password
@@ -197,6 +201,7 @@ class UserModel {
         phoneNumber: userData.phoneNumber,
         role: userData.role,
         password: hashedPassword, // Required by the User interface
+        emailVerified: userData.emailVerified !== undefined ? userData.emailVerified : true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };

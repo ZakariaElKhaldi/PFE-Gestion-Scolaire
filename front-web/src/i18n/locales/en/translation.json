@@ -65,7 +65,26 @@
     "feedback": "Feedback",
     "library": "Library",
     "certificates": "Certificates",
-    "payments": "Payments"
+    "payments": "Payments",
+    "support": "Support",
+    "monitoring": "Monitoring",
+    "children": "Children",
+    "progress": "Progress",
+    "groups": {
+      "main": "Main",
+      "academics": "Academics",
+      "academic": "Academic",
+      "records": "Records",
+      "communication": "Communication",
+      "services": "Services",
+      "personal": "Personal",
+      "teaching": "Teaching",
+      "schedule": "Schedule",
+      "analysis": "Analysis",
+      "analytics": "Analytics",
+      "system": "System",
+      "monitoring": "Monitoring"
+    }
   },
   "settings": {
     "title": "Settings",

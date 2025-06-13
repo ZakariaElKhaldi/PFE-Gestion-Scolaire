@@ -31,10 +31,10 @@ export function MessageBubble({ message, isMine, isFromAI = false }: MessageBubb
   // For my message (right side, blue)
   if (isMine) {
     return (
-      <div className="w-full flex justify-end mb-2">
-        <div className="max-w-[80%] bg-blue-600 text-white px-4 py-2 rounded-tl-xl rounded-tr-sm rounded-bl-xl rounded-br-xl shadow-sm">
+      <div className="w-full flex justify-end mb-3">
+        <div className="max-w-[80%] bg-primary-100 text-gray-800 px-4 py-3 rounded-tl-2xl rounded-tr-md rounded-bl-2xl rounded-br-2xl shadow-sm">
           {message.subject && (
-            <div className="font-medium mb-1">
+            <div className="font-medium mb-1 text-primary-700">
               {message.subject}
             </div>
           )}
@@ -43,15 +43,19 @@ export function MessageBubble({ message, isMine, isFromAI = false }: MessageBubb
             {message.content}
           </div>
           
-          <div className="flex items-center justify-end gap-1 mt-1">
-            <span className="text-xs text-blue-200">
+          <div className="flex items-center justify-end gap-1 mt-1.5">
+            <span className="text-xs text-gray-500">
               {formatTimeString(message.sentAt)}
             </span>
             <div className="ml-1">
               {message.status === "read" ? (
-                <CheckCircle className="h-3 w-3 text-blue-300" />
+                <CheckCircle className="h-3 w-3 text-primary-600" />
+              ) : message.status === "delivered" ? (
+                <CheckCheck className="h-3 w-3 text-gray-500" />
+              ) : message.status === "sent" ? (
+                <Check className="h-3 w-3 text-gray-500" />
               ) : (
-                <span className="inline-block h-2 w-2 rounded-full border border-blue-200"></span>
+                <Clock className="h-3 w-3 text-gray-500" />
               )}
             </div>
           </div>
@@ -62,12 +66,12 @@ export function MessageBubble({ message, isMine, isFromAI = false }: MessageBubb
   
   // For others' messages (left side, gray or gradient for AI)
   return (
-    <div className="w-full flex justify-start mb-2">
+    <div className="w-full flex justify-start mb-3">
       <div 
-        className={`max-w-[80%] px-4 py-2 rounded-tl-sm rounded-tr-xl rounded-bl-xl rounded-br-xl shadow-sm
+        className={`max-w-[80%] px-4 py-3 shadow-sm
           ${isFromAI 
-            ? "bg-gradient-to-br from-violet-100 to-blue-100 text-gray-800" 
-            : "bg-gray-100 text-gray-800"
+            ? "bg-blue-50 text-gray-800 rounded-tl-md rounded-tr-2xl rounded-bl-2xl rounded-br-2xl" 
+            : "bg-white border border-gray-200 text-gray-800 rounded-tl-md rounded-tr-2xl rounded-bl-2xl rounded-br-2xl"
           }`}
       >
         {message.subject && (
@@ -76,6 +80,7 @@ export function MessageBubble({ message, isMine, isFromAI = false }: MessageBubb
             {isFromAI && (
               <span className="inline-flex items-center ml-1 text-blue-600">
                 <Bot className="h-3 w-3 mr-1" />
+                <span className="text-xs font-normal">AI</span>
               </span>
             )}
           </div>
@@ -85,7 +90,7 @@ export function MessageBubble({ message, isMine, isFromAI = false }: MessageBubb
           {message.content}
         </div>
         
-        <div className="flex items-center justify-start gap-1 mt-1">
+        <div className="flex items-center justify-start gap-1 mt-1.5">
           <span className="text-xs text-gray-500">
             {formatTimeString(message.sentAt)}
           </span>

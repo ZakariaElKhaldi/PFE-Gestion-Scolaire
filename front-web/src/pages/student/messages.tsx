@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { Plus } from "lucide-react"
-import { User } from "../../types/auth"
+import { UserResponse } from "../../types/auth"
 import { Message } from "../../types/models"
 import { DashboardLayout } from "../../components/dashboard/layout/dashboard-layout"
 import { ConversationList } from "../../components/dashboard/messaging/ConversationList"
@@ -14,11 +14,14 @@ import {
   MessageRecipient
 } from "../../services/message-service"
 
-interface TeacherMessagesProps {
-  user: User
+interface StudentMessagesProps {
+  user: UserResponse
 }
 
-export default function TeacherMessages({ user }: TeacherMessagesProps) {
+export default function StudentMessages({ user }: StudentMessagesProps) {
+  // Add a loading state for initial rendering
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+
   // State for conversations and active conversation
   const [conversations, setConversations] = useState<ConversationPartner[]>([])
   const [conversationsLoading, setConversationsLoading] = useState(true)
@@ -55,83 +58,114 @@ export default function TeacherMessages({ user }: TeacherMessagesProps) {
   const AI_ASSISTANT_ID = "ai-assistant-1"
   const isAIConversation = activeConversation === AI_ASSISTANT_ID
 
+  // Initialize and clear loading state
+  useEffect(() => {
+    // Check if user data is available
+    if (user && user.id) {
+      // Delay slightly to ensure all data is properly loaded
+      const timer = setTimeout(() => {
+        setIsInitialLoading(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [user]);
+
   // Load conversation partners on mount
   useEffect(() => {
     const loadConversations = async () => {
-      setConversationsLoading(true)
-      try {
-        const conversations = await messageService.getConversationPartners()
-        setConversations(conversations)
-      } catch (error) {
-        console.error("Error loading conversations:", error)
-      } finally {
-        setConversationsLoading(false)
+      if (!user || !user.id) {
+        console.error("User data missing, cannot load conversations");
+        return;
       }
-    }
+      
+      setConversationsLoading(true);
+      try {
+        const conversations = await messageService.getConversationPartners();
+        setConversations(conversations);
+      } catch (error) {
+        console.error("Error loading conversations:", error);
+        // Don't set empty conversations to preserve any existing data
+      } finally {
+        setConversationsLoading(false);
+      }
+    };
     
-    loadConversations()
-  }, [])
+    loadConversations();
+  }, [user]);
   
   // Load message stats on mount
   useEffect(() => {
     const loadStats = async () => {
-      setStatsLoading(true)
-      try {
-        const stats = await messageService.getMessageCounts()
-        setStats(stats)
-      } catch (error) {
-        console.error("Error loading message stats:", error)
-      } finally {
-        setStatsLoading(false)
+      if (!user || !user.id) {
+        console.error("User data missing, cannot load message stats");
+        return;
       }
-    }
+      
+      setStatsLoading(true);
+      try {
+        const stats = await messageService.getMessageCounts();
+        setStats(stats);
+      } catch (error) {
+        console.error("Error loading message stats:", error);
+        // Keep default stats in case of error
+      } finally {
+        setStatsLoading(false);
+      }
+    };
     
-    loadStats()
-  }, [])
+    loadStats();
+  }, [user]);
   
   // Load active conversation messages when changed
   useEffect(() => {
     if (!activeConversation) {
-      setMessages([])
-      setActiveRecipientDetails(null)
-      return
+      setMessages([]);
+      setActiveRecipientDetails(null);
+      return;
+    }
+    
+    if (!user || !user.id) {
+      console.error("User data missing, cannot load conversation messages");
+      return;
     }
     
     const loadMessages = async () => {
-      setMessagesLoading(true)
+      setMessagesLoading(true);
       try {
         // Use special method for AI assistant
         const messages = isAIConversation
           ? await messageService.getAIAssistantConversation()
-          : await messageService.getConversation(activeConversation)
+          : await messageService.getConversation(activeConversation);
         
         // Process and set recipient details based on the current conversation
-        const conversation = conversations.find(c => c.userId === activeConversation)
+        const conversation = conversations.find(c => c.userId === activeConversation);
         if (conversation) {
           setActiveRecipientDetails({
             name: conversation.name,
             avatar: conversation.avatar
-          })
+          });
         }
         
         // We don't need to set isMine on messages anymore since ConversationView 
         // will determine this directly from senderId comparison
-        setMessages(messages)
+        setMessages(messages);
         
         // On mobile, switch to conversation view
-        setIsMobileViewingConversation(true)
+        setIsMobileViewingConversation(true);
       } catch (error) {
-        console.error("Error loading conversation messages:", error)
+        console.error("Error loading conversation messages:", error);
+        // Show an empty conversation rather than crashing
+        setMessages([]);
       } finally {
-        setMessagesLoading(false)
+        setMessagesLoading(false);
       }
-    }
+    };
     
-    loadMessages()
+    loadMessages();
     
-    // Only depend on activeConversation and user.id changes
+    // Only depend on activeConversation and user changes
     // NOT including 'conversations' here to avoid continuous refreshes
-  }, [activeConversation, user.id, isAIConversation])
+  }, [activeConversation, user, isAIConversation, conversations]);
   
   // Function to load potential recipients for new message
   const loadPotentialRecipients = async () => {
@@ -253,103 +287,113 @@ export default function TeacherMessages({ user }: TeacherMessagesProps) {
 
   return (
     <DashboardLayout user={user}>
-      <div className="p-4 sm:p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Communicate with students and staff
-            </p>
+      {isInitialLoading ? (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center p-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
+            <h3 className="text-lg font-medium">Loading messages...</h3>
           </div>
-          <button 
-            onClick={handleNewMessage}
-            className="flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 shadow-sm"
-          >
-            <Plus className="h-4 w-4" />
-            New Message
-          </button>
         </div>
+      ) : (
+        <div className="h-[calc(100vh-64px)] bg-white flex flex-col">
+          <div className="flex h-full">
+            {/* Left sidebar with conversations */}
+            <div className={`w-full lg:w-1/3 xl:w-1/4 h-full border-r ${isMobileViewingConversation ? 'hidden lg:block' : 'block'}`}>
+              <div className="h-full flex flex-col">
+                <div className="flex justify-between items-center border-b p-4">
+                  <h2 className="text-lg font-semibold">Inbox</h2>
+                  <button
+                    onClick={handleNewMessage}
+                    className="p-2 bg-primary text-white rounded-full hover:bg-primary-dark transition-colors"
+                    title="New Message"
+                  >
+                    <Plus className="h-5 w-5" />
+                  </button>
+                </div>
 
-        {/* Message Stats */}
-        <MessageStats stats={stats} isLoading={statsLoading} />
+                <div className="flex justify-between p-3 border-b bg-white">
+                  <div className="flex space-x-3">
+                    <div className="text-center px-3 py-2">
+                      <div className="font-semibold text-lg">{stats.total}</div>
+                      <div className="text-xs text-gray-500">Total</div>
+                    </div>
+                    <div className="text-center px-3 py-2">
+                      <div className="font-semibold text-lg text-blue-600">{stats.unread}</div>
+                      <div className="text-xs text-gray-500">Unread</div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex space-x-3">
+                    <div className="text-center px-3 py-2">
+                      <div className="font-semibold text-lg text-green-600">{stats.sent}</div>
+                      <div className="text-xs text-gray-500">Sent</div>
+                    </div>
+                    <div className="text-center px-3 py-2">
+                      <div className="font-semibold text-lg text-orange-600">{stats.received}</div>
+                      <div className="text-xs text-gray-500">Received</div>
+                    </div>
+                  </div>
+                </div>
 
-        {/* Messages Container - Two-column layout */}
-        <div className="border rounded-lg shadow-sm bg-white flex h-[calc(100vh-330px)] min-h-[500px] overflow-hidden">
-          {/* Conversations List - Hide on mobile when viewing conversation */}
-          <div 
-            className={`${
-              isMobileViewingConversation ? 'hidden lg:block' : 'block'
-            } w-full lg:w-1/3 border-r border-gray-200`}
-          >
-            <ConversationList
-              conversations={conversations}
-              activeConversation={activeConversation}
-              loading={conversationsLoading}
-              onSelectConversation={setActiveConversation}
-              onNewConversation={handleNewMessage}
-            />
+                <div className="flex-1 overflow-y-auto">
+                  <ConversationList
+                    conversations={conversations}
+                    activeConversation={activeConversation}
+                    loading={conversationsLoading}
+                    onSelectConversation={setActiveConversation}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Main conversation view */}
+            <div className={`w-full lg:w-2/3 xl:w-3/4 h-full ${isMobileViewingConversation ? 'block' : 'hidden lg:block'}`}>
+              {activeConversation ? (
+                <div className="h-full flex flex-col">
+                  <ConversationView
+                    messages={messages}
+                    currentUserId={user?.id || ''}
+                    recipientId={activeConversation || ''}
+                    recipientName={activeRecipientDetails?.name || ''}
+                    recipientAvatar={activeRecipientDetails?.avatar}
+                    isLoading={messagesLoading}
+                    onSendMessage={handleSendMessage}
+                    onBackClick={handleBackToConversations}
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+                  <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                  </div>
+                  <h2 className="text-xl font-semibold mb-2">No Conversation Selected</h2>
+                  <p className="text-gray-500 mb-6">Select a conversation from the list or start a new one.</p>
+                  <button
+                    onClick={handleNewMessage}
+                    className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors flex items-center"
+                  >
+                    <Plus className="h-5 w-5 mr-2" />
+                    New Message
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           
-          {/* Conversation View - Hide on mobile when not viewing conversation */}
-          <div 
-            className={`${
-              !isMobileViewingConversation ? 'hidden lg:block' : 'block'
-            } w-full lg:w-2/3`}
-          >
-            {activeConversation ? (
-              <ConversationView
-                messages={messages}
-                currentUserId={user.id}
-                recipientId={activeConversation}
-                recipientName={activeRecipientDetails?.name || "Contact"}
-                recipientAvatar={activeRecipientDetails?.avatar}
-                isLoading={messagesLoading}
-                onSendMessage={handleSendMessage}
-                onBackClick={handleBackToConversations}
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full p-6 text-center bg-gray-50">
-                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-8 w-8 text-blue-500"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                    />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900">No conversation selected</h3>
-                <p className="mt-1 text-sm text-gray-500 max-w-sm">
-                  Select a conversation from the list or start a new one to begin messaging.
-                </p>
-                <button
-                  onClick={handleNewMessage}
-                  className="mt-4 px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 shadow-sm transition-colors duration-150"
-                >
-                  Start a new conversation
-                </button>
-              </div>
-            )}
-          </div>
+          {/* New Message Dialog */}
+          {isNewMessageDialogOpen && (
+            <NewMessageDialog
+              isOpen={isNewMessageDialogOpen}
+              onClose={() => setIsNewMessageDialogOpen(false)}
+              recipients={potentialRecipients}
+              isLoading={recipientsLoading}
+              onSelectRecipient={handleSelectRecipient}
+            />
+          )}
         </div>
-      </div>
-      
-      {/* New Message Dialog */}
-      <NewMessageDialog
-        isOpen={isNewMessageDialogOpen}
-        onClose={() => setIsNewMessageDialogOpen(false)}
-        recipients={potentialRecipients}
-        isLoading={recipientsLoading}
-        onSelectRecipient={handleSelectRecipient}
-      />
+      )}
     </DashboardLayout>
-  )
+  );
 }

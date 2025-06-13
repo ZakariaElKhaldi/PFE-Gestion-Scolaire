@@ -232,44 +232,14 @@ const studentNavigation: NavigationItem[] = [
     href: "/dashboard/student/materials",
   },
   {
-    title: "Library",
-    icon: BookText,
-    href: "/dashboard/student/library",
-  },
-  {
-    title: "Certificates",
-    icon: GraduationCap,
-    href: "/dashboard/student/certificates",
-  },
-  {
-    title: "Attendance",
-    icon: FileCheck,
-    href: "/dashboard/student/attendance",
-  },
-  {
-    title: "Payments",
-    icon: CreditCard,
-    href: "/dashboard/student/payments",
-  },
-  {
-    title: "Documents",
-    icon: FileText,
-    href: "/dashboard/student/documents",
-  },
-  {
     title: "Assignments",
     icon: PenSquare,
     href: "/dashboard/student/assignments",
   },
   {
-    title: "Support",
-    icon: HelpCircle,
-    href: "/dashboard/student/support",
-  },
-  {
-    title: "Feedback",
-    icon: MessageSquare,
-    href: "/dashboard/student/feedback",
+    title: "Grades",
+    icon: BookText,
+    href: "/dashboard/student/grades",
   },
   {
     title: "Schedule",
@@ -277,9 +247,49 @@ const studentNavigation: NavigationItem[] = [
     href: "/dashboard/student/schedule",
   },
   {
-    title: "Grades",
+    title: "Attendance",
+    icon: FileCheck,
+    href: "/dashboard/student/attendance",
+  },
+  {
+    title: "Library",
     icon: BookText,
-    href: "/dashboard/student/grades",
+    href: "/dashboard/student/library",
+  },
+  {
+    title: "Documents",
+    icon: FileText,
+    href: "/dashboard/student/documents",
+  },
+  {
+    title: "Messages",
+    icon: Mail,
+    href: "/dashboard/student/messages",
+  },
+  {
+    title: "Forum",
+    icon: MessageSquare,
+    href: "/dashboard/student/forum",
+  },
+  {
+    title: "Feedback",
+    icon: MessageSquare,
+    href: "/dashboard/student/feedback",
+  },
+  {
+    title: "Certificates",
+    icon: GraduationCap,
+    href: "/dashboard/student/certificates",
+  },
+  {
+    title: "Payments",
+    icon: CreditCard,
+    href: "/dashboard/student/payments",
+  },
+  {
+    title: "Support",
+    icon: HelpCircle,
+    href: "/dashboard/student/support",
   },
   {
     title: "Notifications",
@@ -295,11 +305,6 @@ const studentNavigation: NavigationItem[] = [
     title: "Settings",
     icon: Settings,
     href: "/dashboard/student/settings",
-  },
-  {
-    title: "Forum",
-    icon: MessageSquare,
-    href: "/dashboard/student/forum",
   },
 ]
 
@@ -427,6 +432,24 @@ export function AppSidebar({ user }: AppSidebarProps) {
     { label: "System", items: adminNavigation.slice(12, 15) }
   ]
 
+  // Group definitions for student navigation
+  const studentNavigationGroups = [
+    { label: "Main", items: studentNavigation.slice(0, 1) },
+    { label: "Academics", items: studentNavigation.slice(1, 6) },
+    { label: "Records", items: studentNavigation.slice(6, 9) },
+    { label: "Communication", items: studentNavigation.slice(9, 13) },
+    { label: "Services", items: studentNavigation.slice(13, 16) },
+    { label: "Personal", items: studentNavigation.slice(16, 18) }
+  ]
+
+  // Group definitions for parent navigation
+  const parentNavigationGroups = [
+    { label: "Main", items: parentNavigation.slice(0, 2) },
+    { label: "Monitoring", items: parentNavigation.slice(2, 7) },
+    { label: "Communication", items: parentNavigation.slice(7, 12) },
+    { label: "Personal", items: parentNavigation.slice(12, 15) }
+  ]
+
   return (
     <Sidebar>
       <SidebarContent>
@@ -445,28 +468,133 @@ export function AppSidebar({ user }: AppSidebarProps) {
             <h1 className="text-lg font-semibold text-primary">School MS</h1>
           </Link>
         </div>
-        <SidebarGroup>
-          <SidebarGroupLabel>{t("navigation.menu")}</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navigation.map((item, index) => {
-                const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
-                const translatedTitle = t(`navigation.${item.title.toLowerCase()}`);
-                
-                return (
-                  <SidebarMenuItem 
-                    key={index}
-                    href={item.href}
-                    icon={<item.icon />}
-                    active={isActive}
-                  >
-                    {translatedTitle}
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        
+        {/* Render grouped navigation for all roles */}
+        {user?.role === 'administrator' && adminNavigationGroups.map((group, idx) => (
+          <SidebarGroup key={idx}>
+            <SidebarGroupLabel>{t(`navigation.groups.${group.label.toLowerCase()}`)}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item, index) => {
+                  const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
+                  const translatedTitle = t(`navigation.${item.title.toLowerCase()}`);
+                  
+                  return (
+                    <SidebarMenuItem 
+                      key={index}
+                      href={item.href}
+                      icon={<item.icon />}
+                      active={isActive}
+                    >
+                      {translatedTitle}
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+
+        {user?.role === 'teacher' && teacherNavigationGroups.map((group, idx) => (
+          <SidebarGroup key={idx}>
+            <SidebarGroupLabel>{t(`navigation.groups.${group.label.toLowerCase()}`)}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item, index) => {
+                  const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
+                  const translatedTitle = t(`navigation.${item.title.toLowerCase()}`);
+                  
+                  return (
+                    <SidebarMenuItem 
+                      key={index}
+                      href={item.href}
+                      icon={<item.icon />}
+                      active={isActive}
+                    >
+                      {translatedTitle}
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+
+        {user?.role === 'student' && studentNavigationGroups.map((group, idx) => (
+          <SidebarGroup key={idx}>
+            <SidebarGroupLabel>{t(`navigation.groups.${group.label.toLowerCase()}`)}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item, index) => {
+                  const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
+                  const translatedTitle = t(`navigation.${item.title.toLowerCase()}`);
+                  
+                  return (
+                    <SidebarMenuItem 
+                      key={index}
+                      href={item.href}
+                      icon={<item.icon />}
+                      active={isActive}
+                    >
+                      {translatedTitle}
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+        
+        {user?.role === 'parent' && parentNavigationGroups.map((group, idx) => (
+          <SidebarGroup key={idx}>
+            <SidebarGroupLabel>{t(`navigation.groups.${group.label.toLowerCase()}`)}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item, index) => {
+                  const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
+                  const translatedTitle = t(`navigation.${item.title.toLowerCase()}`);
+                  
+                  return (
+                    <SidebarMenuItem 
+                      key={index}
+                      href={item.href}
+                      icon={<item.icon />}
+                      active={isActive}
+                    >
+                      {translatedTitle}
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+
+        {/* For any unknown roles, use flat list */}
+        {!user?.role && (
+          <SidebarGroup>
+            <SidebarGroupLabel>{t("navigation.menu")}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {navigation.map((item, index) => {
+                  const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
+                  const translatedTitle = t(`navigation.${item.title.toLowerCase()}`);
+                  
+                  return (
+                    <SidebarMenuItem 
+                      key={index}
+                      href={item.href}
+                      icon={<item.icon />}
+                      active={isActive}
+                    >
+                      {translatedTitle}
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </Sidebar>
   );

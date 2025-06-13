@@ -9,10 +9,14 @@ import {
   Library,
   Award,
   Clock,
-  ClipboardCheck, // Import the icon for assignments
-  HelpCircle, // Import the icon for support
-  Calendar, // Import the icon for schedule
-  MessageSquare // Import the icon for forum
+  ClipboardCheck,
+  HelpCircle,
+  Calendar,
+  MessageSquare,
+  Bell,
+  ThumbsUp,
+  UserRound,
+  Settings
 } from "lucide-react"
 import { Link, useLocation } from 'react-router-dom'
 
@@ -23,7 +27,6 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
 } from "../../../components/ui/sidebar"
 
@@ -44,19 +47,19 @@ const navigation = [
     href: "/dashboard/student/materials",
   },
   {
-    title: "Digital Library",
-    icon: Library,
-    href: "/dashboard/student/library",
+    title: "Assignments",
+    icon: ClipboardCheck,
+    href: "/dashboard/student/assignments",
   },
   {
-    title: "Certificates",
-    icon: Award,
-    href: "/dashboard/student/certificates",
+    title: "Grades",
+    icon: GraduationCap,
+    href: "/dashboard/student/grades",
   },
   {
-    title: "Forum",
-    icon: MessageSquare,
-    href: "/dashboard/shared/forum",
+    title: "Schedule",
+    icon: Calendar,
+    href: "/dashboard/student/schedule",
   },
   {
     title: "Attendance",
@@ -64,9 +67,9 @@ const navigation = [
     href: "/dashboard/student/attendance",
   },
   {
-    title: "Payments",
-    icon: CreditCard,
-    href: "/dashboard/student/payments",
+    title: "Digital Library",
+    icon: Library,
+    href: "/dashboard/student/library",
   },
   {
     title: "Documents",
@@ -74,25 +77,50 @@ const navigation = [
     href: "/dashboard/student/documents",
   },
   {
-    title: "Assignments",
-    icon: ClipboardCheck,
-    href: "/dashboard/student/assignments",
+    title: "Messages",
+    icon: MessageSquare,
+    href: "/dashboard/student/messages",
   },
   {
-    title: "Support et Assistance", // Add the new navigation item
+    title: "Forum",
+    icon: MessageSquare,
+    href: "/dashboard/student/forum",
+  },
+  {
+    title: "Feedback",
+    icon: ThumbsUp,
+    href: "/dashboard/student/feedback",
+  },
+  {
+    title: "Certificates",
+    icon: Award,
+    href: "/dashboard/student/certificates",
+  },
+  {
+    title: "Payments",
+    icon: CreditCard,
+    href: "/dashboard/student/payments",
+  },
+  {
+    title: "Support",
     icon: HelpCircle,
     href: "/dashboard/student/support",
   },
   {
-    title: "Schedule", // Add the new navigation item
-    icon: Calendar,
-    href: "/dashboard/student/schedule",
+    title: "Notifications",
+    icon: Bell,
+    href: "/dashboard/student/notifications",
   },
   {
-    title: "Grades", // Add the new navigation item
-    icon: GraduationCap,
-    href: "/dashboard/student/grades",
+    title: "Profile",
+    icon: UserRound,
+    href: "/dashboard/student/profile",
   },
+  {
+    title: "Settings",
+    icon: Settings,
+    href: "/dashboard/student/settings",
+  }
 ]
 
 export function StudentSidebar() {
@@ -106,13 +134,13 @@ export function StudentSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton isActive={location.pathname === item.href}>
-                    <Link to={item.href} className="flex items-center">
-                      <item.icon className="h-5 w-5" />
-                      <span className="ml-3">{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
+                <SidebarMenuItem 
+                  key={item.title}
+                  href={item.href}
+                  icon={<item.icon />}
+                  active={location.pathname === item.href}
+                >
+                  {item.title}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

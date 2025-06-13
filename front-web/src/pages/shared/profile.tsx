@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Box, 
   Typography, 
@@ -13,11 +13,14 @@ import {
   Tabs,
   CircularProgress,
   Alert,
-  Snackbar 
+  Snackbar,
+  IconButton,
+  Tooltip 
 } from '@mui/material';
 import { User } from '../../types/auth';
 import { DashboardLayout } from '../../components/dashboard/layout/dashboard-layout';
 import { userService } from '../../services/user-service';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 
 interface ProfilePageProps {
   user: User;
@@ -52,7 +55,9 @@ function TabPanel(props: TabPanelProps) {
 export const ProfilePage = ({ user }: ProfilePageProps) => {
   const [value, setValue] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
   const [userProfile, setUserProfile] = useState<User>(user);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     firstName: user.firstName || '',
     lastName: user.lastName || '',
@@ -189,23 +194,117 @@ export const ProfilePage = ({ user }: ProfilePageProps) => {
     }));
   };
 
+  const handleProfilePictureClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleProfilePictureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    
+    // Simple validation
+    if (!file.type.startsWith('image/')) {
+      setNotification({
+        open: true,
+        message: 'Please select an image file',
+        severity: 'error',
+      });
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      setNotification({
+        open: true,
+        message: 'Image size should be less than 5MB',
+        severity: 'error',
+      });
+      return;
+    }
+    
+    setUploadLoading(true);
+    
+    try {
+      const response = await userService.uploadProfilePicture(user.id, file);
+      
+      // Update profile with new picture
+      setUserProfile(prev => ({
+        ...prev,
+        profilePicture: response.profilePicture
+      }));
+      
+      setNotification({
+        open: true,
+        message: 'Profile picture updated successfully',
+        severity: 'success',
+      });
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      setNotification({
+        open: true,
+        message: 'Failed to upload profile picture',
+        severity: 'error',
+      });
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
   return (
     <DashboardLayout user={user}>
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         <Paper elevation={3} sx={{ p: 3 }}>
           <Box display="flex" flexDirection="column" alignItems="center" mb={4}>
-            <Avatar
-              sx={{
-                width: 120,
-                height: 120,
-                mb: 2,
-                bgcolor: 'primary.main',
-              }}
-              src={userProfile.profileImage}
-            >
-              {userProfile.firstName?.charAt(0)}
-              {userProfile.lastName?.charAt(0)}
-            </Avatar>
+            <Box position="relative">
+              <Avatar
+                sx={{
+                  width: 120,
+                  height: 120,
+                  mb: 2,
+                  bgcolor: 'primary.main',
+                }}
+                src={userProfile.profilePicture}
+              >
+                {userProfile.firstName?.charAt(0)}
+                {userProfile.lastName?.charAt(0)}
+              </Avatar>
+              
+              {uploadLoading ? (
+                <CircularProgress 
+                  size={36} 
+                  sx={{ position: 'absolute', bottom: 10, right: 0 }} 
+                />
+              ) : (
+                <Tooltip title="Change profile picture">
+                  <IconButton
+                    onClick={handleProfilePictureClick}
+                    sx={{
+                      position: 'absolute',
+                      bottom: 10,
+                      right: 0,
+                      bgcolor: 'background.paper',
+                      '&:hover': {
+                        bgcolor: 'action.hover',
+                      },
+                    }}
+                    size="small"
+                  >
+                    <PhotoCameraIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
+              
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                onChange={handleProfilePictureChange}
+              />
+            </Box>
             <Typography variant="h4" gutterBottom>
               {userProfile.firstName} {userProfile.lastName}
             </Typography>
