@@ -9,9 +9,22 @@ const DOCUMENTS_DIR = path.join(BASE_UPLOAD_DIR, 'documents');
 const ASSIGNMENTS_DIR = path.join(BASE_UPLOAD_DIR, 'assignments');
 const PROFILE_PICTURES_DIR = path.join(BASE_UPLOAD_DIR, 'profiles');
 
+// Define public directory paths for certificates
+const PUBLIC_DIR = path.join(__dirname, '../../public');
+const CERTIFICATES_DIR = path.join(PUBLIC_DIR, 'certificates');
+const CERTIFICATES_QR_DIR = path.join(CERTIFICATES_DIR, 'qr');
+
 // Ensure all directories exist
 export const ensureUploadDirectories = (): void => {
-  [BASE_UPLOAD_DIR, DOCUMENTS_DIR, ASSIGNMENTS_DIR, PROFILE_PICTURES_DIR].forEach(dir => {
+  [
+    BASE_UPLOAD_DIR, 
+    DOCUMENTS_DIR, 
+    ASSIGNMENTS_DIR, 
+    PROFILE_PICTURES_DIR,
+    PUBLIC_DIR,
+    CERTIFICATES_DIR,
+    CERTIFICATES_QR_DIR
+  ].forEach(dir => {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }

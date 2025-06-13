@@ -1,86 +1,34 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
 import { certificateController } from '../controllers/certificate.controller';
 import { authenticate, authorize } from '../middlewares/auth.middleware';
 
 const router = express.Router();
 
-// Apply authentication middleware to all certificate routes
-router.use(authenticate);
+// Public routes
+router.get('/verify/:verificationId', certificateController.verifyCertificate);
+router.get('/public-download/:id', certificateController.publicDownloadCertificate);
 
-// Student routes - for viewing their own certificates
-router.get('/student', authorize(['student']), (req: Request, res: Response, next: NextFunction) => {
-  try {
-    certificateController.getStudentCertificates(req, res, next);
-  } catch (error) {
-    next(error);
-  }
-});
+// Test route for generating a certificate with QR code (accessible to anyone for testing)
+router.post('/test-generate', certificateController.testGenerateCertificate);
 
-router.get('/student/:id', authorize(['student']), (req: Request, res: Response, next: NextFunction) => {
-  try {
-    certificateController.getCertificate(req, res, next);
-  } catch (error) {
-    next(error);
-  }
-});
+// Public route to generate PDFs for all certificates (for testing)
+router.post('/public-generate-pdfs', certificateController.publicGeneratePdfs);
 
-router.get('/download/:id', authorize(['student', 'administrator']), (req: Request, res: Response, next: NextFunction) => {
-  try {
-    certificateController.downloadCertificate(req, res, next);
-  } catch (error) {
-    next(error);
-  }
-});
+// Student routes
+router.get('/student', authenticate, authorize(['student']), certificateController.getStudentCertificates);
+router.get('/student/:id', authenticate, authorize(['student', 'administrator']), certificateController.getCertificate);
+router.get('/download/:id', authenticate, certificateController.downloadCertificate);
 
-// Public verification route - no authentication required
-router.get('/verify/:verificationId', (req: Request, res: Response, next: NextFunction) => {
-  try {
-    certificateController.verifyCertificate(req, res, next);
-  } catch (error) {
-    next(error);
-  }
-});
+// Admin routes
+router.get('/admin/student/:studentId', authenticate, authorize(['administrator']), certificateController.getStudentCertificatesById);
+router.post('/admin', authenticate, authorize(['administrator']), certificateController.createCertificate);
+router.put('/admin/:id', authenticate, authorize(['administrator']), certificateController.updateCertificate);
+router.delete('/admin/:id', authenticate, authorize(['administrator']), certificateController.deleteCertificate);
 
-// Admin routes - for managing certificates
-router.get('/admin/student/:studentId', authorize(['administrator']), (req: Request, res: Response, next: NextFunction) => {
-  try {
-    certificateController.getStudentCertificatesById(req, res, next);
-  } catch (error) {
-    next(error);
-  }
-});
+// Course completion certificate generation
+router.post('/generate/course-completion', authenticate, authorize(['administrator']), certificateController.generateCourseCompletionCertificate);
 
-router.post('/admin', authorize(['administrator']), (req: Request, res: Response, next: NextFunction) => {
-  try {
-    certificateController.createCertificate(req, res, next);
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.put('/admin/:id', authorize(['administrator']), (req: Request, res: Response, next: NextFunction) => {
-  try {
-    certificateController.updateCertificate(req, res, next);
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.delete('/admin/:id', authorize(['administrator']), (req: Request, res: Response, next: NextFunction) => {
-  try {
-    certificateController.deleteCertificate(req, res, next);
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Course-related certificate generation
-router.post('/generate/course-completion', authorize(['administrator']), (req: Request, res: Response, next: NextFunction) => {
-  try {
-    certificateController.generateCourseCompletionCertificate(req, res, next);
-  } catch (error) {
-    next(error);
-  }
-});
+// Generate PDFs for all certificates
+router.post('/generate/all-pdfs', authenticate, authorize(['administrator']), certificateController.generateAllCertificatePdfs);
 
 export default router; 

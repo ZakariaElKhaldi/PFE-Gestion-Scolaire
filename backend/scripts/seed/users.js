@@ -35,7 +35,7 @@ async function seedUsers(connection) {
   
   // Parents
   const parentId1 = uuidv4();
-  const parentId2 = uuidv4(); 
+  const parentId2 = uuidv4();
   const parentId3 = uuidv4();
   const parentId4 = uuidv4();
   
@@ -94,12 +94,12 @@ async function seedUsers(connection) {
     await connection.query(
       createUserInsertQuery(),
       prepareUserValues(
-        adminId, 
-        'admin@school.com', 
-        'Admin', 
-        'User', 
-        'administrator', 
-        '123-456-7890',
+      adminId,
+      'admin@school.com',
+      'Admin',
+      'User',
+      'administrator',
+      '123-456-7890',
         'https://randomuser.me/api/portraits/men/1.jpg',
         'Main system administrator with over 10 years of experience in educational institutions.'
       )
@@ -125,11 +125,11 @@ async function seedUsers(connection) {
     await connection.query(
       createUserInsertQuery(),
       prepareUserValues(
-        teacherId1, 
-        'teacher@school.com', 
+      teacherId1,
+      'teacher@school.com',
         'John', 
-        'Smith', 
-        'teacher', 
+      'Smith',
+      'teacher',
         '123-456-7892',
         'https://randomuser.me/api/portraits/men/3.jpg',
         'English teacher with 8 years of experience. Specializes in contemporary literature and creative writing.'
@@ -140,11 +140,11 @@ async function seedUsers(connection) {
     await connection.query(
       createUserInsertQuery(),
       prepareUserValues(
-        teacherId2, 
-        'science.teacher@school.com', 
-        'Sarah', 
-        'Johnson', 
-        'teacher', 
+      teacherId2,
+      'science.teacher@school.com',
+      'Sarah',
+      'Johnson',
+      'teacher',
         '123-456-7893',
         'https://randomuser.me/api/portraits/women/4.jpg',
         'Science teacher with a focus on physics and chemistry. PhD in Physics from Stanford University.'
@@ -186,11 +186,11 @@ async function seedUsers(connection) {
     await connection.query(
       createUserInsertQuery(),
       prepareUserValues(
-        studentId1, 
-        'student@school.com', 
-        'Student', 
-        'Johnson', 
-        'student', 
+      studentId1,
+      'student@school.com',
+      'Student',
+      'Johnson',
+      'student',
         '123-456-7896',
         'https://randomuser.me/api/portraits/men/7.jpg',
         'Junior year student interested in computer science and mathematics. Active in the chess club.'
@@ -201,11 +201,11 @@ async function seedUsers(connection) {
     await connection.query(
       createUserInsertQuery(),
       prepareUserValues(
-        studentId2, 
-        'mike.student@school.com', 
-        'Mike', 
-        'Williams', 
-        'student', 
+      studentId2,
+      'mike.student@school.com',
+      'Mike',
+      'Williams',
+      'student',
         '123-456-7897',
         'https://randomuser.me/api/portraits/men/8.jpg',
         'Senior year student with a focus on science and robotics. President of the Robotics Club.'
@@ -216,11 +216,11 @@ async function seedUsers(connection) {
     await connection.query(
       createUserInsertQuery(),
       prepareUserValues(
-        studentId3, 
-        'emma.student@school.com', 
-        'Emma', 
-        'Davis', 
-        'student', 
+      studentId3,
+      'emma.student@school.com',
+      'Emma',
+      'Davis',
+      'student',
         '123-456-7898',
         'https://randomuser.me/api/portraits/women/9.jpg',
         'Sophomore interested in literature and journalism. Editor of the school newspaper.'
@@ -262,11 +262,11 @@ async function seedUsers(connection) {
     await connection.query(
       createUserInsertQuery(),
       prepareUserValues(
-        parentId1, 
-        'parent@school.com', 
+      parentId1,
+      'parent@school.com',
         'Robert', 
-        'Johnson', 
-        'parent', 
+      'Johnson',
+      'parent',
         '123-456-7901',
         'https://randomuser.me/api/portraits/men/12.jpg',
         'Father of Student Johnson. Works as a software engineer and actively participates in school activities.'
@@ -277,11 +277,11 @@ async function seedUsers(connection) {
     await connection.query(
       createUserInsertQuery(),
       prepareUserValues(
-        parentId2, 
-        'jane.parent@school.com', 
-        'Jane', 
-        'Williams', 
-        'parent', 
+      parentId2,
+      'jane.parent@school.com',
+      'Jane',
+      'Williams',
+      'parent',
         '123-456-7902',
         'https://randomuser.me/api/portraits/women/13.jpg',
         'Mother of Mike Williams. Works as a doctor and volunteers for school health initiatives.'
@@ -303,7 +303,7 @@ async function seedUsers(connection) {
       )
     );
     console.log('Parent 3 created successfully');
-    
+      
     await connection.query(
       createUserInsertQuery(),
       prepareUserValues(

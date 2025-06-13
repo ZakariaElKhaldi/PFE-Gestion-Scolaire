@@ -22,6 +22,7 @@ import { addAuthFields } from '../migrations/add-auth-fields';
 import { createLoginAttemptsTable } from '../migrations/create-login-attempts-table';
 import { updateEmailVerifiedDefault } from '../migrations/update-emailVerified-default';
 import { up as addProfileFeatures, down as removeProfileFeatures, name as profileFeaturesName } from '../migrations/add-profile-features';
+import { createCertificatesTable } from '../migrations/create-certificates-table';
 
 interface Migration {
   name: string;
@@ -168,6 +169,12 @@ const migrations: Migration[] = [
     description: 'Creates the messages table',
     priority: 55,
     execute: createMessagesTable
+  },
+  {
+    name: 'create_certificates_table',
+    description: 'Creates the certificates table and required directories',
+    priority: 60,
+    execute: createCertificatesTable
   }
   // Add more migrations here
 ];

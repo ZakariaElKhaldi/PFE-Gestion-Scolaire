@@ -302,14 +302,14 @@ export default function StudentMessages({ user }: StudentMessagesProps) {
               <div className="h-full flex flex-col">
                 <div className="flex justify-between items-center border-b p-4">
                   <h2 className="text-lg font-semibold">Inbox</h2>
-                  <button
-                    onClick={handleNewMessage}
+          <button 
+            onClick={handleNewMessage}
                     className="p-2 bg-primary text-white rounded-full hover:bg-primary-dark transition-colors"
                     title="New Message"
-                  >
+          >
                     <Plus className="h-5 w-5" />
-                  </button>
-                </div>
+          </button>
+        </div>
 
                 <div className="flex justify-between p-3 border-b bg-white">
                   <div className="flex space-x-3">
@@ -336,30 +336,30 @@ export default function StudentMessages({ user }: StudentMessagesProps) {
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
-                  <ConversationList
-                    conversations={conversations}
-                    activeConversation={activeConversation}
-                    loading={conversationsLoading}
-                    onSelectConversation={setActiveConversation}
-                  />
+            <ConversationList
+              conversations={conversations}
+              activeConversation={activeConversation}
+              loading={conversationsLoading}
+              onSelectConversation={setActiveConversation}
+            />
                 </div>
               </div>
-            </div>
-
+          </div>
+          
             {/* Main conversation view */}
             <div className={`w-full lg:w-2/3 xl:w-3/4 h-full ${isMobileViewingConversation ? 'block' : 'hidden lg:block'}`}>
-              {activeConversation ? (
+            {activeConversation ? (
                 <div className="h-full flex flex-col">
-                  <ConversationView
-                    messages={messages}
+              <ConversationView
+                messages={messages}
                     currentUserId={user?.id || ''}
                     recipientId={activeConversation || ''}
                     recipientName={activeRecipientDetails?.name || ''}
-                    recipientAvatar={activeRecipientDetails?.avatar}
-                    isLoading={messagesLoading}
-                    onSendMessage={handleSendMessage}
-                    onBackClick={handleBackToConversations}
-                  />
+                recipientAvatar={activeRecipientDetails?.avatar}
+                isLoading={messagesLoading}
+                onSendMessage={handleSendMessage}
+                onBackClick={handleBackToConversations}
+              />
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full p-6 text-center">
@@ -370,27 +370,27 @@ export default function StudentMessages({ user }: StudentMessagesProps) {
                   </div>
                   <h2 className="text-xl font-semibold mb-2">No Conversation Selected</h2>
                   <p className="text-gray-500 mb-6">Select a conversation from the list or start a new one.</p>
-                  <button
-                    onClick={handleNewMessage}
+                <button
+                  onClick={handleNewMessage}
                     className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors flex items-center"
-                  >
+                >
                     <Plus className="h-5 w-5 mr-2" />
                     New Message
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          {/* New Message Dialog */}
+                </button>
+              </div>
+            )}
+        </div>
+      </div>
+      
+      {/* New Message Dialog */}
           {isNewMessageDialogOpen && (
-            <NewMessageDialog
-              isOpen={isNewMessageDialogOpen}
-              onClose={() => setIsNewMessageDialogOpen(false)}
-              recipients={potentialRecipients}
-              isLoading={recipientsLoading}
-              onSelectRecipient={handleSelectRecipient}
-            />
+      <NewMessageDialog
+        isOpen={isNewMessageDialogOpen}
+        onClose={() => setIsNewMessageDialogOpen(false)}
+        recipients={potentialRecipients}
+        isLoading={recipientsLoading}
+        onSelectRecipient={handleSelectRecipient}
+      />
           )}
         </div>
       )}

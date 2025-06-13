@@ -10,6 +10,7 @@ export interface Certificate {
   status: 'valid' | 'expired' | 'pending' | 'revoked';
   verificationId: string;
   downloadUrl?: string;
+  qrCodeUrl?: string;
   description: string;
   skills: string[];
   createdAt: string;
@@ -104,7 +105,9 @@ class CertificateService {
    * This function returns the URL to download the certificate
    */
   getDownloadUrl(id: string): string {
-    return `${window.location.origin}/api/certificates/download/${id}`;
+    // Use the API URL from the environment or default to localhost:3001
+    const apiUrl = 'http://localhost:3001';
+    return `${apiUrl}/api/certificates/public-download/${id}`;
   }
 
   /**

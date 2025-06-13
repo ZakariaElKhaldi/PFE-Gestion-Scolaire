@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { User } from "../../types/auth";
 import { StudentLayout } from "../../components/dashboard/layout/student-layout";
-import { Award, Search, Download, Share2, CheckCircle, AlertCircle, Calendar, Clock } from "lucide-react";
+import { Award, Search, Download, CheckCircle, AlertCircle, Calendar, Clock, X } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { certificateService, Certificate } from "../../services/certificate.service";
 import { toast } from "react-hot-toast";
@@ -76,9 +76,23 @@ export default function StudentCertificates({ user }: StudentCertificatesProps) 
   // Handle certificate download
   const handleDownload = (id: string) => {
     try {
-      // Create a link and trigger a download
+      // Get the download URL
       const url = certificateService.getDownloadUrl(id);
-      window.open(url, '_blank');
+      
+      // Create an anchor element and trigger the download
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      
+      // Append to the document and click
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      document.body.removeChild(link);
+      
+      toast.success("Downloading certificate...");
     } catch (error) {
       console.error("Failed to download certificate:", error);
       toast.error("Failed to download certificate. Please try again later.");
@@ -122,6 +136,18 @@ export default function StudentCertificates({ user }: StudentCertificatesProps) 
     if (!expiryDate) return false;
     const daysUntilExpiry = differenceInDays(new Date(expiryDate), new Date());
     return daysUntilExpiry > 0 && daysUntilExpiry <= 30;
+  };
+
+  // Generate verification URL for QR code
+  const getVerificationUrl = (verificationId: string) => {
+    return `${window.location.origin}/verify-certificate/${verificationId}`;
+  };
+
+  // Copy verification URL to clipboard
+  const copyVerificationUrl = (verificationId: string) => {
+    const url = getVerificationUrl(verificationId);
+    navigator.clipboard.writeText(url);
+    toast.success("Verification link copied to clipboard");
   };
 
   if (loading) {
@@ -252,73 +278,107 @@ export default function StudentCertificates({ user }: StudentCertificatesProps) 
                       onClick={() => handleShare(certificate)}
                       className="rounded-md bg-blue-50 px-3 py-1 text-sm font-medium text-blue-600 hover:bg-blue-100"
                     >
-                      <Share2 className="h-4 w-4" />
+                      Share
                     </button>
                     <button
                       onClick={() => handleDownload(certificate.id)}
                       className="rounded-md bg-gray-50 px-3 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100"
                     >
-                      <Download className="h-4 w-4" />
+                      Download
                     </button>
                   </div>
                 </div>
               </div>
             ))
           ) : (
-            <div className="text-center py-12 bg-white rounded-lg border">
-              <Award className="h-12 w-12 mx-auto text-gray-400" />
+            <div className="rounded-lg border bg-white p-8 text-center">
+              <Award className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-lg font-medium text-gray-900">No certificates found</h3>
               <p className="mt-1 text-sm text-gray-500">
                 {searchQuery || selectedType !== "all"
-                  ? "Try adjusting your filters to find your certificates."
-                  : "You don't have any certificates yet. Complete courses to earn certificates!"}
+                ? "Try adjusting your filters to find your certificates."
+                : "You don't have any certificates yet. Complete courses to earn certificates!"}
               </p>
             </div>
           )}
         </div>
+      </div>
 
-        {/* Share Modal */}
-        {showShareModal && selectedCertificate && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="w-full max-w-md rounded-lg bg-white p-6">
-              <h2 className="text-lg font-semibold text-gray-900">Share Certificate</h2>
-              <p className="mt-2 text-sm text-gray-500">
-                Share your certificate "{selectedCertificate.title}" via:
-              </p>
-              <div className="mt-4 grid grid-cols-2 gap-4">
-                <button
-                  onClick={() => {
-                    // In a real app, this would integrate with email sharing
-                    console.log("Share via email:", selectedCertificate.id);
-                    toast.success("Share link copied to clipboard");
-                    setShowShareModal(false);
-                  }}
-                  className="rounded-md bg-blue-50 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-100"
-                >
-                  Email
-                </button>
-                <button
-                  onClick={() => {
-                    // In a real app, this would integrate with LinkedIn sharing
-                    console.log("Share on LinkedIn:", selectedCertificate.id);
-                    toast.success("Shared to LinkedIn");
-                    setShowShareModal(false);
-                  }}
-                  className="rounded-md bg-blue-50 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-100"
-                >
-                  LinkedIn
-                </button>
-              </div>
-              <button
+      {/* Share Certificate Modal */}
+      {showShareModal && selectedCertificate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-gray-900">Share Certificate</h3>
+              <button 
                 onClick={() => setShowShareModal(false)}
-                className="mt-4 w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="text-gray-400 hover:text-gray-500"
               >
-                Cancel
+                <X className="h-5 w-5" />
               </button>
             </div>
+            
+            <div className="border-t border-gray-200 pt-4">
+              <div className="text-center mb-4">
+                <h4 className="font-medium text-gray-900">{selectedCertificate.title}</h4>
+                <p className="text-sm text-gray-500">{selectedCertificate.issuer}</p>
+              </div>
+              
+              {/* QR Code */}
+              <div className="flex justify-center mb-4">
+                {selectedCertificate.qrCodeUrl ? (
+                  <img 
+                    src={`http://localhost:3001/api${selectedCertificate.qrCodeUrl}`}
+                    alt="Certificate QR Code"
+                    className="w-48 h-48 border border-gray-200 rounded-md"
+                  />
+                ) : (
+                  <div className="w-48 h-48 border border-gray-200 rounded-md flex items-center justify-center bg-gray-50">
+                    <p className="text-gray-500 text-sm text-center p-4">
+                      QR code not available. Please regenerate the certificate.
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              <p className="text-sm text-gray-500 text-center mb-4">
+                Scan this QR code to verify the certificate or share the link below:
+              </p>
+              
+              <div className="flex">
+                <input
+                  type="text"
+                  readOnly
+                  value={getVerificationUrl(selectedCertificate.verificationId)}
+                  className="flex-grow rounded-l-md border border-gray-300 px-3 py-2 text-sm focus:outline-none"
+                />
+                <button
+                  onClick={() => copyVerificationUrl(selectedCertificate.verificationId)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-r-md hover:bg-blue-700"
+                >
+                  Copy
+                </button>
+              </div>
+              
+              <div className="mt-6 flex justify-between">
+                <button
+                  onClick={() => setShowShareModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => handleDownload(selectedCertificate.id)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Certificate
+                </button>
+              </div>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </StudentLayout>
   );
 }

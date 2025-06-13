@@ -30,6 +30,7 @@ const mockCertificates: Certificate[] = [
     status: 'valid' as CertificateStatus,
     verificationId: 'mock-verification-1',
     downloadUrl: '/certificates/mock-cert-1.pdf',
+    qrCodeUrl: '/certificates/mock-cert-1.qr',
     description: 'This certificate verifies proficiency in HTML, CSS, and JavaScript fundamentals',
     skills: ['HTML', 'CSS', 'JavaScript'],
     createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
@@ -46,6 +47,7 @@ const mockCertificates: Certificate[] = [
     status: 'valid' as CertificateStatus,
     verificationId: 'mock-verification-2',
     downloadUrl: '/certificates/mock-cert-2.pdf',
+    qrCodeUrl: '/certificates/mock-cert-2.qr',
     description: 'This certificate verifies proficiency in database management systems and SQL',
     skills: ['SQL', 'Database Design', 'Data Modeling'],
     createdAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
@@ -60,6 +62,7 @@ const mockCertificates: Certificate[] = [
     type: 'Technical' as CertificateType,
     status: 'pending' as CertificateStatus,
     verificationId: 'mock-verification-3',
+    qrCodeUrl: '/certificates/mock-cert-3.qr',
     description: 'This certificate verifies proficiency in mobile application development',
     skills: ['React Native', 'iOS', 'Android'],
     createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
@@ -81,6 +84,7 @@ export interface Certificate {
   status: CertificateStatus;
   verificationId: string;
   downloadUrl?: string;
+  qrCodeUrl?: string;
   description: string;
   skills?: string[];
   metadata?: Record<string, any>;
@@ -119,6 +123,7 @@ export class CertificateModel {
         status ENUM('valid', 'expired', 'pending', 'revoked') NOT NULL DEFAULT 'valid',
         verificationId VARCHAR(50) NOT NULL UNIQUE,
         downloadUrl VARCHAR(255),
+        qrCodeUrl VARCHAR(255),
         description TEXT NOT NULL,
         skills JSON,
         metadata JSON,
@@ -130,6 +135,20 @@ export class CertificateModel {
 
     try {
       await pool.query(query);
+      
+      // Add qrCodeUrl column if it doesn't exist
+      try {
+        const alterQuery = `
+          ALTER TABLE certificates
+          ADD COLUMN IF NOT EXISTS qrCodeUrl VARCHAR(255) AFTER downloadUrl;
+        `;
+        await pool.query(alterQuery);
+      } catch (alterError) {
+        // If the database doesn't support IF NOT EXISTS for ADD COLUMN,
+        // we'll handle it gracefully
+        console.log('Note: qrCodeUrl column might already exist or could not be added');
+      }
+      
       console.log('Certificates table created or already exists');
     } catch (error) {
       console.error('Error creating certificates table:', error);
@@ -248,7 +267,7 @@ export class CertificateModel {
   async update(id: string, certificateData: UpdateCertificateDTO): Promise<boolean> {
     const allowedFields = [
       'title', 'issueDate', 'expiryDate', 'issuer', 'type', 
-      'status', 'downloadUrl', 'description', 'skills', 'metadata'
+      'status', 'downloadUrl', 'qrCodeUrl', 'description', 'skills', 'metadata'
     ];
     
     const updates: string[] = [];
@@ -368,6 +387,22 @@ export class CertificateModel {
       metadata: row.metadata ? JSON.parse(row.metadata as unknown as string) : {}
     };
   }
+
+  /**
+   * Find all certificates
+   * @returns {Promise<any[]>} - All certificates
+   */
+  findAll = async (): Promise<any[]> => {
+    try {
+      const [rows] = await pool.query(
+        `SELECT * FROM certificates ORDER BY issueDate DESC`
+      );
+      return rows as any[];
+    } catch (error) {
+      console.error('Error finding all certificates:', error);
+      return [];
+    }
+  };
 }
 
 export const certificateModel = new CertificateModel();

@@ -51,6 +51,10 @@ app.use(morgan('dev'));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/api/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Serve static files from public directory (for certificates, QR codes, etc.)
+app.use('/certificates', express.static(path.join(__dirname, '../public/certificates')));
+app.use('/api/certificates/qr', express.static(path.join(__dirname, '../public/certificates/qr')));
+
 // Add a route to check if uploads directory is accessible
 app.get('/api/check-uploads', (req, res) => {
   const uploadsPath = path.join(__dirname, '../uploads');

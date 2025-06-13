@@ -19,6 +19,7 @@ const seedDocuments = require('./documents');
 const seedFeedback = require('./feedback');
 const seedLoginAttempts = require('./login_attempts');
 const seedMessages = require('./messages');
+const seedCertificates = require('./certificates');
 
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../../.env') });
@@ -77,6 +78,9 @@ async function seedAll() {
     await seedMessages(connection, userData);
     console.log('✅ Messages created successfully');
     
+    await seedCertificates(connection, userData);
+    console.log('✅ Certificates created successfully');
+    
     await connection.query('SET FOREIGN_KEY_CHECKS = 1');
     
     console.log('\n🎉 Comprehensive seed completed successfully!');
@@ -127,6 +131,7 @@ function displayCredentials(userData) {
   console.log('- 4 Course feedback entries');
   console.log('- 4 Login attempt records');
   console.log('- 6 Messages between users');
+  console.log('- 5 Student certificates with QR codes');
   
   console.log('\n=== User Relationships ===');
   console.log('- Parent-Child Relationships: 6 total relationships');
