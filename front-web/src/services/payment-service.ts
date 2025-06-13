@@ -359,17 +359,34 @@ class PaymentService {
       // Use a direct fetch for blob data
       const token = localStorage.getItem('auth_token');
       const baseURL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
-      const response = await fetch(`${baseURL}/payments/invoices/${invoiceId}/download`, {
+      const url = `${baseURL}/payments/invoices/${invoiceId}/download`;
+      
+      console.log(`Downloading invoice from: ${url}`);
+      
+      const response = await fetch(url, {
         headers: {
           Authorization: token ? `Bearer ${token}` : ''
         }
       });
       
+      console.log(`Response status: ${response.status}, ${response.statusText}`);
+      
       if (!response.ok) {
-        throw new Error('Failed to download invoice');
+        const errorText = await response.text();
+        console.error('Error response from server:', errorText);
+        throw new Error(`Failed to download invoice: ${response.statusText}`);
       }
       
-      return await response.blob();
+      const contentType = response.headers.get('content-type');
+      console.log(`Content-Type: ${contentType}`);
+      
+      // Check if the response is actually a PDF
+      if (contentType && contentType.includes('application/pdf')) {
+        return await response.blob();
+      } else {
+        console.error('Unexpected content type:', contentType);
+        throw new Error('Server did not return a PDF file');
+      }
     } catch (error) {
       console.error('Error downloading invoice:', error);
       throw error;

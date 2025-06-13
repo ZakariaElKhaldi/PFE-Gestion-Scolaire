@@ -19,6 +19,7 @@ import { asyncHandler } from '../middlewares/error.middleware';
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
 import * as path from 'path';
+import { generateInvoicePDF } from '../utils/pdf.utils';
 
 // Helper function to format date
 const formatDate = (date: Date): string => {
@@ -287,29 +288,51 @@ export class PaymentController {
    */
   downloadInvoice = asyncHandler(async (req: Request, res: Response) => {
     const { invoiceId } = req.params;
-    const studentId = req.user?.id as string;
+    const studentId = req.user?.userId || req.user?.id;
     
     if (!invoiceId) {
       return sendBadRequest(res, 'Invoice ID is required');
     }
     
-    const invoice = await paymentModel.getInvoiceById(invoiceId);
-    
-    if (!invoice) {
-      return sendNotFound(res, 'Invoice not found');
+    try {
+      console.log(`Generating PDF for invoice ID: ${invoiceId}, requested by student: ${studentId}`);
+      
+      const invoice = await paymentModel.getInvoiceById(invoiceId);
+      
+      if (!invoice) {
+        console.log(`Invoice not found: ${invoiceId}`);
+        return sendNotFound(res, 'Invoice not found');
+      }
+      
+      console.log(`Invoice found:`, JSON.stringify(invoice, null, 2));
+      
+      // Check if the invoice belongs to the student
+      if (invoice.studentId !== studentId && req.user?.role !== 'admin') {
+        console.log(`Permission denied: Invoice belongs to ${invoice.studentId}, requested by ${studentId}`);
+        return sendForbidden(res, 'You do not have permission to download this invoice');
+      }
+      
+      try {
+        // Generate the PDF
+        console.log('Generating PDF...');
+        const pdfBuffer = await generateInvoicePDF(invoice);
+        console.log(`PDF generated successfully, size: ${pdfBuffer.length} bytes`);
+        
+        // Set response headers for PDF download
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoice.invoiceNumber}.pdf"`);
+        res.setHeader('Content-Length', pdfBuffer.length);
+        
+        // Send the PDF
+        return res.send(pdfBuffer);
+      } catch (pdfError: any) {
+        console.error('Error in PDF generation:', pdfError);
+        return sendError(res, `Failed to generate PDF: ${pdfError.message || 'Unknown error'}`, 500);
+      }
+    } catch (error: any) {
+      console.error('Error in invoice download process:', error);
+      return sendError(res, `Failed to generate invoice PDF: ${error.message || 'Unknown error'}`, 500);
     }
-    
-    // Check if the invoice belongs to the student
-    if (invoice.studentId !== studentId && req.user?.role !== 'admin') {
-      return sendForbidden(res, 'You do not have permission to download this invoice');
-    }
-    
-    // In a real application, you would generate a PDF here
-    // For this example, we'll just send a JSON response
-    return sendSuccess(res, {
-      ...invoice,
-      message: 'In a real application, this would be a PDF download'
-    });
   });
 
   /**
