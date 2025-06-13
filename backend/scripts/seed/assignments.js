@@ -26,8 +26,9 @@ async function seedAssignments(connection, courseData, userData) {
         title VARCHAR(255) NOT NULL,
         description TEXT,
         dueDate DATETIME NOT NULL,
-        points INT NOT NULL DEFAULT 100,
-        status ENUM('draft', 'published', 'closed') NOT NULL DEFAULT 'draft',
+        totalPoints INT NOT NULL DEFAULT 100,
+        isPublished BOOLEAN DEFAULT FALSE,
+        attachmentUrl VARCHAR(500) NULL,
         createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (courseId) REFERENCES courses(id) ON DELETE CASCADE
@@ -54,7 +55,7 @@ async function seedAssignments(connection, courseData, userData) {
     // Create Math assignments
     await connection.query(`
       INSERT INTO assignments (
-        id, courseId, title, description, dueDate, points, status
+        id, courseId, title, description, dueDate, totalPoints, isPublished
       )
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
@@ -64,13 +65,13 @@ async function seedAssignments(connection, courseData, userData) {
       'Complete the algebra quiz covering chapters 1-3',
       new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7), // 1 week from now
       50,
-      'published'
+      true
     ]);
     console.log('Assignment 1 created: Algebra Quiz');
     
     await connection.query(`
       INSERT INTO assignments (
-        id, courseId, title, description, dueDate, points, status
+        id, courseId, title, description, dueDate, totalPoints, isPublished
       )
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
@@ -80,14 +81,14 @@ async function seedAssignments(connection, courseData, userData) {
       'Solve the calculus problems from textbook pages 45-50',
       new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14), // 2 weeks from now
       100,
-      'published'
+      true
     ]);
     console.log('Assignment 2 created: Calculus Problem Set');
     
     // Create Physics assignment
     await connection.query(`
       INSERT INTO assignments (
-        id, courseId, title, description, dueDate, points, status
+        id, courseId, title, description, dueDate, totalPoints, isPublished
       )
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
@@ -97,14 +98,14 @@ async function seedAssignments(connection, courseData, userData) {
       'Write a lab report on the mechanics experiment conducted in class',
       new Date(now.getFullYear(), now.getMonth(), now.getDate() + 10), // 10 days from now
       75,
-      'published'
+      true
     ]);
     console.log('Assignment 3 created: Mechanics Lab Report');
     
     // Create Chemistry assignment
     await connection.query(`
       INSERT INTO assignments (
-        id, courseId, title, description, dueDate, points, status
+        id, courseId, title, description, dueDate, totalPoints, isPublished
       )
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
@@ -114,7 +115,7 @@ async function seedAssignments(connection, courseData, userData) {
       'Complete the quiz on the periodic table of elements',
       new Date(now.getFullYear(), now.getMonth(), now.getDate() + 5), // 5 days from now
       40,
-      'published'
+      true
     ]);
     console.log('Assignment 4 created: Periodic Table Quiz');
     

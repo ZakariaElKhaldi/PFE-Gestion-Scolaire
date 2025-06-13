@@ -38,24 +38,23 @@ async function seedUsers(connection) {
     
     // Insert admin user
     await connection.query(`
-      INSERT INTO users (id, email, password, firstName, lastName, role, phoneNumber, bio)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, email, password, firstName, lastName, role, phoneNumber)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
       adminId,
       'admin@school.com',
       hashedPassword,
       'Admin',
       'User',
-      'administrator',
-      '123-456-7890',
-      'System administrator for the school management system'
+      'admin',
+      '123-456-7890'
     ]);
     console.log('Admin user created successfully');
     
     // Insert teacher users
     await connection.query(`
-      INSERT INTO users (id, email, password, firstName, lastName, role, phoneNumber, bio)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, email, password, firstName, lastName, role, phoneNumber)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
       teacherId1,
       'teacher@school.com',
@@ -63,14 +62,13 @@ async function seedUsers(connection) {
       'Teacher',
       'Smith',
       'teacher',
-      '123-456-7891',
-      'Mathematics teacher with 10 years of experience'
+      '123-456-7891'
     ]);
     console.log('Teacher 1 created successfully');
     
     await connection.query(`
-      INSERT INTO users (id, email, password, firstName, lastName, role, phoneNumber, bio)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, email, password, firstName, lastName, role, phoneNumber)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
       teacherId2,
       'science.teacher@school.com',
@@ -78,15 +76,14 @@ async function seedUsers(connection) {
       'Sarah',
       'Johnson',
       'teacher',
-      '123-456-7892',
-      'Science teacher specializing in physics and chemistry'
+      '123-456-7892'
     ]);
     console.log('Teacher 2 created successfully');
     
     // Insert student users
     await connection.query(`
-      INSERT INTO users (id, email, password, firstName, lastName, role, phoneNumber, studentId, bio)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, email, password, firstName, lastName, role, phoneNumber)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
       studentId1,
       'student@school.com',
@@ -94,15 +91,13 @@ async function seedUsers(connection) {
       'Student',
       'Johnson',
       'student',
-      '123-456-7893',
-      studentId1, // Use the UUID as studentId instead of 'ST12345'
-      'High school student in science track'
+      '123-456-7893'
     ]);
     console.log('Student 1 created successfully with ID: ' + studentId1);
     
     await connection.query(`
-      INSERT INTO users (id, email, password, firstName, lastName, role, phoneNumber, studentId, bio)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, email, password, firstName, lastName, role, phoneNumber)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
       studentId2,
       'mike.student@school.com',
@@ -110,15 +105,13 @@ async function seedUsers(connection) {
       'Mike',
       'Williams',
       'student',
-      '123-456-7894',
-      studentId2, // Use the UUID as studentId
-      'High school student in arts track'
+      '123-456-7894'
     ]);
     console.log('Student 2 created successfully with ID: ' + studentId2);
     
     await connection.query(`
-      INSERT INTO users (id, email, password, firstName, lastName, role, phoneNumber, studentId, bio)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, email, password, firstName, lastName, role, phoneNumber)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
       studentId3,
       'emma.student@school.com',
@@ -126,16 +119,14 @@ async function seedUsers(connection) {
       'Emma',
       'Davis',
       'student',
-      '123-456-7895',
-      studentId3, // Use the UUID as studentId
-      'High school student interested in computer science'
+      '123-456-7895'
     ]);
     console.log('Student 3 created successfully with ID: ' + studentId3);
     
     // Insert parent users
     await connection.query(`
-      INSERT INTO users (id, email, password, firstName, lastName, role, phoneNumber, bio)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, email, password, firstName, lastName, role, phoneNumber)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
       parentId1,
       'parent@school.com',
@@ -143,14 +134,13 @@ async function seedUsers(connection) {
       'Parent',
       'Johnson',
       'parent',
-      '123-456-7896',
-      'Parent of a high school student'
+      '123-456-7896'
     ]);
     console.log('Parent 1 created successfully');
     
     await connection.query(`
-      INSERT INTO users (id, email, password, firstName, lastName, role, phoneNumber, bio)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, email, password, firstName, lastName, role, phoneNumber)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
       parentId2,
       'jane.parent@school.com',
@@ -158,42 +148,12 @@ async function seedUsers(connection) {
       'Jane',
       'Williams',
       'parent',
-      '123-456-7897',
-      'Parent of a high school student in arts track'
+      '123-456-7897'
     ]);
     console.log('Parent 2 created successfully');
     
-    // Try to create student records - might fail if table doesn't exist
-    try {
-      await connection.query(`
-        INSERT INTO students (userId, enrollmentDate, status)
-        VALUES (?, ?, ?)
-      `, [
-        studentId1,
-        new Date(),
-        'active'
-      ]);
-      
-      await connection.query(`
-        INSERT INTO students (userId, enrollmentDate, status)
-        VALUES (?, ?, ?)
-      `, [
-        studentId2,
-        new Date(),
-        'active'
-      ]);
-      
-      await connection.query(`
-        INSERT INTO students (userId, enrollmentDate, status)
-        VALUES (?, ?, ?)
-      `, [
-        studentId3,
-        new Date(),
-        'active'
-      ]);
-    } catch (err) {
-      console.log('Note: students table entries might already exist or table structure differs:', err.message);
-    }
+    // Skip creating student records in students table for now
+    // The database schema doesn't match what's expected in this script
     
     return {
       adminId,

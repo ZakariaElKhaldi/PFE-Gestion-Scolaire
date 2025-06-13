@@ -32,59 +32,48 @@ async function seedCourses(connection, userData) {
       console.warn('Warning when cleaning up courses:', error.message);
     }
     
-    const now = new Date();
-    
-    // Create courses
+    // Create courses - Updated to match database schema
     await connection.query(`
       INSERT INTO courses (
-        id, name, code, description, credits, startDate, endDate, status, teacherId
+        id, title, code, description, credits, teacherId
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?)
     `, [
       course1Id,
       'Advanced Mathematics',
       'MATH101',
       'Introduction to advanced mathematical concepts including calculus and linear algebra',
       4,
-      new Date(now.getFullYear(), now.getMonth() - 1, 1), // Last month
-      new Date(now.getFullYear(), now.getMonth() + 5, 1), // 6 months from start
-      'active',
       teacherId1
     ]);
     console.log('Course 1 created: Advanced Mathematics');
     
     await connection.query(`
       INSERT INTO courses (
-        id, name, code, description, credits, startDate, endDate, status, teacherId
+        id, title, code, description, credits, teacherId
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?)
     `, [
       course2Id,
       'Physics 101',
       'PHYS101',
       'Introduction to physics covering mechanics, thermodynamics, and waves',
       3,
-      new Date(now.getFullYear(), now.getMonth() - 1, 1), // Last month
-      new Date(now.getFullYear(), now.getMonth() + 5, 1), // 6 months from start
-      'active',
       teacherId2
     ]);
     console.log('Course 2 created: Physics 101');
     
     await connection.query(`
       INSERT INTO courses (
-        id, name, code, description, credits, startDate, endDate, status, teacherId
+        id, title, code, description, credits, teacherId
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?)
     `, [
       course3Id,
       'Chemistry Basics',
       'CHEM101',
       'Introduction to basic chemistry principles and laboratory techniques',
       3,
-      new Date(now.getFullYear(), now.getMonth() - 1, 1), // Last month
-      new Date(now.getFullYear(), now.getMonth() + 5, 1), // 6 months from start
-      'active',
       teacherId2
     ]);
     console.log('Course 3 created: Chemistry Basics');
@@ -123,6 +112,7 @@ async function seedCourses(connection, userData) {
       }
     }
     
+    const now = new Date();
     // Enroll students in courses
     const enrollmentPromises = [
       // Student 1 enrollments
@@ -199,10 +189,11 @@ async function seedCourses(connection, userData) {
       try {
         await enrollPromise;
       } catch (error) {
-        console.warn('Warning during enrollment:', error.message);
+        console.warn('Enrollment error:', error.message);
       }
     }
     
+    // Return course IDs for other seed modules
     return {
       course1Id,
       course2Id,
@@ -210,29 +201,22 @@ async function seedCourses(connection, userData) {
       courses: [
         {
           id: course1Id,
-          name: 'Advanced Mathematics',
+          title: 'Advanced Mathematics',
           code: 'MATH101',
-          teacherId: teacherId1
+          teacherId: teacherId1,
         },
         {
           id: course2Id,
-          name: 'Physics 101',
+          title: 'Physics 101',
           code: 'PHYS101',
-          teacherId: teacherId2
+          teacherId: teacherId2,
         },
         {
           id: course3Id,
-          name: 'Chemistry Basics',
+          title: 'Chemistry Basics',
           code: 'CHEM101',
-          teacherId: teacherId2
+          teacherId: teacherId2,
         }
-      ],
-      enrollments: [
-        { studentId: studentId1, courseId: course1Id },
-        { studentId: studentId1, courseId: course2Id },
-        { studentId: studentId2, courseId: course1Id },
-        { studentId: studentId3, courseId: course2Id },
-        { studentId: studentId3, courseId: course3Id }
       ]
     };
   } catch (error) {
