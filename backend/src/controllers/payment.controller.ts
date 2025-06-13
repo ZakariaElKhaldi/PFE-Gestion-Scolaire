@@ -323,17 +323,17 @@ export class PaymentController {
       console.warn('No student ID found in request for payment methods');
       // Return mock data instead of error
       const mockMethods = await paymentModel.getPaymentMethodsByStudentId('mock-student-id');
-      return sendSuccess(res, { methods: mockMethods });
+      return sendSuccess(res, { data: { methods: mockMethods } });
     }
     
     try {
       const methods = await paymentModel.getPaymentMethodsByStudentId(studentId);
-      return sendSuccess(res, { methods });
+      return sendSuccess(res, { data: { methods } });
     } catch (error) {
       console.error('Error fetching payment methods:', error);
       // Return mock data on error
       const mockMethods = await paymentModel.getPaymentMethodsByStudentId('mock-student-id');
-      return sendSuccess(res, { methods: mockMethods });
+      return sendSuccess(res, { data: { methods: mockMethods } });
     }
   });
 

@@ -26,6 +26,7 @@ import { createCertificatesTable } from '../migrations/create-certificates-table
 import { createPaymentsTable } from '../migrations/create-payments-table';
 import { createPaymentMethodsTable } from '../migrations/create-payment-methods-table';
 import { createInvoicesTable } from '../migrations/create-invoices-table';
+import { createSubscriptionsTable } from '../migrations/create-subscriptions-table';
 
 interface Migration {
   name: string;
@@ -196,6 +197,12 @@ const migrations: Migration[] = [
     description: 'Creates the invoices table for payment invoices',
     priority: 75,
     execute: createInvoicesTable
+  },
+  {
+    name: 'create_subscriptions_table',
+    description: 'Creates the subscriptions table for recurring payments',
+    priority: 80,
+    execute: createSubscriptionsTable
   }
   // Add more migrations here
 ];

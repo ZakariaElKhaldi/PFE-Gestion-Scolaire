@@ -40,9 +40,13 @@ export interface PaymentMethod {
   id: string;
   studentId: string;
   type: 'credit_card' | 'paypal' | 'bank_account';
+  provider?: string;
+  token?: string;
   lastFour?: string;
   expiryDate?: string;
+  cardBrand?: string;
   isDefault: boolean;
+  billingDetails?: any;
   createdAt: string;
   updatedAt: string;
 }
@@ -83,31 +87,49 @@ export interface PaymentResponse {
   message: string;
 }
 
+export interface Subscription {
+  id: string;
+  studentId: string;
+  name: string;
+  description?: string;
+  amount: number;
+  frequency: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+  startDate: string;
+  endDate?: string;
+  nextBillingDate: string;
+  status: 'active' | 'paused' | 'cancelled' | 'expired';
+  paymentMethodId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSubscriptionRequest {
+  name: string;
+  description?: string;
+  amount: number;
+  frequency: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+  startDate: string;
+  paymentMethodId?: string;
+}
+
 class PaymentService {
   /**
    * Get payment summary for the current student
    */
   async getPaymentSummary(): Promise<PaymentSummary> {
     try {
-      // Use a direct fetch request instead of apiClient to handle non-JSON responses
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('/api/payments/summary', {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await apiClient.get<{ data: PaymentSummary }>('/payments/summary');
       
-      // Check if response is OK and content type is JSON
-      const contentType = response.headers.get('content-type');
-      if (!response.ok || !contentType || !contentType.includes('application/json')) {
-        console.error('Invalid response from payment summary API:', response.status, contentType);
-        // Return mock data as fallback
-        return this.getMockPaymentSummary();
-      }
+      // Process the response data
+      const summaryData = response.data.data || response.data;
       
-      const data = await response.json();
-      return data.data || data;
+      // Ensure numeric values
+      return {
+        totalPaid: typeof summaryData.totalPaid === 'string' ? parseFloat(summaryData.totalPaid) : (summaryData.totalPaid || 0),
+        pendingPayments: typeof summaryData.pendingPayments === 'string' ? parseFloat(summaryData.pendingPayments) : (summaryData.pendingPayments || 0),
+        nextPaymentDue: summaryData.nextPaymentDue ? new Date(summaryData.nextPaymentDue) : null,
+        overduePayments: typeof summaryData.overduePayments === 'string' ? parseInt(summaryData.overduePayments) : (summaryData.overduePayments || 0)
+      };
     } catch (error) {
       console.error('Error fetching payment summary:', error);
       // Return mock data if the API call fails
@@ -137,7 +159,7 @@ class PaymentService {
   async getPaymentHistory(filters?: PaymentFilters): Promise<Payment[]> {
     try {
       // Build URL with query parameters
-      let url = '/api/payments/history';
+      let url = '/payments/history';
       
       if (filters) {
         const queryParams = new URLSearchParams();
@@ -151,24 +173,8 @@ class PaymentService {
         }
       }
       
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      // Check if response is OK and content type is JSON
-      const contentType = response.headers.get('content-type');
-      if (!response.ok || !contentType || !contentType.includes('application/json')) {
-        console.error('Invalid response from payment history API:', response.status, contentType);
-        // Return mock data as fallback
-        return this.getMockPaymentHistory();
-      }
-      
-      const data = await response.json();
-      return data.payments || data;
+      const response = await apiClient.get<{ data: Payment[] }>(url);
+      return response.data.data || [];
     } catch (error) {
       console.error('Error fetching payment history:', error);
       // Return mock data on error
@@ -232,30 +238,14 @@ class PaymentService {
    */
   async getUpcomingPayments(limit?: number): Promise<Payment[]> {
     try {
-      let url = '/api/payments/upcoming';
+      let url = '/payments/upcoming';
       
       if (limit) {
         url += `?limit=${limit}`;
       }
       
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      // Check if response is OK and content type is JSON
-      const contentType = response.headers.get('content-type');
-      if (!response.ok || !contentType || !contentType.includes('application/json')) {
-        console.error('Invalid response from upcoming payments API:', response.status, contentType);
-        // Return mock data as fallback
-        return this.getMockUpcomingPayments();
-      }
-      
-      const data = await response.json();
-      return data.payments || data;
+      const response = await apiClient.get<{ data: Payment[] }>(url);
+      return response.data.data || [];
     } catch (error) {
       console.error('Error fetching upcoming payments:', error);
       // Return mock data on error
@@ -302,8 +292,13 @@ class PaymentService {
    * Process a payment
    */
   async processPayment(paymentData: ProcessPaymentRequest): Promise<PaymentResponse> {
-    const response = await apiClient.post<PaymentResponse>('/payments/process', paymentData);
-    return response.data;
+    try {
+      const response = await apiClient.post<PaymentResponse>('/payments/process', paymentData);
+      return response.data;
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      throw error;
+    }
   }
 
   /**
@@ -311,37 +306,217 @@ class PaymentService {
    */
   async getInvoices(limit?: number): Promise<Invoice[]> {
     try {
-      let url = '/api/payments/invoices';
+      let url = '/payments/invoices';
       
       if (limit) {
         url += `?limit=${limit}`;
       }
       
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      // Check if response is OK and content type is JSON
-      const contentType = response.headers.get('content-type');
-      if (!response.ok || !contentType || !contentType.includes('application/json')) {
-        console.error('Invalid response from invoices API:', response.status, contentType);
-        // Return mock data as fallback
-        return this.getMockInvoices();
-      }
-      
-      const data = await response.json();
-      return data.invoices || data;
+      const response = await apiClient.get<{ data: Invoice[] }>(url);
+      return response.data.data || [];
     } catch (error) {
       console.error('Error fetching invoices:', error);
       // Return mock data on error
       return this.getMockInvoices();
     }
   }
+
+  /**
+   * Get a specific invoice
+   */
+  async getInvoice(invoiceId: string): Promise<Invoice> {
+    try {
+      const response = await apiClient.get<{ data: Invoice }>(`/payments/invoices/${invoiceId}`);
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching invoice:', error);
+      // Return mock data on error
+      const mockInvoices = this.getMockInvoices();
+      const mockInvoice = mockInvoices.find(inv => inv.id === invoiceId) || mockInvoices[0];
+      return mockInvoice;
+    }
+  }
+
+  /**
+   * Download an invoice as PDF
+   */
+  async downloadInvoice(invoiceId: string): Promise<Blob> {
+    try {
+      // Use a direct fetch for blob data
+      const token = localStorage.getItem('auth_token');
+      const baseURL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+      const response = await fetch(`${baseURL}/payments/invoices/${invoiceId}/download`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : ''
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download invoice');
+      }
+      
+      return await response.blob();
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all subscriptions for the current student
+   */
+  async getSubscriptions(): Promise<Subscription[]> {
+    try {
+      // Use the studentId from the current user context
+      const response = await apiClient.get<{ data: Subscription[] }>('/payments/student/me/subscriptions');
+      return response.data.data || [];
+    } catch (error) {
+      console.error('Error fetching subscriptions:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Create a new subscription
+   */
+  async createSubscription(subscriptionData: CreateSubscriptionRequest): Promise<Subscription> {
+    try {
+      const response = await apiClient.post<{ data: Subscription }>('/payments/subscriptions', subscriptionData);
+      return response.data.data;
+    } catch (error) {
+      console.error('Error creating subscription:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Cancel a subscription
+   */
+  async cancelSubscription(subscriptionId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await apiClient.put<{ message: string }>(`/payments/subscriptions/${subscriptionId}/cancel`, {});
+      return {
+        success: true,
+        message: response.data.message || 'Subscription cancelled successfully'
+      };
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update subscription payment method
+   */
+  async updateSubscriptionPaymentMethod(subscriptionId: string, paymentMethodId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await apiClient.put<{ message: string }>(`/payments/subscriptions/${subscriptionId}/payment-method`, { paymentMethodId });
+      return {
+        success: true,
+        message: response.data.message || 'Subscription payment method updated successfully'
+      };
+    } catch (error) {
+      console.error('Error updating subscription payment method:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get payment methods for the current student
+   */
+  async getPaymentMethods(): Promise<PaymentMethod[]> {
+    try {
+      interface MethodsResponse {
+        data?: {
+          methods?: PaymentMethod[];
+        };
+        methods?: PaymentMethod[];
+      }
+      
+      const response = await apiClient.get<MethodsResponse>('/payments/methods');
+      
+      // Handle different response formats
+      if (response.data.data && Array.isArray(response.data.data.methods)) {
+        return response.data.data.methods;
+      } else if (response.data.methods && Array.isArray(response.data.methods)) {
+        return response.data.methods;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching payment methods:', error);
+      // Return mock data on error
+      return this.getMockPaymentMethods();
+    }
+  }
   
+  /**
+   * Get mock payment methods data when API fails
+   */
+  private getMockPaymentMethods(): PaymentMethod[] {
+    const today = new Date();
+    const nextYear = new Date(today);
+    nextYear.setFullYear(nextYear.getFullYear() + 1);
+    
+    return [
+      {
+        id: 'mock-method-1',
+        studentId: 'mock-student-1',
+        type: 'credit_card',
+        lastFour: '4242',
+        expiryDate: `${nextYear.getMonth() + 1}/${nextYear.getFullYear().toString().slice(-2)}`,
+        isDefault: true,
+        createdAt: today.toISOString(),
+        updatedAt: today.toISOString()
+      },
+      {
+        id: 'mock-method-2',
+        studentId: 'mock-student-1',
+        type: 'paypal',
+        isDefault: false,
+        createdAt: today.toISOString(),
+        updatedAt: today.toISOString()
+      }
+    ];
+  }
+
+  /**
+   * Add a new payment method
+   */
+  async addPaymentMethod(methodData: AddPaymentMethodRequest): Promise<PaymentMethod> {
+    try {
+      const response = await apiClient.post<{ data: PaymentMethod }>('/payments/methods', methodData);
+      return response.data.data;
+    } catch (error) {
+      console.error('Error adding payment method:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a payment method
+   */
+  async deletePaymentMethod(methodId: string): Promise<void> {
+    try {
+      await apiClient.delete(`/payments/methods/${methodId}`);
+    } catch (error) {
+      console.error('Error deleting payment method:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Set a payment method as default
+   */
+  async setDefaultPaymentMethod(methodId: string): Promise<{ message: string }> {
+    try {
+      const response = await apiClient.put<{ message: string }>(`/payments/methods/${methodId}/default`, {});
+      return { message: response.data.message || 'Default payment method updated' };
+    } catch (error) {
+      console.error('Error setting default payment method:', error);
+      throw error;
+    }
+  }
+
   /**
    * Get mock invoices data when API fails
    */
@@ -396,150 +571,6 @@ class PaymentService {
         updatedAt: today.toISOString()
       }
     ];
-  }
-
-  /**
-   * Get a specific invoice
-   */
-  async getInvoice(invoiceId: string): Promise<Invoice> {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/payments/invoices/${invoiceId}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      // Check if response is OK and content type is JSON
-      const contentType = response.headers.get('content-type');
-      if (!response.ok || !contentType || !contentType.includes('application/json')) {
-        console.error('Invalid response from invoice API:', response.status, contentType);
-        // Return a mock invoice as fallback
-        // Find in the mock invoices or create a new one
-        const mockInvoices = this.getMockInvoices();
-        const mockInvoice = mockInvoices.find(inv => inv.id === invoiceId) || mockInvoices[0];
-        return mockInvoice;
-      }
-      
-      const data = await response.json();
-      return data.invoice || data;
-    } catch (error) {
-      console.error('Error fetching invoice:', error);
-      // Return mock data on error
-      const mockInvoices = this.getMockInvoices();
-      const mockInvoice = mockInvoices.find(inv => inv.id === invoiceId) || mockInvoices[0];
-      return mockInvoice;
-    }
-  }
-
-  /**
-   * Download an invoice
-   */
-  async downloadInvoice(invoiceId: string): Promise<Blob> {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`/api/payments/invoices/${invoiceId}/download`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        console.error('Error downloading invoice:', response.status);
-        // Return a mock PDF blob
-        return new Blob(['Mock PDF content for invoice ' + invoiceId], { type: 'application/pdf' });
-      }
-      
-      return await response.blob();
-    } catch (error) {
-      console.error('Error downloading invoice:', error);
-      // Return a mock PDF blob on error
-      return new Blob(['Mock PDF content for invoice ' + invoiceId], { type: 'application/pdf' });
-    }
-  }
-
-  /**
-   * Get payment methods for the current student
-   */
-  async getPaymentMethods(): Promise<PaymentMethod[]> {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('/api/payments/methods', {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      // Check if response is OK and content type is JSON
-      const contentType = response.headers.get('content-type');
-      if (!response.ok || !contentType || !contentType.includes('application/json')) {
-        console.error('Invalid response from payment methods API:', response.status, contentType);
-        // Return mock data as fallback
-        return this.getMockPaymentMethods();
-      }
-      
-      const data = await response.json();
-      return data.methods || data;
-    } catch (error) {
-      console.error('Error fetching payment methods:', error);
-      // Return mock data on error
-      return this.getMockPaymentMethods();
-    }
-  }
-  
-  /**
-   * Get mock payment methods data when API fails
-   */
-  private getMockPaymentMethods(): PaymentMethod[] {
-    const today = new Date();
-    const nextYear = new Date(today);
-    nextYear.setFullYear(nextYear.getFullYear() + 1);
-    
-    return [
-      {
-        id: 'mock-method-1',
-        studentId: 'mock-student-1',
-        type: 'credit_card',
-        lastFour: '4242',
-        expiryDate: `${nextYear.getMonth() + 1}/${nextYear.getFullYear().toString().slice(-2)}`,
-        isDefault: true,
-        createdAt: today.toISOString(),
-        updatedAt: today.toISOString()
-      },
-      {
-        id: 'mock-method-2',
-        studentId: 'mock-student-1',
-        type: 'paypal',
-        isDefault: false,
-        createdAt: today.toISOString(),
-        updatedAt: today.toISOString()
-      }
-    ];
-  }
-
-  /**
-   * Add a payment method
-   */
-  async addPaymentMethod(methodData: AddPaymentMethodRequest): Promise<{ methodId: string }> {
-    const response = await apiClient.post<{ methodId: string }>('/payments/methods', methodData);
-    return response.data;
-  }
-
-  /**
-   * Delete a payment method
-   */
-  async deletePaymentMethod(methodId: string): Promise<void> {
-    await apiClient.delete(`/payments/methods/${methodId}`);
-  }
-
-  /**
-   * Set a payment method as default
-   */
-  async setDefaultPaymentMethod(methodId: string): Promise<{ message: string }> {
-    const response = await apiClient.put<{ message: string }>(`/payments/methods/${methodId}/default`, {});
-    return response.data;
   }
 }
 

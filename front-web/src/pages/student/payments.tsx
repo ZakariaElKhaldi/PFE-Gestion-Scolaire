@@ -5,9 +5,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StudentLayout } from '../../components/dashboard/layout/student-layout';
 import { User } from '../../types/auth';
-import { paymentService, Payment, Invoice, PaymentMethod, PaymentSummary, ProcessPaymentRequest } from '../../services/payment-service';
+import { paymentService, Payment, Invoice, PaymentMethod, PaymentSummary, ProcessPaymentRequest, AddPaymentMethodRequest } from '../../services/payment-service';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface StudentPaymentsProps {
   user: User;
@@ -21,6 +31,13 @@ export function StudentPayments({ user }: StudentPaymentsProps) {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [showAddPaymentMethodDialog, setShowAddPaymentMethodDialog] = useState(false);
+  const [newPaymentMethod, setNewPaymentMethod] = useState<AddPaymentMethodRequest>({
+    type: 'credit_card',
+    lastFour: '',
+    expiryDate: '',
+    isDefault: false
+  });
 
   // Fetch payment data
   useEffect(() => {
@@ -77,6 +94,50 @@ export function StudentPayments({ user }: StudentPaymentsProps) {
     }
   };
 
+  const handleAddPaymentMethod = async () => {
+    try {
+      if (!newPaymentMethod.lastFour || !newPaymentMethod.expiryDate) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+      
+      await paymentService.addPaymentMethod(newPaymentMethod);
+      
+      // Refresh payment methods
+      const methods = await paymentService.getPaymentMethods();
+      setPaymentMethods(methods);
+      
+      setShowAddPaymentMethodDialog(false);
+      toast.success('Payment method added successfully');
+      
+      // Reset form
+      setNewPaymentMethod({
+        type: 'credit_card',
+        lastFour: '',
+        expiryDate: '',
+        isDefault: false
+      });
+    } catch (error) {
+      console.error('Error adding payment method:', error);
+      toast.error('Failed to add payment method');
+    }
+  };
+
+  const handleProcessDemoPayment = () => {
+    handlePaymentComplete({
+      amount: 50.00, 
+      description: 'Tuition payment',
+      paymentMethod: 'credit_card',
+      studentId: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user') || '{}').id : undefined,
+      cardDetails: {
+        cardNumber: '4242424242424242',
+        expiryDate: '12/25',
+        cvv: '123',
+        cardholderName: 'John Doe'
+      }
+    });
+  };
+
   const handleDownloadInvoice = async (invoiceId: string) => {
     try {
       const blob = await paymentService.downloadInvoice(invoiceId);
@@ -110,6 +171,14 @@ export function StudentPayments({ user }: StudentPaymentsProps) {
     overduePayments: 0
   };
 
+  // Helper function to format currency values that might be strings or numbers
+  const formatCurrency = (value: string | number | undefined | null): string => {
+    if (value === undefined || value === null) return '$0.00';
+    
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    return numValue.toFixed(2);
+  };
+
   return (
     <StudentLayout user={user}>
       <div className="space-y-6">
@@ -132,7 +201,7 @@ export function StudentPayments({ user }: StudentPaymentsProps) {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500">Total Paid</p>
-                  <p className="text-2xl font-bold">${summaryData.totalPaid.toFixed(2)}</p>
+                  <p className="text-2xl font-bold">${formatCurrency(summaryData.totalPaid)}</p>
                 </div>
               </div>
             </CardContent>
@@ -146,7 +215,7 @@ export function StudentPayments({ user }: StudentPaymentsProps) {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500">Pending</p>
-                  <p className="text-2xl font-bold">${summaryData.pendingPayments.toFixed(2)}</p>
+                  <p className="text-2xl font-bold">${formatCurrency(summaryData.pendingPayments)}</p>
                 </div>
               </div>
             </CardContent>
@@ -215,18 +284,7 @@ export function StudentPayments({ user }: StudentPaymentsProps) {
                 {/* Payment form would go here */}
                 <div className="space-y-4">
                   {/* This would be replaced with a real payment form */}
-                  <Button onClick={() => handlePaymentComplete({
-                    amount: 50.00, 
-                    description: 'Tuition payment',
-                    paymentMethod: 'credit_card',
-                    studentId: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user') || '{}').id : undefined,
-                    cardDetails: {
-                      cardNumber: '4242424242424242',
-                      expiryDate: '12/25',
-                      cvv: '123',
-                      cardholderName: 'John Doe'
-                    }
-                  })}>
+                  <Button onClick={handleProcessDemoPayment}>
                     Process Demo Payment
                   </Button>
                 </div>
@@ -264,7 +322,7 @@ export function StudentPayments({ user }: StudentPaymentsProps) {
                                   {format(new Date(payment.createdAt), 'MMM d, yyyy')}
                                 </td>
                                 <td className="py-3 px-4">{payment.description}</td>
-                                <td className="py-3 px-4">${payment.amount.toFixed(2)}</td>
+                                <td className="py-3 px-4">${formatCurrency(payment.amount)}</td>
                                 <td className="py-3 px-4">
                                   <span className={`px-2 py-1 rounded-full text-xs ${
                                     payment.status === 'completed' ? 'bg-green-100 text-green-800' :
@@ -323,7 +381,7 @@ export function StudentPayments({ user }: StudentPaymentsProps) {
                                 <td className="py-3 px-4">
                                   {format(new Date(invoice.dueDate), 'MMM d, yyyy')}
                                 </td>
-                                <td className="py-3 px-4">${invoice.amount.toFixed(2)}</td>
+                                <td className="py-3 px-4">${formatCurrency(invoice.amount)}</td>
                                 <td className="py-3 px-4">
                                   <span className={`px-2 py-1 rounded-full text-xs ${
                                     invoice.status === 'completed' ? 'bg-green-100 text-green-800' :
@@ -437,17 +495,19 @@ export function StudentPayments({ user }: StudentPaymentsProps) {
                           </div>
                           </div>
                         ))}
+                        <div className="mt-4 text-center">
+                          <Button onClick={() => setShowAddPaymentMethodDialog(true)}>
+                            Add Payment Method
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <div className="text-center py-8">
                         <p className="mb-4">No payment methods found</p>
-                        <Button onClick={() => {
-                          // This would open a form to add a payment method
-                          toast.error('Payment method form not implemented in this demo');
-                        }}>
-                        Add Payment Method
-                      </Button>
-                    </div>
+                        <Button onClick={() => setShowAddPaymentMethodDialog(true)}>
+                          Add Payment Method
+                        </Button>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -456,6 +516,81 @@ export function StudentPayments({ user }: StudentPaymentsProps) {
           )}
         </Tabs>
       </div>
+
+      {/* Add Payment Method Dialog */}
+      <Dialog open={showAddPaymentMethodDialog} onOpenChange={setShowAddPaymentMethodDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Payment Method</DialogTitle>
+            <DialogDescription>
+              Add a new payment method to your account
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="card-type">Card Type</Label>
+              <select 
+                id="card-type"
+                className="w-full p-2 border rounded-md"
+                value={newPaymentMethod.type}
+                onChange={(e) => setNewPaymentMethod({
+                  ...newPaymentMethod,
+                  type: e.target.value as 'credit_card' | 'paypal' | 'bank_account'
+                })}
+              >
+                <option value="credit_card">Credit Card</option>
+                <option value="paypal">PayPal</option>
+                <option value="bank_account">Bank Account</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="last-four">Last 4 Digits</Label>
+              <Input 
+                id="last-four"
+                placeholder="Last 4 digits"
+                maxLength={4}
+                value={newPaymentMethod.lastFour}
+                onChange={(e) => setNewPaymentMethod({
+                  ...newPaymentMethod,
+                  lastFour: e.target.value
+                })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="expiry">Expiry Date (MM/YY)</Label>
+              <Input 
+                id="expiry"
+                placeholder="MM/YY"
+                value={newPaymentMethod.expiryDate}
+                onChange={(e) => setNewPaymentMethod({
+                  ...newPaymentMethod,
+                  expiryDate: e.target.value
+                })}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input 
+                type="checkbox"
+                id="default"
+                checked={newPaymentMethod.isDefault}
+                onChange={(e) => setNewPaymentMethod({
+                  ...newPaymentMethod,
+                  isDefault: e.target.checked
+                })}
+              />
+              <Label htmlFor="default">Set as default payment method</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddPaymentMethodDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddPaymentMethod}>
+              Add Payment Method
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </StudentLayout>
   );
 } 
